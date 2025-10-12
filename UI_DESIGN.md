@@ -56,11 +56,11 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - Info drawer toggle
   - Quick Look button for current selection
 - Content area
-  - List view: 4‑column table (Name, Size, MIME, Modified) with Quick Look on double‑click
-  - Grid view: adaptive thumbnails with filename + size; space toggles selection
-  - Info drawer (optional): collapsible right pane showing metadata & actions
+  - List view: 4-column table (Name, Kind, Size, Modified) with Quick Look on double-click
+  - Grid view: adaptive thumbnails with filename, kind, size; space toggles selection
+  - Inspector (optional): collapsible right pane showing overview, security, tags, actions
 - Status bar
-  - Count of items, selection summary, total selected size
+  - Count of items, selection summary, total selected size, auto-lock countdown chip with extend affordance
 
 ### First-run onboarding
 
@@ -113,7 +113,7 @@ This document captures the macOS app design for Aegiro. It is the single source 
 - Core model
   - `Sources/AegiroApp/VaultModel.swift`: create/open, unlock/lock, import/export, status, preferences (default dir, auto‑lock TTL), Quick Look support, activity monitors.
 - Primary views
-  - `Sources/AegiroApp/MainView.swift`: Sidebar, toolbar (sort/filter), List/Grid, footer, context menus, Quick Look triggers, Info drawer.
+  - `Sources/AegiroApp/MainView.swift`: Sidebar, toolbar (search/view/sort/inspector/quick look), list/grid, footer, context menus, inspector.
   - `Sources/AegiroApp/PreferencesView.swift`: Default vault folder, auto-lock slider, Touch ID toggle.
   - `Sources/AegiroApp/MenuBarView.swift`: Lock/Unlock, Add, Export, Preferences.
   - `Sources/AegiroApp/QuickLook.swift`: QLPreviewPanel coordinator for multi-item preview.
@@ -144,6 +144,6 @@ This document captures the macOS app design for Aegiro. It is the single source 
 
 ## Future Enhancements
 
-- Dedupe and SHA256 display in Info drawer.
+- Dedupe and SHA256 display in Inspector.
 - Touch ID/Keychain gating for PDK.
 - Rich Quick Look navigation and annotations.
