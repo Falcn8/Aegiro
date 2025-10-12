@@ -50,13 +50,15 @@ This document captures the macOS app design for Aegiro. It is the single source 
 
 ### First-run onboarding
 
-- Layout: split-pane card (left: hero illustration + value props, right: form)
+- Layout: split-pane card (left: hero badge + 3 succinct value bullets, right: form)
+- Copy: keep lines under ~60 characters; prefer short phrases over sentences to avoid overload.
 - Form fields
   - Vault location picker with inline “Choose…” button
-  - Passphrase field with strength helper and hint text field
-  - Touch ID toggle w/ Secure Enclave note
+  - Passphrase field with strength helper and optional hint
+  - Touch ID toggle w/ Secure Enclave note (one line)
 - Primary action: “Create Vault” (prominent); secondary “Open Existing…” link below
-- Footer: copy about local-only storage + privacy link
+- Responsive: card clamps to window bounds; scrolls vertically on small heights to prevent overflow.
+- Footer: single-line local-only reminder and privacy link
 
 ### Secondary surfaces
 

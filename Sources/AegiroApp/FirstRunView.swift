@@ -11,42 +11,51 @@ struct FirstRunView: View {
     @State private var path: String = defaultVaultURL().path
     @State private var errorText: String?
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [
-                Color.accentColor.opacity(0.12),
-                Color(nsColor: .windowBackgroundColor)
-            ], startPoint: .topLeading, endPoint: .bottomTrailing)
-            .ignoresSafeArea()
+        GeometryReader { proxy in
+            let horizontalPadding: CGFloat = proxy.size.width > 900 ? 80 : 48
+            let cardWidth = min(proxy.size.width - (horizontalPadding * 2), 740)
+            let cardPadding: CGFloat = proxy.size.height > 600 ? 32 : 24
 
-            VStack(spacing: 28) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Welcome to Aegiro")
-                        .font(.largeTitle.weight(.bold))
-                    Text("Create a vault to keep your files encrypted, local, and quantum-safe.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+            ZStack {
+                LinearGradient(colors: [
+                    Color.accentColor.opacity(0.12),
+                    Color(nsColor: .windowBackgroundColor)
+                ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Set up your vault")
+                                .font(.system(size: 32, weight: .bold))
+                            Text("Create an encrypted vault or open one you already use.")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: 24) {
+                                leftColumn
+                                Divider()
+                                    .frame(maxHeight: .infinity)
+                                formColumn
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(cardPadding)
+                        }
+                        .frame(maxWidth: cardWidth)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                        footer
+                    }
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, 36)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack(spacing: 32) {
-                    leftColumn
-                    Divider()
-                        .frame(maxHeight: .infinity)
-                    formColumn
-                }
-                .frame(maxHeight: .infinity)
-                .padding(32)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-
-                footer
             }
-            .padding(.horizontal, 40)
-            .padding(.vertical, 48)
-            .frame(maxWidth: 900, maxHeight: 560)
         }
-        .onAppear {
-            touchIDEnabled = model.allowTouchID
-        }
+        .onAppear { touchIDEnabled = model.allowTouchID }
     }
 
     func choosePath() {
@@ -82,48 +91,46 @@ struct FirstRunView: View {
     }
 
     private var leftColumn: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 20) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 56))
+                .font(.system(size: 42))
                 .foregroundStyle(.tertiary)
                 .symbolRenderingMode(.hierarchical)
-            VStack(alignment: .leading, spacing: 16) {
-                valueProp(title: "Zero trust surface", detail: "Vault lives on disk with PQ-safe signatures.")
-                valueProp(title: "Bring your own files", detail: "Drag & drop imports; no outbound traffic.")
-                valueProp(title: "Auto-lock timers", detail: "Set device-local timeouts to keep sessions short.")
+            VStack(alignment: .leading, spacing: 12) {
+                valueProp(icon: "internaldrive", title: "Local only")
+                valueProp(icon: "shield.lefthalf.filled", title: "PQ-safe signing")
+                valueProp(icon: "timer", title: "Auto-lock timers")
             }
             VStack(alignment: .leading, spacing: 12) {
-                Button("Open Existing Vault…") {
-                    openExisting()
-                }
+                Button("Open Existing Vault…") { openExisting() }
                 .buttonStyle(.plain)
                 .font(.headline)
                 .underline()
                 .foregroundStyle(Color.accentColor)
-                Text("Already have a vault? Open it to unlock and continue.")
-                    .font(.footnote)
+                Text("Already have one? Keep working from it.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: 260, alignment: .leading)
+        .frame(maxWidth: 220, alignment: .leading)
     }
 
     private var formColumn: some View {
         VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Create a new vault")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Create new vault")
                     .font(.title2.weight(.semibold))
-                Text("Choose where the encrypted bundle lives and set a strong passphrase.")
+                Text("Pick a location and a passphrase you can remember.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
-            VStack(spacing: 14) {
-                LabeledContent("Vault Location") {
+            VStack(alignment: .leading, spacing: 14) {
+                FormField(label: "Vault location") {
                     HStack(spacing: 10) {
                         TextField("/path/to/vault.aegirovault", text: $path)
                             .textFieldStyle(.roundedBorder)
-                            .frame(minWidth: 260)
+                            .frame(minWidth: 240)
                         Button {
                             choosePath()
                         } label: {
@@ -132,17 +139,21 @@ struct FirstRunView: View {
                         .buttonStyle(.bordered)
                     }
                 }
-                SecureField("Passphrase (min 12 characters)", text: $passphrase)
-                    .textFieldStyle(.roundedBorder)
+                FormField(label: "Passphrase") {
+                    SecureField("Minimum 12 characters", text: $passphrase)
+                        .textFieldStyle(.roundedBorder)
+                }
                 PassphraseStrengthView(passphrase: passphrase)
-                TextField("Hint (stored locally, optional)", text: $hint)
-                    .textFieldStyle(.roundedBorder)
+                FormField(label: "Hint (optional)") {
+                    TextField("Only stored on this Mac", text: $hint)
+                        .textFieldStyle(.roundedBorder)
+                }
             }
 
             Toggle(isOn: $touchIDEnabled) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Allow Touch ID on this Mac")
-                    Text("Biometric unlock is stored in the Secure Enclave and never leaves the device.")
+                    Text("Secure Enclave keeps the key on-device.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -170,7 +181,7 @@ struct FirstRunView: View {
         HStack(spacing: 12) {
             Image(systemName: "lock.square.stack.fill")
                 .foregroundStyle(.secondary)
-            Text("Aegiro stores everything locally. Nothing is uploaded or shared unless you export it.")
+            Text("Aegiro keeps data on disk until you choose to export.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -185,14 +196,10 @@ struct FirstRunView: View {
         return trimmedPath.hasSuffix(".aegirovault") && passphrase.count >= 12
     }
 
-    private func valueProp(title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.headline)
-            Text(detail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+    private func valueProp(icon: String, title: String) -> some View {
+        Label(title, systemImage: icon)
+            .labelStyle(.titleAndIcon)
+            .font(.subheadline.weight(.medium))
     }
 }
 
@@ -268,6 +275,21 @@ private struct PassphraseStrengthView: View {
             case 2...3: return .medium
             default: return .strong
             }
+        }
+    }
+}
+
+private struct FormField<Content: View>: View {
+    let label: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            content
         }
     }
 }
