@@ -108,7 +108,7 @@ struct FirstRunView: View {
                 .underline()
                 .foregroundStyle(Color.accentColor)
                 Text("Already have one? Keep working from it.")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
@@ -140,7 +140,7 @@ struct FirstRunView: View {
                     }
                 }
                 FormField(label: "Passphrase") {
-                    SecureField("Minimum 12 characters", text: $passphrase)
+                    SecureField("Minimum 8 characters", text: $passphrase)
                         .textFieldStyle(.roundedBorder)
                 }
                 PassphraseStrengthView(passphrase: passphrase)
@@ -182,7 +182,7 @@ struct FirstRunView: View {
             Image(systemName: "lock.square.stack.fill")
                 .foregroundStyle(.secondary)
             Text("Aegiro keeps data on disk until you choose to export.")
-                .font(.footnote)
+                .font(.callout)
                 .foregroundStyle(.secondary)
             Spacer()
             Link("Privacy & Security", destination: URL(string: "https://aegiro.app/privacy")!)
@@ -193,13 +193,13 @@ struct FirstRunView: View {
 
     private var canCreate: Bool {
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedPath.hasSuffix(".aegirovault") && passphrase.count >= 12
+        return trimmedPath.hasSuffix(".aegirovault") && passphrase.count >= 8
     }
 
-    private func valueProp(icon: String, title: String) -> some View {
-        Label(title, systemImage: icon)
-            .labelStyle(.titleAndIcon)
-            .font(.subheadline.weight(.medium))
+private func valueProp(icon: String, title: String) -> some View {
+    Label(title, systemImage: icon)
+        .labelStyle(.titleAndIcon)
+        .font(.callout.weight(.semibold))
     }
 }
 
@@ -211,14 +211,14 @@ private struct PassphraseStrengthView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(strength.label)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(strength.color)
                 Spacer()
                 Text("\(passphrase.count) characters")
-                    .font(.caption.monospacedDigit())
+                    .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             ProgressView(value: strength.progress)
@@ -264,11 +264,11 @@ private struct PassphraseStrengthView: View {
             let trimmed = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return .empty }
             var score = 0
-            if trimmed.count >= 12 { score += 1 }
+            if trimmed.count >= 8 { score += 1 }
             if trimmed.rangeOfCharacter(from: .decimalDigits) != nil { score += 1 }
             if trimmed.rangeOfCharacter(from: .uppercaseLetters) != nil { score += 1 }
             if trimmed.rangeOfCharacter(from: CharacterSet(charactersIn: "!@#$%^&*()-_=+[]{}|;:'\",.<>/?`~\\")) != nil { score += 1 }
-            if trimmed.count >= 18 { score += 1 }
+            if trimmed.count >= 14 { score += 1 }
 
             switch score {
             case 0...1: return .weak
@@ -286,8 +286,7 @@ private struct FormField<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
-                .font(.caption)
-                .fontWeight(.semibold)
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
             content
         }
