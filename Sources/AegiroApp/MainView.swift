@@ -17,7 +17,7 @@ struct MainView: View {
     @State private var searchDebounceTask: DispatchWorkItem?
     @State private var selection: Set<VaultIndexEntry.ID> = []
     @State private var showPreferences = false
-    @State private var showInfoDrawer = false
+    @State private var showInspector = false
     @State private var toastMessage: String?
     @State private var toastDismissWork: DispatchWorkItem?
     @State private var lastGridAnchor: VaultIndexEntry.ID?
@@ -88,13 +88,13 @@ struct MainView: View {
                     activeFilter = .all
                     model.openVaultWithPanel()
                 }
-                sidebarButton(title: "Add Files…", systemImage: "square.and.arrow.down") {
+                sidebarButton(title: "Import…", systemImage: "square.and.arrow.down", disabled: model.locked, help: model.locked ? "Unlock to import files." : nil) {
                     model.importFiles()
                 }
-                sidebarButton(title: "Export…", systemImage: "square.and.arrow.up") {
+                sidebarButton(title: "Export…", systemImage: "square.and.arrow.up", disabled: model.locked || selection.isEmpty, help: model.locked ? "Unlock to export files." : (selection.isEmpty ? "Select items to export." : nil)) {
                     exportSelection()
                 }
-                sidebarButton(title: model.locked ? "Unlock…" : "Lock", systemImage: model.locked ? "lock.open" : "lock") {
+                sidebarButton(title: model.locked ? "Unlock Vault" : "Lock Vault", systemImage: model.locked ? "lock.open" : "lock") {
                     if model.locked {
                         showUnlockSheet = true
                     } else {
@@ -115,7 +115,7 @@ struct MainView: View {
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
-    private func sidebarButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+    private func sidebarButton(title: String, systemImage: String, disabled: Bool = false, help: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
@@ -132,7 +132,9 @@ struct MainView: View {
             )
         }
         .buttonStyle(.plain)
+        .disabled(disabled)
         .accessibilityLabel(title)
+        .help(help ?? title)
     }
 
     private var vaultHeader: some View {
@@ -168,6 +170,17 @@ struct MainView: View {
                     .background(Color.accentColor.opacity(model.sidecarPending > 0 ? 0.25 : 0.15), in: Capsule())
                     .foregroundStyle(model.sidecarPending > 0 ? Color.accentColor : .secondary)
                     .accessibilityLabel("\(model.sidecarPending) pending imports")
+            }
+            if model.sidecarPending == 0 {
+                Button("Change import location…") {
+                    showPreferences = true
+                }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Text("Imports land in a staging area until you lock the vault.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             if !model.status.isEmpty {
                 Text(model.status)
@@ -212,13 +225,37 @@ struct MainView: View {
 
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
-                    showInfoDrawer.toggle()
+                    showInspector.toggle()
                 }
             } label: {
-                Label(showInfoDrawer ? "Hide Info" : "Show Info", systemImage: "sidebar.right")
+                Label(showInspector ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right")
             }
             .buttonStyle(.bordered)
-            .help("Toggle the info drawer")
+            .help("Toggle the inspector")
+
+            Menu {
+                Button("Import…") { model.importFiles() }
+                    .keyboardShortcut("I", modifiers: [.command, .shift])
+                    .disabled(model.locked)
+                Button("Export…") { exportSelection() }
+                    .keyboardShortcut("E", modifiers: [.command, .shift])
+                    .disabled(model.locked || selection.isEmpty)
+                Button("Open Vault…") { model.openVaultWithPanel() }
+                    .keyboardShortcut("O", modifiers: [.command])
+                Divider()
+                Menu("Filter By") {
+                    Picker("Filter", selection: $activeFilter) {
+                        Text("All Files").tag(VaultFilter.all)
+                        Text("Recently Added").tag(VaultFilter.recentlyAdded)
+                        Text("Recently Modified").tag(VaultFilter.recentlyModified)
+                    }
+                    .pickerStyle(.inline)
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .help("More actions")
 
             Spacer()
 
@@ -228,8 +265,8 @@ struct MainView: View {
                 Label("Quick Look", systemImage: "eye")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selection.isEmpty)
-            .help(selection.isEmpty ? "Select files to preview" : "Preview selection with Quick Look")
+            .disabled(selection.isEmpty || model.locked)
+            .help(selection.isEmpty ? "Select files to preview" : (model.locked ? "Unlock to preview files" : "Preview selection with Quick Look"))
         }
         .frame(height: 44)
         .padding(.horizontal, 12)
@@ -265,12 +302,22 @@ struct MainView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 12)
-            if showInfoDrawer {
+            .overlay(alignment: .top) {
+                selectionActionBar
+            }
+            .overlay {
+                if filteredEntries.isEmpty {
+                    emptyStateView
+                }
+            }
+            if showInspector {
                 Divider()
-                InfoDrawer(
+                InspectorView(
                     entry: selectedEntries.first,
                     selectionCount: selection.count,
                     selectedSize: selectedSize,
+                    manifestOK: model.manifestOK,
+                    isLocked: model.locked,
                     onQuickLook: quickLookSelection,
                     onExport: exportSelection,
                     onReveal: { entry in model.revealExport(logicalPath: entry.logicalPath) },
@@ -291,7 +338,12 @@ struct MainView: View {
                     .onTapGesture(count: 2) { open(entry) }
                     .contextMenu { contextMenu(for: entry) }
             }
-            .width(min: 260, ideal: 320)
+            .width(min: 280, ideal: 340)
+            TableColumn("Kind") { entry in
+                Text(entry.kindDescription)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             TableColumn("Size") { entry in
                 Text(entry.formattedSize)
                     .foregroundStyle(.secondary)
@@ -322,16 +374,102 @@ struct MainView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    @ViewBuilder
+    private var selectionActionBar: some View {
+        if !selection.isEmpty && !model.locked {
+            HStack(spacing: 12) {
+                Text("\(selection.count) selected")
+                    .font(.subheadline.weight(.semibold))
+                Text(ByteCountFormatter.fileFormatter.string(fromByteCount: selectedSize))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Quick Look") { quickLookSelection() }
+                    .disabled(model.locked)
+                    .buttonStyle(.bordered)
+                Button("Export…") { exportSelection() }
+                    .disabled(model.locked)
+                    .buttonStyle(.bordered)
+                Button("Reveal") {
+                    guard let first = selectedEntries.first else { return }
+                    model.revealExport(logicalPath: first.logicalPath)
+                }
+                .disabled(model.locked || selectedEntries.count != 1)
+                .buttonStyle(.bordered)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(.thinMaterial)
+            .frame(maxWidth: .infinity)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    @ViewBuilder
+    private var emptyStateView: some View {
+        if filteredEntries.isEmpty {
+            VStack(spacing: 16) {
+                if model.locked {
+                    Image(systemName: "lock")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                    Text("Vault locked")
+                        .font(.title3.weight(.semibold))
+                    Text("Unlock to browse, export, or preview files.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary)
+                    Text("No matches for \"\(searchQuery)\"")
+                        .font(.title3.weight(.semibold))
+                    Text("Try clearing search or adjusting filters.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else if activeFilter != .all {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary)
+                    Text("No items in this filter yet")
+                        .font(.title3.weight(.semibold))
+                    Text("Switch back to All Files or clear filters.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Image(systemName: "tray.and.arrow.down")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary)
+                    Text("Import files to get started")
+                        .font(.title3.weight(.semibold))
+                    Button("Import…") {
+                        model.importFiles()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.locked)
+                }
+            }
+            .padding(32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .foregroundStyle(.secondary)
+        }
+    }
+
     private func contextMenu(for entry: VaultIndexEntry) -> some View {
         Group {
             Button("Quick Look") { model.quickLook(logicalPath: entry.logicalPath) }
+                .disabled(model.locked)
             if selection.count > 1 {
                 Button("Quick Look Selection") { quickLookSelection() }
+                    .disabled(model.locked)
             }
             Divider()
             Button("Export…") { model.exportSelectedWithPanel(filters: [entry.logicalPath]) }
+                .disabled(model.locked)
             Button("Reveal in Finder") { model.revealExport(logicalPath: entry.logicalPath) }
+                .disabled(model.locked)
             Button("Reveal Original") { model.revealOriginal(logicalPath: entry.logicalPath) }
+                .disabled(model.locked)
             Divider()
             Button("Copy Name") { model.copyPathToClipboard(entry.displayName) }
             Button("Copy Path") { model.copyPathToClipboard(entry.logicalPath) }
@@ -345,6 +483,9 @@ struct MainView: View {
                 Text("• \(selection.count) selected")
                 Text("• \(ByteCountFormatter.fileFormatter.string(fromByteCount: selectedSize))")
             }
+            if !model.locked && model.autoLockRemaining > 0 {
+                autoLockChip
+            }
             Spacer()
             if let url = model.vaultURL {
                 Text(url.path)
@@ -356,6 +497,27 @@ struct MainView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color(nsColor: .underPageBackgroundColor))
+    }
+
+    private var autoLockChip: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "lock.open")
+            Text("Auto-locks in \(formattedRemaining(model.autoLockRemaining))")
+            Button {
+                model.extendAutoLock(by: 300)
+            } label: {
+                Label("Extend", systemImage: "chevron.up")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .help("Extend by 5 minutes")
+        }
+        .font(.caption)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            Capsule().fill(Color(nsColor: .controlBackgroundColor))
+        )
     }
 
     private var unlockSheet: some View {
@@ -401,12 +563,20 @@ struct MainView: View {
     }
 
     private func quickLookSelection() {
+        guard !model.locked else {
+            model.status = "Unlock to preview files"
+            return
+        }
         let targets = selection
         guard !targets.isEmpty else { return }
         model.quickLookSelection(filters: Array(targets))
     }
 
     private func exportSelection() {
+        guard !model.locked else {
+            model.status = "Unlock to export files"
+            return
+        }
         let targets = selection
         guard !targets.isEmpty else {
             model.exportSelectedWithPanel()
@@ -416,7 +586,18 @@ struct MainView: View {
     }
 
     private func open(_ entry: VaultIndexEntry) {
+        guard !model.locked else {
+            model.status = "Unlock to preview files"
+            return
+        }
         model.quickLook(logicalPath: entry.logicalPath)
+    }
+
+    private func formattedRemaining(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        let minutes = total / 60
+        let seconds = total % 60
+        return String(format: "%02d:%02d", minutes, seconds)
     }
 
     private func applyFilter(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
@@ -554,6 +735,9 @@ private struct GridTile: View {
             Text(entry.displayName)
                 .font(.headline)
                 .lineLimit(2)
+            Text(entry.kindDescription)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             Text(entry.formattedSize)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -572,10 +756,12 @@ private struct GridTile: View {
     }
 }
 
-private struct InfoDrawer: View {
+private struct InspectorView: View {
     let entry: VaultIndexEntry?
     let selectionCount: Int
     let selectedSize: Int64
+    let manifestOK: Bool
+    let isLocked: Bool
     let onQuickLook: () -> Void
     let onExport: () -> Void
     let onReveal: (VaultIndexEntry) -> Void
@@ -584,15 +770,16 @@ private struct InfoDrawer: View {
     let onCopyLogicalPath: (VaultIndexEntry) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             if let entry {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 14) {
+                    SectionHeader(title: "Overview", systemImage: "doc.text")
+                    HStack(alignment: .top, spacing: 14) {
                         Image(nsImage: FileIconProvider.shared.largeIcon(for: entry))
                             .resizable()
-                            .frame(width: 48, height: 48)
-                            .cornerRadius(8)
-                        VStack(alignment: .leading, spacing: 4) {
+                            .frame(width: 56, height: 56)
+                            .cornerRadius(12)
+                        VStack(alignment: .leading, spacing: 6) {
                             Text(entry.displayName)
                                 .font(.headline)
                                 .lineLimit(2)
@@ -602,34 +789,72 @@ private struct InfoDrawer: View {
                                 .lineLimit(2)
                         }
                     }
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        LabeledValueView(title: "Kind", value: entry.kindDescription)
                         LabeledValueView(title: "Size", value: entry.formattedSize)
-                        LabeledValueView(title: "MIME", value: entry.mime)
                         LabeledValueView(title: "Modified", value: entry.modified.formatted(date: .abbreviated, time: .shortened))
                         LabeledValueView(title: "Created", value: entry.created.formatted(date: .abbreviated, time: .shortened))
                     }
-                    Divider()
+
+                    SectionHeader(title: "Security", systemImage: "checkmark.shield")
+                    VStack(alignment: .leading, spacing: 8) {
+                        LabeledValueView(
+                            title: "Integrity",
+                            value: manifestOK ? "Verified" : "Integrity issue — Run Check"
+                        )
+                        LabeledValueView(title: "Name Hash", value: entry.nameHashHex)
+                        if isLocked {
+                            Text("Unlock to export or reveal files.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    SectionHeader(title: "Tags", systemImage: "tag")
+                    if entry.tags.isEmpty {
+                        Text("No tags yet")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(entry.tags, id: \.self) { tag in
+                                Text(tag)
+                                    .font(.caption)
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .background(
+                                        Capsule().fill(Color.accentColor.opacity(0.15))
+                                    )
+                            }
+                        }
+                    }
+
+                    SectionHeader(title: "Actions", systemImage: "bolt")
                     VStack(alignment: .leading, spacing: 8) {
                         Button {
                             onQuickLook()
                         } label: {
-                            Label("Quick Look Selection", systemImage: "eye")
+                            Label("Quick Look", systemImage: "eye")
                         }
+                        .disabled(isLocked)
                         Button {
                             onExport()
                         } label: {
-                            Label("Export Selection…", systemImage: "square.and.arrow.up")
+                            Label("Export…", systemImage: "square.and.arrow.up")
                         }
+                        .disabled(isLocked)
                         Button {
                             onReveal(entry)
                         } label: {
                             Label("Reveal in Finder", systemImage: "folder")
                         }
+                        .disabled(isLocked)
                         Button {
                             onRevealOriginal(entry)
                         } label: {
                             Label("Reveal Original", systemImage: "doc.text.magnifyingglass")
                         }
+                        .disabled(isLocked)
                         Divider()
                         Button {
                             onCopyName(entry)
@@ -639,9 +864,11 @@ private struct InfoDrawer: View {
                         Button {
                             onCopyLogicalPath(entry)
                         } label: {
-                            Label("Copy Logical Path", systemImage: "doc.on.clipboard")
+                            Label("Copy Path", systemImage: "doc.on.clipboard")
                         }
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
             } else if selectionCount > 1 {
                 VStack(alignment: .leading, spacing: 8) {
@@ -655,12 +882,16 @@ private struct InfoDrawer: View {
                     } label: {
                         Label("Quick Look Selection", systemImage: "eye")
                     }
+                    .disabled(isLocked)
                     Button {
                         onExport()
                     } label: {
                         Label("Export Selection…", systemImage: "square.and.arrow.up")
                     }
+                    .disabled(isLocked)
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Nothing selected")
@@ -689,6 +920,23 @@ private struct LabeledValueView: View {
             Text(value)
                 .font(.body)
                 .lineLimit(2)
+        }
+    }
+}
+
+private struct SectionHeader: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+            Text(title.uppercased())
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            Spacer()
         }
     }
 }
@@ -743,7 +991,7 @@ private enum ContentViewMode: Hashable {
     case grid
 }
 
-private enum VaultFilter: Hashable {
+private enum VaultFilter: Hashable, CaseIterable {
     case all
     case recentlyAdded
     case recentlyModified
@@ -837,6 +1085,17 @@ private extension VaultIndexEntry {
 
     var formattedSize: String {
         ByteCountFormatter.fileFormatter.string(fromByteCount: Int64(size))
+    }
+
+    var kindDescription: String {
+        if let type = UTType(mimeType: mime) ?? UTType(filenameExtension: (logicalPath as NSString).pathExtension) {
+            return type.localizedDescription ?? type.identifier
+        }
+        return mime.isEmpty ? "Unknown" : mime
+    }
+
+    var nameHashHex: String {
+        nameHash.map { String(format: "%02X", $0) }.joined()
     }
 }
 
