@@ -17,6 +17,8 @@ final class VaultModel: ObservableObject {
     @Published var autoLockTTL: Int
     private var timer: Timer?
     private var lastActivity: Date = .now
+    private var globalMonitors: [Any] = []
+    private var localMonitors: [Any] = []
 
     init() {
         let defaults = UserDefaults.standard
@@ -196,6 +198,20 @@ final class VaultModel: ObservableObject {
                 }
             }
         }
+        // Event monitors to track user activity
+        let types: [NSEvent.EventTypeMask] = [.mouseMoved, .leftMouseDown, .rightMouseDown, .keyDown, .scrollWheel]
+        for t in types {
+            if let gm = NSEvent.addGlobalMonitorForEvents(matching: t, handler: { [weak self] _ in self?.touchActivity() }) {
+                globalMonitors.append(gm)
+            }
+            if let lm = NSEvent.addLocalMonitorForEvents(matching: t, handler: { [weak self] ev in self?.touchActivity(); return ev }) {
+                localMonitors.append(lm as Any)
+            }
+        }
+        // Lock on screen sleep / session resign
+        let nc = NSWorkspace.shared.notificationCenter
+        nc.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in self?.lockSession() }
+        nc.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.lockSession() }
     }
 
     func lockSession() {
