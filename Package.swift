@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "AegiroCore", targets: ["AegiroCore"]),
         .executable(name: "aegiro-cli", targets: ["AegiroCLI"]),
+        .executable(name: "AegiroApp", targets: ["AegiroApp"]),
     ],
     targets: [
         .target(

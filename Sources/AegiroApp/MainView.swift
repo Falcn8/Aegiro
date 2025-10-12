@@ -97,13 +97,30 @@ struct MainView: View {
                         Divider()
                         List(filteredEntries, id: \.logicalPath, selection: $selection) { e in
                             HStack {
+                                Image(nsImage: NSWorkspace.shared.icon(forFileType: ((e.logicalPath as NSString).pathExtension)))
+                                    .resizable()
+                                    .frame(width: 16, height: 16)
                                 Text((e.logicalPath as NSString).lastPathComponent).frame(maxWidth: .infinity, alignment: .leading)
-                                Text("\(e.size)").frame(width: 100, alignment: .trailing)
+                                Text(ByteCountFormatter.string(fromByteCount: Int64(e.size), countStyle: .file))
+                                    .frame(width: 120, alignment: .trailing)
                                 Text(e.mime).frame(width: 160, alignment: .leading)
                                 Text(e.modified, style: .date).frame(width: 160, alignment: .leading)
                             }
+                            .contentShape(Rectangle())
+                            .onTapGesture(count: 2) { model.preview(logicalPath: e.logicalPath) }
                         }
                         .listStyle(.plain)
+                        HStack {
+                            let total = filteredEntries.count
+                            let selected = selection.count
+                            let selectedSize = filteredEntries.filter{ selection.contains($0.logicalPath) }.reduce(0) { $0 + Int($1.size) }
+                            Text("\(total) items • \(selected) selected • \(ByteCountFormatter.string(fromByteCount: Int64(selectedSize), countStyle: .file))")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Export Selected…") { model.exportSelectedWithPanel(filters: Array(selection)) }
+                                .disabled(selection.isEmpty)
+                        }
+                        .padding(8)
                     }
                 }
             }
