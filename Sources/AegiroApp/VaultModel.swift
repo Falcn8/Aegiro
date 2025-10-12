@@ -16,7 +16,6 @@ final class VaultModel: ObservableObject {
     @Published var defaultVaultDir: URL
     @Published var autoLockTTL: Int
     @Published var allowTouchID: Bool
-    @Published private(set) var availableTags: [String: Int] = [:]
     private var timer: Timer?
     private var lastActivity: Date = .now
     private var globalMonitors: [Any] = []
@@ -75,7 +74,6 @@ final class VaultModel: ObservableObject {
             } else {
                 self.entries = []
             }
-            rebuildDerivedState(from: self.entries)
         } catch {
             self.status = "Status failed: \(error)"
         }
@@ -89,7 +87,6 @@ final class VaultModel: ObservableObject {
             self.passphrase = pass
             self.locked = false
             self.entries = (try? Exporter.list(vaultURL: url, passphrase: pass)) ?? []
-            rebuildDerivedState(from: self.entries)
             self.status = "Unlocked"
         } catch {
             self.status = "Unlock failed: \(error)"
@@ -230,21 +227,9 @@ final class VaultModel: ObservableObject {
         self.locked = true
         self.entries = []
         self.status = "Auto-locked"
-        rebuildDerivedState(from: [])
     }
 
     private func touchActivity() { lastActivity = .now }
-
-    private func rebuildDerivedState(from entries: [VaultIndexEntry]) {
-        let counts = entries
-            .flatMap(\.tags)
-            .reduce(into: [String: Int]()) { result, tag in
-                result[tag, default: 0] += 1
-            }
-        if counts != availableTags {
-            availableTags = counts
-        }
-    }
 }
 
 func defaultVaultURL() -> URL {

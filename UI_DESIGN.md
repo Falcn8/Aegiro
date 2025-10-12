@@ -25,7 +25,6 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - All Files
   - Recently Added
   - Recently Modified
-  - Tags (chips, collapsible)
 - Actions
   - Open Vault…
   - Add Files…
@@ -105,7 +104,6 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - `Sources/AegiroApp/FirstRunView.swift`: Split onboarding, vault creation form, first-run helper links.
   - `Sources/AegiroApp/AppMain.swift`: App entry, Settings (Preferences), Vault command menu.
 - Core helpers (AegiroCore)
-  - `Editor.updateTags` (in `Vault.swift`): applies tag updates and re‑signs manifest.
   - `VaultLayout`, `computeLayout`, `parseHeaderAndOffset`: internal layout helpers used by doctor/editor logic.
 
 ---
@@ -128,7 +126,6 @@ This document captures the macOS app design for Aegiro. It is the single source 
 
 ## Future Enhancements
 
-- Tag editing UI backed by `Editor.updateTags`.
 - Dedupe and SHA256 display in Info drawer.
 - Touch ID/Keychain gating for PDK.
 - Rich Quick Look navigation and annotations.

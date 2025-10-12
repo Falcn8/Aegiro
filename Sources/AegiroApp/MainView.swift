@@ -21,7 +21,6 @@ struct MainView: View {
     @State private var toastMessage: String?
     @State private var toastDismissWork: DispatchWorkItem?
     @State private var lastGridAnchor: VaultIndexEntry.ID?
-    @State private var areTagsExpanded = true
 
     private let recentInterval: TimeInterval = 60 * 60 * 24 * 7
 
@@ -88,24 +87,6 @@ struct MainView: View {
                 sidebarRow(title: "All Files", systemImage: "tray.full", filter: .all)
                 sidebarRow(title: "Recently Added", systemImage: "clock.badge.plus", filter: .recentlyAdded)
                 sidebarRow(title: "Recently Modified", systemImage: "clock.arrow.circlepath", filter: .recentlyModified)
-                DisclosureGroup(isExpanded: $areTagsExpanded) {
-                    let tags = model.availableTags.sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
-                    if tags.isEmpty {
-                        Text("No tags yet")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.vertical, 4)
-                    } else {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], spacing: 8) {
-                            ForEach(tags, id: \.key) { tag, count in
-                                tagChip(title: tag, count: count)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                } label: {
-                    Label("Tags", systemImage: "tag")
-                }
             }
             Section("Actions") {
                 Button {
@@ -143,6 +124,7 @@ struct MainView: View {
         }
         .listStyle(.sidebar)
         .frame(minWidth: 240)
+        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
     }
 
     private var vaultHeader: some View {
@@ -213,31 +195,6 @@ struct MainView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
-    }
-
-    private func tagChip(title: String, count: Int) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                activeFilter = .tag(title)
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Text(title)
-                    .lineLimit(1)
-                Spacer()
-                Text("\(count)")
-                    .font(.caption2.monospacedDigit())
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                Capsule()
-                    .fill(isTagActive(title) ? Color.accentColor.opacity(0.18) : Color(nsColor: .controlBackgroundColor))
-            )
-        }
-        .buttonStyle(.plain)
-        .help("Filter by tag \(title)")
     }
 
     private var toolbar: some View {
@@ -518,8 +475,6 @@ struct MainView: View {
         case .recentlyModified:
             let cutoff = now.addingTimeInterval(-recentInterval)
             return entries.filter { $0.modified >= cutoff }
-        case .tag(let tag):
-            return entries.filter { $0.tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) }
         }
     }
 
@@ -528,8 +483,7 @@ struct MainView: View {
         guard !query.isEmpty else { return entries }
         return entries.filter {
             $0.logicalPath.localizedCaseInsensitiveContains(query) ||
-            $0.mime.localizedCaseInsensitiveContains(query) ||
-            $0.tags.contains(where: { $0.localizedCaseInsensitiveContains(query) })
+            $0.mime.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -604,12 +558,6 @@ struct MainView: View {
         }
     }
 
-    private func isTagActive(_ tag: String) -> Bool {
-        if case .tag(let current) = activeFilter {
-            return current.caseInsensitiveCompare(tag) == .orderedSame
-        }
-        return false
-    }
 }
 
 private struct FileRow: View {
@@ -654,12 +602,6 @@ private struct GridTile: View {
             Text(entry.formattedSize)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            if !entry.tags.isEmpty {
-                Text(entry.tags.joined(separator: ", "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
             Spacer()
         }
         .padding(12)
@@ -710,9 +652,6 @@ private struct InfoDrawer: View {
                         LabeledValueView(title: "MIME", value: entry.mime)
                         LabeledValueView(title: "Modified", value: entry.modified.formatted(date: .abbreviated, time: .shortened))
                         LabeledValueView(title: "Created", value: entry.created.formatted(date: .abbreviated, time: .shortened))
-                        if !entry.tags.isEmpty {
-                            LabeledValueView(title: "Tags", value: entry.tags.joined(separator: ", "))
-                        }
                     }
                     Divider()
                     VStack(alignment: .leading, spacing: 8) {
@@ -842,7 +781,6 @@ private enum VaultFilter: Hashable {
     case all
     case recentlyAdded
     case recentlyModified
-    case tag(String)
 }
 
 private enum SortOption: CaseIterable {
