@@ -18,9 +18,9 @@ struct MenuBarView: View {
                 Button("Unlock…") { showUnlock = true }
             } else {
                 Button("Lock Now") { model.lockNow() }
-                Button("Add Files…") { model.importFiles() }
+                Button("Import…") { model.importFiles() }
                 Button("Export…") { model.exportSelectedWithPanel() }
-                Button("Preferences…") { NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) }
+                    Button("Preferences…") { NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) }
             }
             if !model.status.isEmpty {
                 Divider()
