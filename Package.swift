@@ -30,7 +30,7 @@ let package = Package(
             name: "AegiroCLI",
             dependencies: ["AegiroCore"]
         ),
-        .target(
+        .executableTarget(
             name: "AegiroApp",
             dependencies: ["AegiroCore"],
             exclude: ["Entitlements.plist"]

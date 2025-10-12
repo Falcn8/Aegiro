@@ -158,6 +158,24 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func revealExport(logicalPath: String) {
+        guard let url = vaultURL else { return }
+        let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        do {
+            _ = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: [logicalPath], outDir: tmpDir)
+            let out = tmpDir.appendingPathComponent((logicalPath as NSString).lastPathComponent)
+            NSWorkspace.shared.activateFileViewerSelecting([out])
+        } catch {
+            self.status = "Reveal failed: \(error)"
+        }
+    }
+
+    func copyPathToClipboard(_ s: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(s, forType: .string)
+        status = "Copied path"
+    }
+
     func startAutoLockTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
