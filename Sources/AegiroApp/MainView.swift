@@ -149,14 +149,19 @@ struct MainView: View {
                 StatusChip(
                     text: model.locked ? "Locked" : "Unlocked",
                     symbol: model.locked ? "lock.fill" : "lock.open.fill",
-                    color: model.locked ? .red : .green
+                    color: model.locked ? .red : .green,
+                    accessibilityLabel: model.locked ? "Security: Locked" : "Security: Unlocked"
                 )
                 if !model.manifestOK {
                     StatusChip(
-                        text: "Integrity Alert",
+                        text: "Check recommended",
                         symbol: "exclamationmark.triangle.fill",
-                        color: .yellow
+                        color: .yellow,
+                        accessibilityLabel: "Integrity issue — run check"
                     )
+                    .onTapGesture {
+                        model.status = "Integrity issue detected. Run Check in the Inspector."
+                    }
                 }
             }
             HStack {
@@ -796,13 +801,18 @@ private struct InspectorView: View {
                         LabeledValueView(title: "Created", value: entry.created.formatted(date: .abbreviated, time: .shortened))
                     }
 
-                    SectionHeader(title: "Security", systemImage: "checkmark.shield")
+                    SectionHeader(title: "Security", systemImage: manifestOK ? "checkmark.shield" : "exclamationmark.triangle")
                     VStack(alignment: .leading, spacing: 8) {
                         LabeledValueView(
                             title: "Integrity",
-                            value: manifestOK ? "Verified" : "Integrity issue — Run Check"
+                            value: manifestOK ? "Verified" : "Check recommended"
                         )
                         LabeledValueView(title: "Name Hash", value: entry.nameHashHex)
+                        if !manifestOK {
+                            Text("Run Check to verify manifest and chunk layout.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                         if isLocked {
                             Text("Unlock to export or reveal files.")
                                 .font(.footnote)
@@ -945,6 +955,7 @@ private struct StatusChip: View {
     let text: String
     let symbol: String
     let color: Color
+    var accessibilityLabel: String?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -967,6 +978,9 @@ private struct StatusChip: View {
             Capsule()
                 .stroke(color.opacity(0.35), lineWidth: 1)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel ?? text)
+        .accessibilityValue(color == .red ? "Needs attention" : "")
     }
 }
 
