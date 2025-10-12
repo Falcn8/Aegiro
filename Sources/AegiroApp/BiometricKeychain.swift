@@ -33,12 +33,15 @@ enum BiometricKeychain {
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
+        let context = LAContext()
+        context.interactionNotAllowed = true
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: data,
-            kSecAttrAccessControl as String: access
+            kSecAttrAccessControl as String: access,
+            kSecUseAuthenticationContext as String: context
         ]
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
