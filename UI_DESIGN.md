@@ -54,7 +54,7 @@ This document captures the macOS app design for Aegiro. It is the single source 
 - Copy: keep lines under ~60 characters; prefer short phrases over sentences to avoid overload.
 - Form fields
   - Vault location picker with inline “Choose…” button
-  - Passphrase field with strength helper and optional hint
+  - Passphrase field with strength helper and optional hint (requires ≥8 chars)
   - Touch ID toggle w/ Secure Enclave note (one line)
 - Primary action: “Create Vault” (prominent); secondary “Open Existing…” link below
 - Responsive: card clamps to window bounds; scrolls vertically on small heights to prevent overflow.
