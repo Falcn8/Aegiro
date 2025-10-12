@@ -27,5 +27,17 @@
     "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView~partial.swiftmodule",
     "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swiftdeps",
     "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.dia"
+  },
+  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift": {
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o",
+    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swiftdeps",
+    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.dia"
+  },
+  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift": {
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o",
+    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swiftdeps",
+    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.dia"
   }
 }

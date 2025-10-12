@@ -75,6 +75,87 @@ struct CLI {
             }
             let count = try Locker.unlockInfo(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass)
             print("Unlocked OK. Index entries: \(count)")
+        case "list":
+            var path: String?
+            var pass: String = ""
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--vault": path = it.next()
+                case "--passphrase": pass = it.next() ?? ""
+                default: break
+                }
+            }
+            guard let p = path, !pass.isEmpty else { hint("Missing required options for list.", tip: "Use: list --vault <path> --passphrase \"<pass>\"") }
+            let entries = try Exporter.list(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass)
+            for e in entries { print("\(e.logicalPath)\t\(e.size) bytes") }
+        case "export":
+            var path: String?
+            var pass: String = ""
+            var outDir: String = "."
+            var filters: [String] = []
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--vault": path = it.next()
+                case "--passphrase": pass = it.next() ?? ""
+                case "--out": outDir = it.next() ?? "."
+                default: filters.append(a)
+                }
+            }
+            guard let p = path, !pass.isEmpty else { hint("Missing required options for export.", tip: "Use: export --vault <path> --passphrase \"<pass>\" [--out <dir>] [filters...]") }
+            let results = try Exporter.export(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass, filters: filters, outDir: URL(fileURLWithPath: NSString(string: outDir).expandingTildeInPath, isDirectory: true))
+            for (logical, out, bytes) in results { print("Exported \(logical) -> \(out.path) (\(bytes) bytes)") }
+        case "preview":
+            var path: String?
+            var pass: String = ""
+            var filter: String?
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--vault": path = it.next()
+                case "--passphrase": pass = it.next() ?? ""
+                default: filter = a
+                }
+            }
+            guard let p = path, !pass.isEmpty, let f = filter else { hint("Missing required options for preview.", tip: "Use: preview --vault <path> --passphrase \"<pass>\" <filter>") }
+            let entries = try Exporter.list(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass)
+            guard let match = entries.first(where: { $0.logicalPath.localizedCaseInsensitiveContains(f) }) else { hint("No file matches filter.", tip: f) }
+            let tmp = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent((match.logicalPath as NSString).lastPathComponent)
+            _ = try Exporter.export(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass, filters: [match.logicalPath], outDir: tmp.deletingLastPathComponent())
+            print("Preview at: \(tmp.path)")
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            proc.arguments = [tmp.path]
+            try? proc.run()
+            proc.waitUntilExit()
+        case "doctor":
+            var path: String?
+            var pass: String?
+            var fix = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--vault": path = it.next()
+                case "--passphrase": pass = it.next()
+                case "--fix": fix = true
+                default: break
+                }
+            }
+            guard let p = path else { hint("Missing --vault for doctor.", tip: "Use: doctor --vault <path> [--passphrase \"<pass>\"] [--fix]") }
+            let rep = try Doctor.run(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass, fix: fix)
+            let _h = rep.headerOK ? "OK" : "BAD"
+            let _m = rep.manifestOK ? "OK" : "BAD"
+            let _c = rep.chunkAreaOK ? "OK" : "BAD"
+            print("Header: \(_h)")
+            print("Manifest: \(_m)")
+            print("Chunk area: \(_c)")
+            if let n = rep.entries { print("Entries: \(n)") }
+            if !rep.issues.isEmpty {
+                print("Issues:")
+                for i in rep.issues { print("- \(i)") }
+            }
+            if rep.fixed { print("Applied fix: re-signed manifest.") }
         case "lock":
             var path: String?
             var pass: String = ""
@@ -174,6 +255,10 @@ Usage:
   import --vault <path> --passphrase "<pass>" <files...>
   lock --vault <path> --passphrase "<pass>"
   unlock --vault <path> --passphrase "<pass>"
+  list --vault <path> --passphrase "<pass>"
+  export --vault <path> --passphrase "<pass>" [--out <dir>] [filters...]
+  preview --vault <path> --passphrase "<pass>" <filter>
+  doctor --vault <path> [--passphrase "<pass>"] [--fix]
   backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]
   scan <paths...>
   shred <paths...>

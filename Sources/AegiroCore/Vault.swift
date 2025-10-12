@@ -460,6 +460,73 @@ public enum Locker {
     }
 }
 
+public enum Exporter {
+    static func deriveDEK(data: Data, passphrase: String) throws -> SymmetricKey {
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let pdkWrap = data.subdata(in: hdrLen..<(hdrLen+60))
+        #if REAL_CRYPTO
+        let kdf = Argon2idKDF()
+        #else
+        let kdf = StubKDF()
+        #endif
+        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
+        let pdk = SymmetricKey(data: pdkRaw)
+        let aad = Data("AEGIRO-V1".utf8)
+        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
+        return SymmetricKey(data: dekRaw)
+    }
+
+    public static func list(vaultURL: URL, passphrase: String) throws -> [VaultIndexEntry] {
+        let data = try Data(contentsOf: vaultURL)
+        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let dek = try deriveDEK(data: data, passphrase: passphrase)
+        let aad = Data("AEGIRO-V1".utf8)
+        let idxBlob = data.subdata(in: layout.idxRange)
+        let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
+        return index.entries
+    }
+
+    public static func export(vaultURL: URL, passphrase: String, filters: [String], outDir: URL) throws -> [(String, URL, Int)] {
+        let data = try Data(contentsOf: vaultURL)
+        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let dek = try deriveDEK(data: data, passphrase: passphrase)
+        let aad = Data("AEGIRO-V1".utf8)
+        let idxBlob = data.subdata(in: layout.idxRange)
+        let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
+        let cmData = data.subdata(in: layout.chunkMapRange)
+        let chunks = (try? JSONDecoder().decode([ChunkInfo].self, from: cmData)) ?? []
+
+        let selection: [VaultIndexEntry]
+        if filters.isEmpty {
+            selection = index.entries
+        } else {
+            selection = index.entries.filter { e in filters.contains { f in e.logicalPath.contains(f) } }
+        }
+
+        var results: [(String, URL, Int)] = []
+        for e in selection {
+            let fileChunks = chunks.filter { $0.name == e.logicalPath }
+            var plain = Data(capacity: Int(e.size))
+            for c in fileChunks {
+                let start = layout.chunkAreaStart + Int(c.relOffset)
+                let end = start + c.length
+                guard end <= data.count else { continue }
+                let combined = data.subdata(in: start..<end)
+                // Use SealedBox combined form
+                let sb = try AES.GCM.SealedBox(combined: combined)
+                let dec = try AES.GCM.open(sb, using: dek, authenticating: aad)
+                plain.append(dec)
+            }
+            let outURL = outDir.appendingPathComponent((e.logicalPath as NSString).lastPathComponent)
+            try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+            try plain.write(to: outURL)
+            results.append((e.logicalPath, outURL, plain.count))
+        }
+        return results
+    }
+}
 public struct VaultStatusInfo: Codable {
     public var locked: Bool
     public var entries: Int?
@@ -516,5 +583,100 @@ public enum VaultStatus {
             }
         }
         return VaultStatusInfo(locked: locked, entries: entriesCount, sidecarPending: pending, manifestOK: ok)
+    }
+}
+
+public struct DoctorReport: Codable {
+    public var headerOK: Bool
+    public var manifestOK: Bool
+    public var chunkAreaOK: Bool
+    public var entries: Int?
+    public var issues: [String]
+    public var fixed: Bool
+}
+
+public enum Doctor {
+    public static func run(vaultURL: URL, passphrase: String?, fix: Bool) throws -> DoctorReport {
+        let data = try Data(contentsOf: vaultURL)
+        var issues: [String] = []
+        var fixed = false
+        let (head, hdrLen): (VaultHeader, Int)
+        do {
+            (head, hdrLen) = try parseHeaderAndOffset(data)
+        } catch {
+            return DoctorReport(headerOK: false, manifestOK: false, chunkAreaOK: false, entries: nil, issues: ["Header parse failed: \(error)"], fixed: false)
+        }
+        let layout = computeLayout(data, afterHeader: hdrLen)
+
+        // Manifest verify
+        let manBlob = data.subdata(in: layout.manRange)
+        let manifest = try JSONDecoder().decode(Manifest.self, from: manBlob)
+        #if REAL_CRYPTO
+        let sig = Dilithium2()
+        #else
+        let sig = StubSig()
+        #endif
+        var manifestOK = ManifestBuilder.verify(manifest, signer: sig)
+        if !manifestOK && fix, let pass = passphrase {
+            // Try to re-sign
+            let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
+            let aad = Data("AEGIRO-V1".utf8)
+            let idxBlob = data.subdata(in: layout.idxRange)
+            let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
+            let cmData = data.subdata(in: layout.chunkMapRange)
+            // Build new manifest
+            let newManifest = try ManifestBuilder.build(index: index, chunkMap: cmData, signer: sig, sk: try unwrapSignerSK(data: data, dek: dek), pk: head.pq_pubkeys.dilithium_pk)
+            let newManBlob = try JSONEncoder().encode(newManifest)
+            var d = data
+            let newLenLE = withUnsafeBytes(of: UInt32(newManBlob.count).littleEndian) { Data($0) }
+            d.replaceSubrange(layout.manLenPos..<(layout.manLenPos+4), with: newLenLE)
+            d.replaceSubrange(layout.manRange, with: newManBlob)
+            try d.write(to: vaultURL, options: .atomic)
+            manifestOK = true
+            fixed = true
+        }
+
+        // Chunk area check vs chunk map
+        let cmData = data.subdata(in: layout.chunkMapRange)
+        let chunks = (try? JSONDecoder().decode([ChunkInfo].self, from: cmData)) ?? []
+        let chunkSum = chunks.reduce(0) { $0 + $1.length }
+        let areaBytes = data.count - layout.chunkAreaStart
+        var chunkAreaOK = (chunkSum == areaBytes)
+        if !chunkAreaOK {
+            issues.append("Chunk area length \(areaBytes) != sum of chunks \(chunkSum)")
+        }
+
+        // Entry checks if passphrase provided
+        var entryCount: Int? = nil
+        if let pass = passphrase {
+            let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
+            let aad = Data("AEGIRO-V1".utf8)
+            let idxBlob = data.subdata(in: layout.idxRange)
+            if let index = try? IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad) {
+                entryCount = index.entries.count
+                // Check each entry has chunk coverage
+                for e in index.entries {
+                    let cs = chunks.filter { $0.name == e.logicalPath }
+                    if cs.isEmpty { issues.append("No chunks for \(e.logicalPath)") }
+                    // Approximate ciphertext size check (plaintext + 28 per chunk)
+                    let cipherSum = cs.reduce(0) { $0 + $1.length }
+                    let expectedMin = Int(e.size) + cs.count * 28
+                    if cipherSum < expectedMin {
+                        issues.append("Ciphertext too small for \(e.logicalPath): \(cipherSum) < \(expectedMin)")
+                    }
+                }
+            }
+        }
+
+        return DoctorReport(headerOK: true, manifestOK: manifestOK, chunkAreaOK: chunkAreaOK, entries: entryCount, issues: issues, fixed: fixed)
+    }
+
+    static func unwrapSignerSK(data: Data, dek: SymmetricKey) throws -> Data {
+        // Locate signer wrap via layout and decrypt
+        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let wrap = data.subdata(in: layout.signerWrapRange)
+        let aad = Data("AEGIRO-V1".utf8)
+        return try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: wrap.prefix(12)), combined: wrap, aad: aad)
     }
 }
