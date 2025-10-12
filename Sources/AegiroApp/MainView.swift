@@ -210,16 +210,6 @@ struct MainView: View {
             .menuStyle(.borderlessButton)
             .help("Change sort order")
 
-            Menu {
-                filterMenuButton(.all, title: "All Files", symbol: "tray.full")
-                filterMenuButton(.recentlyAdded, title: "Recently Added", symbol: "clock.badge.plus")
-                filterMenuButton(.recentlyModified, title: "Recently Modified", symbol: "clock.arrow.circlepath")
-            } label: {
-                Label(filterMenuTitle, systemImage: "line.3.horizontal.decrease.circle")
-            }
-            .menuStyle(.borderlessButton)
-            .help("Filter file list")
-
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     showInfoDrawer.toggle()
@@ -520,32 +510,6 @@ struct MainView: View {
         } else {
             selection = [entry.id]
             lastGridAnchor = entry.id
-        }
-    }
-
-    private var filterMenuTitle: String {
-        switch activeFilter {
-        case .all: return "All Files"
-        case .recentlyAdded: return "Recently Added"
-        case .recentlyModified: return "Recently Modified"
-        }
-    }
-
-    @ViewBuilder
-    private func filterMenuButton(_ filter: VaultFilter, title: String, symbol: String) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                activeFilter = filter
-            }
-        } label: {
-            HStack {
-                Image(systemName: symbol)
-                Text(title)
-                Spacer()
-                if activeFilter == filter {
-                    Image(systemName: "checkmark")
-                }
-            }
         }
     }
 
