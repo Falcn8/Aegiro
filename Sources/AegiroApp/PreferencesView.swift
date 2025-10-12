@@ -82,8 +82,8 @@ struct PreferencesView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
-        .padding(24)
-        .frame(width: 520, height: 360)
+        .padding(32)
+        .frame(width: 560, height: 420)
         .onAppear {
             ttlMinutes = max(1, min(60, Double(model.autoLockTTL) / 60.0))
         }

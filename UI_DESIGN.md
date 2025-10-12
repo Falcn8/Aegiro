@@ -38,7 +38,6 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - Search field (live filter with debounce)
   - View toggle: List / Grid
   - Sort menu: Name, Size, MIME, Modified (asc/desc)
-  - Filter menu: All / Recently Added / Recently Modified
   - Info drawer toggle
   - Quick Look button for current selection
 - Content area
