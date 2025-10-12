@@ -257,7 +257,7 @@ final class VaultModel: ObservableObject {
             }
         }
         // Event monitors to track user activity
-        let types: [NSEvent.EventTypeMask] = [.mouseMoved, .leftMouseDown, .rightMouseDown, .keyDown, .scrollWheel]
+        let types: [NSEvent.EventTypeMask] = [.leftMouseDown, .rightMouseDown, .keyDown, .scrollWheel]
         for t in types {
             if let gm = NSEvent.addGlobalMonitorForEvents(matching: t, handler: { [weak self] _ in self?.touchActivity() }) {
                 globalMonitors.append(gm)
