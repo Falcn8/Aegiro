@@ -50,11 +50,11 @@ This document captures the macOS app design for Aegiro. It is the single source 
 ### Content (right)
 
 - Toolbar
-  - Search field (live filter with debounce)
+  - Search field (live filter with tokens `name:`, `kind:`, `tag:`; saved smart filters)
   - View toggle: List / Grid
-  - Sort menu: Name, Size, MIME, Modified (asc/desc)
-  - Info drawer toggle
-  - Quick Look button for current selection
+  - Sort menu: Name, Size, Modified (asc/desc)
+  - Inspector toggle (⌥⌘I)
+  - Quick Look button for current selection; overflow menu hosts Import/Export/Filter/Saved-filter actions
 - Content area
   - List view: 4-column table (Name, Kind, Size, Modified) with Quick Look on double-click
   - Grid view: adaptive thumbnails with filename, kind, size; space toggles selection
@@ -64,16 +64,11 @@ This document captures the macOS app design for Aegiro. It is the single source 
 
 ### First-run onboarding
 
-- Layout: split-pane card (left: hero badge + 3 succinct value bullets, right: form)
-- Copy: keep lines under ~60 characters; prefer short phrases over sentences to avoid overload.
-- Form fields
-  - Vault location picker with inline “Choose…” button
-  - Passphrase field with strength helper and optional hint (requires ≥8 chars)
-  - Touch ID toggle w/ Secure Enclave note (one line)
-  - When Touch ID is enabled, the passphrase is escrowed to the Keychain with a biometry-gated access control for future unlocks.
-- Primary action: “Create Vault” (prominent); secondary “Open Existing…” link below
-- Responsive: card clamps to window bounds; scrolls vertically on small heights to prevent overflow.
-- Footer: single-line local-only reminder and privacy link
+- Layout: split-pane card (left: hero badge + 3 succinct value bullets, right: progressive form)
+- Step 1 — Location: pick/save destination, explain staging area; actions “Continue” and “Open Existing Vault…”.
+- Step 2 — Security: passphrase field with reveal toggle, strength helper, Caps Lock hint, hint field, “What makes a strong passphrase?” link.
+- Touch ID toggle appears in Step 2 when biometric escrow is supported; disabled otherwise with a contextual explanation.
+- Primary action flows from Continue → Create Vault; footer reiterates local-only storage and links to privacy policy.
 
 ### Secondary surfaces
 
@@ -83,7 +78,7 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - Imported N files to sidecar, Exported N files, Auto‑locked, Errors
 - Preferences
   - Defaults folder picker
-  - Auto-lock TTL slider w/ presets (1–60 minutes)
+  - Auto-lock presets (1–60 minutes) plus Custom input with Apply
   - “Allow Touch ID” toggle (device-local explanation); disabled when the vault was not created with biometric support
 
 ---
