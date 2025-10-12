@@ -1,0 +1,520 @@
+
+import Foundation
+import CryptoKit
+
+public struct VaultOpenContext {
+    public var pdkKey: SymmetricKey?
+    public var sdkKey: SymmetricKey?
+    public var pqSk: Data?
+    public var sigPk: Data?
+    public var fileNonceSeed: SymmetricKey
+}
+
+public final class AegiroVault {
+    public let url: URL
+    public var header: VaultHeader
+    public var index: VaultIndex
+    public var manifest: Manifest
+    public var openCtx: VaultOpenContext?
+
+    public init(url: URL, header: VaultHeader, index: VaultIndex, manifest: Manifest) {
+        self.url = url
+        self.header = header
+        self.index = index
+        self.manifest = manifest
+        self.openCtx = nil
+    }
+
+    public static func create(at url: URL, passphrase: String, touchID: Bool) throws -> AegiroVault {
+        #if REAL_CRYPTO
+        let kem = Kyber512()
+        let sig = Dilithium2()
+        #else
+        let kem = StubKEM()
+        let sig = StubSig()
+        #endif
+        let (kemPk, kemSk) = try kem.keypair()
+        let (sigPk, sigSk) = try sig.keypair()
+
+        let algs = AlgIDs(aead: 1, kdf: 2, kem: 3, sig: 4)
+        let argon = Argon2Params(mMiB: 256, t: 3, p: 1)
+        let pq = PQPublicKeys(kyber_pk: kemPk, dilithium_pk: sigPk)
+        var header = VaultHeader(alg: algs, argon2: argon, pq: pq)
+        if touchID { header.flags |= 0b1 }
+
+        #if REAL_CRYPTO
+        let kdf = Argon2idKDF()
+        #else
+        let kdf = StubKDF()
+        #endif
+        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: header.kdf_salt, outLen: 32)
+        let pdk = SymmetricKey(data: pdkRaw)
+
+        let fileSeed = SymmetricKey(size: .bits256)
+        let dek = SymmetricKey(size: .bits256)
+        let aad = Data("AEGIRO-V1".utf8)
+
+        let pdkNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let pdkWrap = try AEAD.encrypt(key: pdk, nonce: pdkNonce, plaintext: dek.withUnsafeBytes{ raw in Data(bytes: raw.baseAddress!, count: raw.count) }, aad: aad)
+
+        // sdkWrap will carry the Dilithium signing secret key wrapped under DEK
+        let sigSkWrapNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let sigSkWrap = try AEAD.encrypt(key: dek,
+                                         nonce: sigSkWrapNonce,
+                                         plaintext: sigSk,
+                                         aad: aad)
+        let (ss, ct) = try kem.encap(kemPk)
+        let pqKey = SymmetricKey(data: ss)
+        let pqNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let pqWrap = try AEAD.encrypt(key: pqKey, nonce: pqNonce, plaintext: dek.withUnsafeBytes{ raw in Data(bytes: raw.baseAddress!, count: raw.count) }, aad: aad)
+
+        // Prepare index and manifest blobs with lengths for reliable parsing
+        let index = VaultIndex(entries: [], thumbnails: [:])
+        let idxKey = dek
+        let idxBlob = try IndexCrypto.encryptIndex(index, key: idxKey, aad: aad)
+        let idxLenLE = withUnsafeBytes(of: UInt32(idxBlob.count).littleEndian) { Data($0) }
+
+        let chunkMap = try JSONSerialization.data(withJSONObject: [], options: [])
+        let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: sigSk, pk: sigPk)
+        let manBlob = try JSONEncoder().encode(manifest)
+        let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
+
+        // Compute header with correct offsets after knowing sizes
+        // We'll compute a provisional header to get JSON length for header_len and offsets
+        var tempHeader = header
+        // First, encode to know JSON length with placeholder offsets
+        let provisional = try tempHeader.serialize()
+        let hdrBaseLen = provisional.count // includes MAGIC + len + JSON
+        let pdkOff = UInt32(hdrBaseLen)
+        let sdkOff = pdkOff + UInt32(pdkWrap.count)
+        let pqcOff = sdkOff + UInt32(sigSkWrap.count) // repurpose pqc_off to mark signer wrap start
+        header.wraps_offsets = WrapOffsets(pdk_off: pdkOff, sdk_off: sdkOff, pqc_off: pqcOff)
+        let finalHeader = try header.serialize()
+
+        // Write out file in the agreed layout
+        let fm = FileManager.default
+        fm.createFile(atPath: url.path, contents: Data(), attributes: [.extensionHidden: true])
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.write(contentsOf: finalHeader)
+        try handle.write(contentsOf: pdkWrap)
+        let ctLen = withUnsafeBytes(of: UInt32(ct.count).littleEndian, { raw in Data(bytes: raw.baseAddress!, count: raw.count) })
+        try handle.write(contentsOf: ctLen)
+        try handle.write(contentsOf: ct)
+        try handle.write(contentsOf: pqWrap)
+        // signer wrap len (u32) + blob (in addition to header offsets)
+        let signerLen = withUnsafeBytes(of: UInt32(sigSkWrap.count).littleEndian) { Data($0) }
+        try handle.write(contentsOf: signerLen)
+        try handle.write(contentsOf: sigSkWrap)
+        try handle.write(contentsOf: idxLenLE)
+        try handle.write(contentsOf: idxBlob)
+        try handle.write(contentsOf: manLenLE)
+        try handle.write(contentsOf: manBlob)
+        // initial empty chunk map (len + blob)
+        let cmLenLE = withUnsafeBytes(of: UInt32(chunkMap.count).littleEndian) { Data($0) }
+        try handle.write(contentsOf: cmLenLE)
+        try handle.write(contentsOf: chunkMap)
+        try handle.close()
+
+        let v = AegiroVault(url: url, header: header, index: index, manifest: manifest)
+        v.openCtx = VaultOpenContext(pdkKey: pdk, sdkKey: nil, pqSk: kemSk, sigPk: sigPk, fileNonceSeed: fileSeed)
+        return v
+    }
+
+    public static func open(at url: URL) throws -> AegiroVault {
+        let data = try Data(contentsOf: url)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        var cursor = hdrLen
+        cursor += 60 // pdk
+        let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+        cursor += 4
+        cursor += Int(ctLen)
+        cursor += 60 // pqWrap
+        let signerWrapLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+        cursor += 4
+        cursor += Int(signerWrapLen)
+        let idxLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+        cursor += 4
+        let idxBlob = data.subdata(in: cursor..<(cursor + Int(idxLen)))
+        cursor += Int(idxLen)
+        let manLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+        cursor += 4
+        let manBlob = data.subdata(in: cursor..<(cursor + Int(manLen)))
+
+        // Note: index is encrypted; we return stub index until unlocked with passphrase
+        let manifest = try JSONDecoder().decode(Manifest.self, from: manBlob)
+        let v = AegiroVault(url: url, header: head, index: VaultIndex(entries: [], thumbnails: [:]), manifest: manifest)
+        return v
+    }
+}
+
+func parseHeaderAndOffset(_ data: Data) throws -> (VaultHeader, Int) {
+    guard data.count > 8 else { throw NSError(domain: "VaultHeader", code: -10) }
+    let prefix = data.prefix(8)
+    guard Array(prefix) == VaultHeader.MAGIC else { throw NSError(domain: "VaultHeader", code: -11) }
+    // Try new format first
+    if data.count >= 12 {
+        let lenBytes = data.dropFirst(8).prefix(4)
+        let headerLen = lenBytes.withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+        let jsonStart = 12
+        if data.count >= jsonStart + Int(headerLen) {
+            let json = data.subdata(in: jsonStart..<(jsonStart + Int(headerLen)))
+            if let hdr = try? JSONDecoder().decode(VaultHeader.self, from: json) {
+                return (hdr, jsonStart + Int(headerLen))
+            }
+        }
+    }
+    // Legacy fallback: JSON immediately after MAGIC
+    let maxEnd = min(data.count, 8 + 4096)
+    var endIdx = 8
+    while endIdx <= maxEnd {
+        let slice = data.subdata(in: 8..<endIdx)
+        if let hdr = try? JSONDecoder().decode(VaultHeader.self, from: slice) {
+            return (hdr, endIdx)
+        }
+        endIdx += 1
+    }
+    throw NSError(domain: "VaultHeader", code: -12)
+}
+
+public enum Importer {
+    public static func sidecarImport(vaultURL: URL, passphrase: String, files: [URL]) throws -> (imported: Int, sidecar: URL) {
+        // Load header to confirm format and derive DEK
+        let data = try Data(contentsOf: vaultURL)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let pdkWrap = data.subdata(in: hdrLen..<(hdrLen+60))
+
+        // Derive PDK and unwrap DEK
+        #if REAL_CRYPTO
+        let kdf = Argon2idKDF()
+        #else
+        let kdf = StubKDF()
+        #endif
+        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
+        let pdk = SymmetricKey(data: pdkRaw)
+        let aad = Data("AEGIRO-V1".utf8)
+        // Combined contains nonce, ciphertext, tag; SealedBox will parse nonce from combined
+        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
+        let dek = SymmetricKey(data: dekRaw)
+
+        // Sidecar folder
+        let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
+        try? FileManager.default.createDirectory(at: sidecar, withIntermediateDirectories: true)
+        let metaURL = sidecar.appendingPathComponent("index.json")
+        var meta: [[String: Any]] = (try? JSONSerialization.jsonObject(with: Data(contentsOf: metaURL)) as? [[String: Any]]) ?? []
+
+        var count = 0
+        for f in files {
+            let plain = try Data(contentsOf: f)
+            // Encrypt with random nonce; combined contains nonce+ciphertext+tag
+            let sealed = try AES.GCM.seal(plain, using: dek)
+            guard let combined = sealed.combined else { continue }
+            let outName = UUID().uuidString + ".bin"
+            let outURL = sidecar.appendingPathComponent(outName)
+            try combined.write(to: outURL)
+            meta.append([
+                "source": f.path,
+                "stored": outName,
+                "size": plain.count,
+                "when": Date().timeIntervalSince1970
+            ])
+            count += 1
+        }
+        let metaData = try JSONSerialization.data(withJSONObject: meta, options: [.prettyPrinted])
+        try metaData.write(to: metaURL)
+        return (count, sidecar)
+    }
+}
+
+fileprivate struct VaultLayout {
+    let headerLen: Int
+    let pdkWrapRange: Range<Int>
+    let signerWrapLenPos: Int
+    let signerWrapRange: Range<Int>
+    let idxLenPos: Int
+    let idxRange: Range<Int>
+    let manLenPos: Int
+    let manRange: Range<Int>
+    let chunkMapLenPos: Int
+    let chunkMapRange: Range<Int>
+    let chunkAreaStart: Int
+}
+
+fileprivate func computeLayout(_ data: Data, afterHeader hdrLen: Int) -> VaultLayout {
+    var cursor = hdrLen
+    // pdk wrap (12+32+16)
+    let pdkRange = cursor..<(cursor+60)
+    cursor += 60
+    // pq ct len + ct
+    let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+    cursor += 4 + Int(ctLen)
+    // pq wrap (12+32+16)
+    cursor += 60
+    // signer wrap len + blob
+    let signerLenPos = cursor
+    let signerLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+    cursor += 4
+    let signerRange = cursor..<(cursor + Int(signerLen))
+    cursor += Int(signerLen)
+    // idx len + blob
+    let idxLenPos = cursor
+    let idxLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+    cursor += 4
+    let idxRange = cursor..<(cursor + Int(idxLen))
+    cursor += Int(idxLen)
+    // manifest len + blob
+    let manLenPos = cursor
+    let manLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+    cursor += 4
+    let manRange = cursor..<(cursor + Int(manLen))
+    cursor += Int(manLen)
+    // chunk map len + blob
+    let cmLenPos = cursor
+    let cmLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+    cursor += 4
+    let cmRange = cursor..<(cursor + Int(cmLen))
+    cursor += Int(cmLen)
+    let chunkStart = cursor
+    return VaultLayout(headerLen: hdrLen,
+                       pdkWrapRange: pdkRange,
+                       signerWrapLenPos: signerLenPos,
+                       signerWrapRange: signerRange,
+                       idxLenPos: idxLenPos,
+                       idxRange: idxRange,
+                       manLenPos: manLenPos,
+                       manRange: manRange,
+                       chunkMapLenPos: cmLenPos,
+                       chunkMapRange: cmRange,
+                       chunkAreaStart: chunkStart)
+}
+
+public enum Locker {
+    public static func unlockInfo(vaultURL: URL, passphrase: String) throws -> Int {
+        let data = try Data(contentsOf: vaultURL)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let pdkWrap = data.subdata(in: layout.pdkWrapRange)
+        #if REAL_CRYPTO
+        let kdf = Argon2idKDF()
+        #else
+        let kdf = StubKDF()
+        #endif
+        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
+        let pdk = SymmetricKey(data: pdkRaw)
+        let aad = Data("AEGIRO-V1".utf8)
+        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
+        let dek = SymmetricKey(data: dekRaw)
+        let idxBlob = data.subdata(in: layout.idxRange)
+        let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
+        return index.entries.count
+    }
+
+    public static func lockFromSidecar(vaultURL: URL, passphrase: String) throws -> Int {
+        let data = try Data(contentsOf: vaultURL)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let pdkWrap = data.subdata(in: layout.pdkWrapRange)
+
+        #if REAL_CRYPTO
+        let kdf = Argon2idKDF()
+        #else
+        let kdf = StubKDF()
+        #endif
+        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
+        let pdk = SymmetricKey(data: pdkRaw)
+        let aad = Data("AEGIRO-V1".utf8)
+        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
+        let dek = SymmetricKey(data: dekRaw)
+
+        // Decrypt current index
+        let idxBlobOld = data.subdata(in: layout.idxRange)
+        var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
+
+        // Read sidecar meta
+        let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
+        let metaURL = sidecar.appendingPathComponent("index.json")
+        guard FileManager.default.fileExists(atPath: metaURL.path) else { return 0 }
+        let metaObj = try JSONSerialization.jsonObject(with: Data(contentsOf: metaURL)) as? [[String: Any]] ?? []
+
+        var added = 0
+        var chunkBlobs: [(name: String, blob: Data, path: String, size: Int, nameHash: Data)] = []
+        for item in metaObj {
+            guard let source = item["source"] as? String,
+                  let stored = item["stored"] as? String,
+                  let size = item["size"] as? Int else { continue }
+            let name = (source as NSString).lastPathComponent
+            let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
+            let entry = VaultIndexEntry(nameHash: h,
+                                        logicalPath: source,
+                                        size: UInt64(size),
+                                        mime: "application/octet-stream",
+                                        tags: [],
+                                        chunkCount: 1,
+                                        created: Date(),
+                                        modified: Date(),
+                                        sidecarName: stored)
+            index.entries.append(entry)
+            added += 1
+            // Read encrypted blob from sidecar for in-vault storage
+            let blobURL = sidecar.appendingPathComponent(stored)
+            if let blob = try? Data(contentsOf: blobURL) {
+                chunkBlobs.append((name: stored, blob: blob, path: source, size: size, nameHash: h))
+            }
+        }
+
+        // Build new index blob (encrypted)
+        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+
+        // Decrypt sidecar blobs to plaintext and re-encrypt in chunks with deterministic nonces
+        let chunkSize = 1024 * 1024
+        var relOffset: UInt64 = 0
+        var cmArray: [[String: Any]] = []
+        var chunkArea = Data()
+        for item in chunkBlobs {
+            // decrypt sidecar combined
+            let sealed = try AES.GCM.SealedBox(combined: item.blob)
+            let plain = try AES.GCM.open(sealed, using: dek)
+            // derive per-file seed from DEK and nameHash
+            let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
+            var fileChunkIndex: UInt64 = 0
+            var remaining = plain.count
+            var cursorPlain = 0
+            var perFileChunks: [[String: Any]] = []
+            while remaining > 0 {
+                let n = min(remaining, chunkSize)
+                let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
+                let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
+                let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
+                let entry: [String: Any] = [
+                    "name": item.path,
+                    "relOffset": relOffset,
+                    "length": combined.count
+                ]
+                cmArray.append(entry)
+                relOffset += UInt64(combined.count)
+                chunkArea.append(combined)
+                fileChunkIndex += 1
+                remaining -= n
+                cursorPlain += n
+            }
+        }
+        let chunkMap = try JSONSerialization.data(withJSONObject: cmArray, options: [])
+
+        // Re-sign manifest using Dilithium SK (wrapped under DEK)
+        let signerWrap = data.subdata(in: layout.signerWrapRange)
+        let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
+        #if REAL_CRYPTO
+        let sig = Dilithium2()
+        #else
+        let sig = StubSig()
+        #endif
+        let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
+        let manBlob = try JSONEncoder().encode(manifest)
+
+        // Reconstruct vault file in-memory (header + wraps + idx + manifest + chunk map + chunk area)
+        // Extract existing KEM ct and pqWrap
+        var cursor = layout.headerLen
+        cursor += 60 // pdk wrap
+        let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+        let ctStart = cursor + 4
+        let ct = data.subdata(in: ctStart..<(ctStart + Int(ctLen)))
+        cursor = ctStart + Int(ctLen)
+        let pqWrap = data.subdata(in: cursor..<(cursor+60))
+
+        let signerLen = data.subdata(in: layout.signerWrapLenPos..<(layout.signerWrapLenPos+4))
+        let signerBlob = data.subdata(in: layout.signerWrapRange)
+
+        let pdkBlob = pdkWrap
+        let idxLenLE = withUnsafeBytes(of: UInt32(newIdxBlob.count).littleEndian) { Data($0) }
+        let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
+
+        var out = Data()
+        // Header remains unchanged
+        let finalHeader = try head.serialize()
+        out.append(finalHeader)
+        out.append(pdkBlob)
+        out.append(withUnsafeBytes(of: ctLen.littleEndian) { Data($0) })
+        out.append(ct)
+        out.append(pqWrap)
+        out.append(signerLen)
+        out.append(signerBlob)
+        out.append(idxLenLE)
+        out.append(newIdxBlob)
+        out.append(manLenLE)
+        out.append(manBlob)
+        // chunk map
+        let cmLenLE = withUnsafeBytes(of: UInt32(chunkMap.count).littleEndian) { Data($0) }
+        out.append(cmLenLE)
+        out.append(chunkMap)
+        // chunk area
+        out.append(chunkArea)
+
+        try out.write(to: vaultURL, options: .atomic)
+
+        // cleanup sidecar
+        if let files = try? FileManager.default.contentsOfDirectory(atPath: sidecar.path) {
+            for f in files { try? FileManager.default.removeItem(at: sidecar.appendingPathComponent(f)) }
+            try? FileManager.default.removeItem(at: sidecar)
+        }
+
+        return added
+    }
+}
+
+public struct VaultStatusInfo: Codable {
+    public var locked: Bool
+    public var entries: Int?
+    public var sidecarPending: Int
+    public var manifestOK: Bool
+}
+
+public enum VaultStatus {
+    public static func get(vaultURL: URL, passphrase: String?) throws -> VaultStatusInfo {
+        let data = try Data(contentsOf: vaultURL)
+        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+
+        // Sidecar count
+        let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
+        var pending = 0
+        if let metaData = try? Data(contentsOf: sidecar.appendingPathComponent("index.json")),
+           let arr = try? JSONSerialization.jsonObject(with: metaData) as? [[String: Any]] {
+            pending = arr.count
+        }
+
+        // Manifest verify
+        let manBlob = data.subdata(in: layout.manRange)
+        let manifest = try JSONDecoder().decode(Manifest.self, from: manBlob)
+        #if REAL_CRYPTO
+        let sig = Dilithium2()
+        #else
+        let sig = StubSig()
+        #endif
+        let ok = ManifestBuilder.verify(manifest, signer: sig)
+
+        // Entries if we can decrypt
+        var entriesCount: Int? = nil
+        var locked = true
+        if let pass = passphrase, !pass.isEmpty {
+            // derive PDK and unwrap DEK, decrypt index
+            let pdkWrap = data.subdata(in: layout.pdkWrapRange)
+            #if REAL_CRYPTO
+            let kdf = Argon2idKDF()
+            #else
+            let kdf = StubKDF()
+            #endif
+            let head = try VaultHeader.parse(data)
+            let pdkRaw = try kdf.deriveKey(passphrase: pass, salt: head.kdf_salt, outLen: 32)
+            let pdk = SymmetricKey(data: pdkRaw)
+            let aad = Data("AEGIRO-V1".utf8)
+            if let dekRaw = try? AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad) {
+                let dek = SymmetricKey(data: dekRaw)
+                let idxBlob = data.subdata(in: layout.idxRange)
+                if let index = try? IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad) {
+                    entriesCount = index.entries.count
+                    locked = false
+                }
+            }
+        }
+        return VaultStatusInfo(locked: locked, entries: entriesCount, sidecarPending: pending, manifestOK: ok)
+    }
+}
