@@ -3,6 +3,28 @@
 > **Status**: Working CLI with REAL_CRYPTO support, chunked in‑vault storage, manifest verification, sidecar import → lock flow, list/export/preview/doctor commands; SwiftUI app remains scaffolded.  
 > **Crypto**: **Argon2id + Kyber512 + Dilithium2** in REAL_CRYPTO mode (system `libargon2`/`liboqs`). STUB_CRYPTO remains available for local runs (HKDF/ECDSA).
 
+## Quick Start
+
+```bash
+# Build and package (recommended)
+bash scripts/build-real.sh
+
+# 1) Create a new vault
+./dist/aegiro-cli create --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
+
+# 2) Import files (stored in sidecar until lock)
+./dist/aegiro-cli import --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
+
+# 3) Lock (ingest sidecar → encrypted index + chunk area; re‑sign manifest)
+./dist/aegiro-cli lock --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
+
+# 4) List entries
+./dist/aegiro-cli list --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" [--long]
+
+# 5) Export entries
+./dist/aegiro-cli export --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" --out ~/Recovered [filters...]
+```
+
 ---
 
 ## What’s here
@@ -109,6 +131,17 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 
 # Status (JSON)
 .build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" --json
+
+Example output:
+
+```json
+{
+  "locked" : false,
+  "entries" : 2,
+  "sidecarPending" : 0,
+  "manifestOK" : true
+}
+```
 
 # Doctor (check, optional fix)
 .build/release/aegiro-cli doctor --vault ~/AegiroVaults/alpha.aegirovault [--passphrase "<pass>"] [--fix]
