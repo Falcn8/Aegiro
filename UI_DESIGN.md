@@ -55,6 +55,7 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - Vault location picker with inline “Choose…” button
   - Passphrase field with strength helper and optional hint (requires ≥8 chars)
   - Touch ID toggle w/ Secure Enclave note (one line)
+  - When Touch ID is enabled, the passphrase is escrowed to the Keychain with a biometry-gated access control for future unlocks.
 - Primary action: “Create Vault” (prominent); secondary “Open Existing…” link below
 - Responsive: card clamps to window bounds; scrolls vertically on small heights to prevent overflow.
 - Footer: single-line local-only reminder and privacy link
@@ -67,8 +68,8 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - Imported N files to sidecar, Exported N files, Auto‑locked, Errors
 - Preferences
   - Defaults folder picker
-  - Auto‑lock TTL slider w/ presets (1–60 minutes)
-  - “Allow Touch ID” toggle (device‑local explanation)
+  - Auto-lock TTL slider w/ presets (1–60 minutes)
+  - “Allow Touch ID” toggle (device-local explanation); disabled when the vault was not created with biometric support
 
 ---
 
@@ -105,6 +106,8 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - `Sources/AegiroApp/AppMain.swift`: App entry, Settings (Preferences), Vault command menu.
 - Core helpers (AegiroCore)
   - `VaultLayout`, `computeLayout`, `parseHeaderAndOffset`: internal layout helpers used by doctor/editor logic.
+- App helpers
+  - `Sources/AegiroApp/BiometricKeychain.swift`: wraps Keychain storage for biometric unlock secrets.
 
 ---
 

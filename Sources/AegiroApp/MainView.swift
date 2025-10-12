@@ -291,15 +291,11 @@ struct MainView: View {
                     .onTapGesture(count: 2) { open(entry) }
                     .contextMenu { contextMenu(for: entry) }
             }
+            .width(min: 260, ideal: 320)
             TableColumn("Size") { entry in
                 Text(entry.formattedSize)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            TableColumn("MIME") { entry in
-                Text(entry.mime)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
             }
             TableColumn("Modified") { entry in
                 Text(entry.modified.formatted(date: .abbreviated, time: .shortened))
@@ -370,10 +366,14 @@ struct MainView: View {
             SecureField("Passphrase", text: $unlockPass)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(unlockIfPossible)
-            if model.allowTouchID {
-                Label("Touch ID is enabled in Preferences. Rest your finger on the sensor after submitting.", systemImage: "touchid")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            if model.allowTouchID && model.supportsBiometricUnlock {
+                Button {
+                    model.unlockWithBiometrics()
+                    showUnlockSheet = false
+                } label: {
+                    Label("Use Touch ID", systemImage: "touchid")
+                }
+                .buttonStyle(.bordered)
             }
             HStack {
                 Spacer()
@@ -752,14 +752,12 @@ private enum VaultFilter: Hashable {
 private enum SortOption: CaseIterable {
     case name
     case size
-    case mime
     case modified
 
     var title: String {
         switch self {
         case .name: return "Name"
         case .size: return "Size"
-        case .mime: return "MIME"
         case .modified: return "Modified"
         }
     }
@@ -770,8 +768,6 @@ private enum SortOption: CaseIterable {
             return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
         case .size:
             return lhs.size < rhs.size
-        case .mime:
-            return lhs.mime.localizedCaseInsensitiveCompare(rhs.mime) == .orderedAscending
         case .modified:
             return lhs.modified < rhs.modified
         }

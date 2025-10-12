@@ -532,12 +532,13 @@ public struct VaultStatusInfo: Codable {
     public var entries: Int?
     public var sidecarPending: Int
     public var manifestOK: Bool
+    public var touchIDEnabled: Bool
 }
 
 public enum VaultStatus {
     public static func get(vaultURL: URL, passphrase: String?) throws -> VaultStatusInfo {
         let data = try Data(contentsOf: vaultURL)
-        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
 
         // Sidecar count
@@ -569,7 +570,6 @@ public enum VaultStatus {
             #else
             let kdf = StubKDF()
             #endif
-            let head = try VaultHeader.parse(data)
             let pdkRaw = try kdf.deriveKey(passphrase: pass, salt: head.kdf_salt, outLen: 32)
             let pdk = SymmetricKey(data: pdkRaw)
             let aad = Data("AEGIRO-V1".utf8)
@@ -582,7 +582,8 @@ public enum VaultStatus {
                 }
             }
         }
-        return VaultStatusInfo(locked: locked, entries: entriesCount, sidecarPending: pending, manifestOK: ok)
+        let touchIDEnabled = (head.flags & 0b1) != 0
+        return VaultStatusInfo(locked: locked, entries: entriesCount, sidecarPending: pending, manifestOK: ok, touchIDEnabled: touchIDEnabled)
     }
 }
 
