@@ -18,10 +18,12 @@ final class VaultModel: ObservableObject {
     @Published var autoLockTTL: Int
     @Published var allowTouchID: Bool
     @Published var supportsBiometricUnlock: Bool = false
+    @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var lastActivity: Date = .now
     private var globalMonitors: [Any] = []
     private var localMonitors: [Any] = []
+    private var autoLockDeadline: Date?
 
     init() {
         let defaults = UserDefaults.standard
@@ -83,8 +85,15 @@ final class VaultModel: ObservableObject {
             }
             if !info.locked, !passphrase.isEmpty {
                 self.entries = (try? Exporter.list(vaultURL: url, passphrase: passphrase)) ?? []
+                if autoLockDeadline == nil {
+                    resetAutoLockDeadline()
+                } else {
+                    updateAutoLockRemaining()
+                }
             } else {
                 self.entries = []
+                autoLockDeadline = nil
+                autoLockRemaining = 0
             }
         } catch {
             self.status = "Status failed: \(error)"
@@ -105,6 +114,7 @@ final class VaultModel: ObservableObject {
             } else {
                 removeBiometricPassphrase()
             }
+            resetAutoLockDeadline()
         } catch {
             self.status = "Unlock failed: \(error)"
         }
@@ -125,6 +135,10 @@ final class VaultModel: ObservableObject {
     func importFiles() {
         touchActivity()
         guard let url = vaultURL else { return }
+        guard !locked else {
+            status = "Unlock to import files"
+            return
+        }
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseFiles = true
@@ -143,6 +157,10 @@ final class VaultModel: ObservableObject {
     func exportSelected(to dir: URL, filters: [String] = []) {
         touchActivity()
         guard let url = vaultURL else { return }
+        guard !locked else {
+            status = "Unlock to export files"
+            return
+        }
         do {
             let res = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: filters, outDir: dir)
             self.status = res.isEmpty ? "Nothing exported" : "Exported \(res.count) file(s)"
@@ -153,6 +171,10 @@ final class VaultModel: ObservableObject {
 
     func exportSelectedWithPanel(filter: String? = nil) {
         touchActivity()
+        guard !locked else {
+            status = "Unlock to export files"
+            return
+        }
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -164,6 +186,10 @@ final class VaultModel: ObservableObject {
 
     func exportSelectedWithPanel(filters: [String]) {
         touchActivity()
+        guard !locked else {
+            status = "Unlock to export files"
+            return
+        }
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -214,12 +240,19 @@ final class VaultModel: ObservableObject {
 
     func startAutoLockTimer() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if !self.locked {
-                let elapsed = Date().timeIntervalSince(self.lastActivity)
-                if elapsed >= TimeInterval(self.autoLockTTL) {
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                if self.locked {
+                    self.autoLockRemaining = 0
+                    return
+                }
+                guard let deadline = self.autoLockDeadline else { return }
+                let remaining = deadline.timeIntervalSinceNow
+                if remaining <= 0 {
                     self.lockSession()
+                } else {
+                    self.autoLockRemaining = remaining
                 }
             }
         }
@@ -235,8 +268,12 @@ final class VaultModel: ObservableObject {
         }
         // Lock on screen sleep / session resign
         let nc = NSWorkspace.shared.notificationCenter
-        nc.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in self?.lockSession() }
-        nc.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.lockSession() }
+        nc.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.lockSession() }
+        }
+        nc.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.lockSession() }
+        }
     }
 
     func lockSession() {
@@ -244,6 +281,8 @@ final class VaultModel: ObservableObject {
         self.locked = true
         self.entries = []
         self.status = "Auto-locked"
+        autoLockDeadline = nil
+        autoLockRemaining = 0
     }
 
     func unlockWithBiometrics() {
@@ -286,7 +325,29 @@ final class VaultModel: ObservableObject {
         }
     }
 
-    private func touchActivity() { lastActivity = .now }
+    private func touchActivity() {
+        lastActivity = .now
+        resetAutoLockDeadline()
+    }
+
+    private func resetAutoLockDeadline() {
+        guard !locked else {
+            autoLockDeadline = nil
+            autoLockRemaining = 0
+            return
+        }
+        autoLockDeadline = Date().addingTimeInterval(TimeInterval(autoLockTTL))
+        updateAutoLockRemaining()
+    }
+
+    private func updateAutoLockRemaining() {
+        guard !locked, let deadline = autoLockDeadline else {
+            autoLockRemaining = 0
+            return
+        }
+        let remaining = deadline.timeIntervalSinceNow
+        autoLockRemaining = max(0, remaining)
+    }
 
     private func storePassphraseForBiometrics(_ passphrase: String) {
         guard supportsBiometricUnlock, allowTouchID, !passphrase.isEmpty, let url = vaultURL else { return }
@@ -326,6 +387,15 @@ final class VaultModel: ObservableObject {
             }
         }
         return error.localizedDescription
+    }
+
+    func extendAutoLock(by seconds: TimeInterval) {
+        guard !locked else { return }
+        if autoLockDeadline == nil {
+            resetAutoLockDeadline()
+        }
+        autoLockDeadline = (autoLockDeadline ?? Date()).addingTimeInterval(seconds)
+        updateAutoLockRemaining()
     }
 }
 

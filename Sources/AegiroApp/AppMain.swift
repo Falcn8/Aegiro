@@ -29,15 +29,17 @@ struct AegiroAppMain: App {
             CommandMenu("Vault") {
                 Button("Open Vault…") { model.openVaultWithPanel() }
                     .keyboardShortcut("o", modifiers: [.command])
-                Button(model.locked ? "Unlock…" : "Lock Now") {
+                Button(model.locked ? "Unlock Vault" : "Lock Vault") {
                     if model.locked { NSApp.sendAction(Selector(("showUnlock:")), to: nil, from: nil) } else { model.lockNow() }
                 }
                 .keyboardShortcut("l", modifiers: [.command])
                 Divider()
-                Button("Add Files…") { model.importFiles() }
+                Button("Import…") { model.importFiles() }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
+                    .disabled(model.locked)
                 Button("Export…") { model.exportSelectedWithPanel() }
                     .keyboardShortcut("e", modifiers: [.command, .shift])
+                    .disabled(model.locked)
             }
         }
     }
