@@ -68,6 +68,12 @@ struct PreferencesView: View {
                 }
             }
             .toggleStyle(.switch)
+            .disabled(!model.supportsBiometricUnlock)
+            if !model.supportsBiometricUnlock {
+                Text("Touch ID must be enabled when creating the vault to use biometric unlock.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
 
