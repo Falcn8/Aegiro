@@ -2,19 +2,43 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    @State private var locked = true
-    @State private var ttl = 300
+    @EnvironmentObject var model: VaultModel
+    @State private var unlockPass = ""
+    @State private var showUnlock = false
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Circle().frame(width: 8, height: 8).foregroundStyle(locked ? .red : .green)
-                Text(locked ? "Locked" : "Unlocked")
+                Circle().frame(width: 8, height: 8).foregroundStyle(model.locked ? .red : .green)
+                Text(model.locked ? "Locked" : "Unlocked")
                 Spacer()
-                Text("Auto-lock: \(ttl)s")
+                Text(model.vaultURL?.lastPathComponent ?? "No vault")
             }
             Divider()
-            Button(locked ? "Unlock…" : "Lock Now") {}
-            Button("Drop to encrypt…") {}
-        }.padding(8).frame(width: 240)
+            if model.locked {
+                Button("Unlock…") { showUnlock = true }
+            } else {
+                Button("Lock Now") { model.lockNow() }
+                Button("Add Files…") { model.importFiles() }
+                Button("Export…") { model.exportSelectedWithPanel() }
+                Button("Preferences…") { NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) }
+            }
+            if !model.status.isEmpty {
+                Divider()
+                Text(model.status).font(.footnote).foregroundStyle(.secondary)
+            }
+        }.padding(8).frame(width: 260)
+        .sheet(isPresented: $showUnlock) {
+            VStack(spacing: 12) {
+                Text("Unlock Vault").font(.title3).bold()
+                SecureField("Passphrase", text: $unlockPass)
+                HStack {
+                    Spacer()
+                    Button("Cancel") { showUnlock = false }
+                    Button("Unlock") { model.unlock(with: unlockPass); showUnlock = false }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(unlockPass.isEmpty)
+                }
+            }.padding(16).frame(width: 320)
+        }
     }
 }

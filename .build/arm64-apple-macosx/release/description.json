@@ -71,6 +71,14 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
         },
         {
@@ -89,7 +97,9 @@
         "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o",
         "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
         "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o"
+        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o",
+        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o",
+        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o"
       ],
       "otherArguments" : [
         "-target",
@@ -107,10 +117,10 @@
         "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/include",
+        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-        "-I/opt/homebrew/include",
         "-module-cache-path",
         "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
@@ -173,6 +183,14 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroApp.swiftmodule"
         }
       ],
@@ -181,7 +199,9 @@
         "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/AppMain.swift",
         "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift",
         "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift"
+        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift",
+        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift",
+        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift"
       ],
       "tempsPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build",
       "wholeModuleOptimization" : true
@@ -230,10 +250,10 @@
         "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/include",
+        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-        "-I/opt/homebrew/include",
         "-module-cache-path",
         "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
@@ -390,10 +410,10 @@
         "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-        "-I/opt/homebrew/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/include",
+        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
         "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
@@ -561,10 +581,10 @@
         "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/include",
+        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-        "-I/opt/homebrew/include",
         "-module-cache-path",
         "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
@@ -669,10 +689,10 @@
         "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/include",
+        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
         "-Xcc",
         "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-        "-I/opt/homebrew/include",
         "-module-cache-path",
         "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
@@ -747,6 +767,8 @@
       "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift",
       "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift",
       "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift",
+      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift",
+      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift",
       "-I",
       "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "-target",
@@ -764,10 +786,10 @@
       "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/include",
+      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-      "-I/opt/homebrew/include",
       "-module-cache-path",
       "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
@@ -837,10 +859,10 @@
       "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/include",
+      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-      "-I/opt/homebrew/include",
       "-module-cache-path",
       "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
@@ -918,10 +940,10 @@
       "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-      "-I/opt/homebrew/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/include",
+      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
       "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
@@ -999,10 +1021,10 @@
       "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/include",
+      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-      "-I/opt/homebrew/include",
       "-module-cache-path",
       "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
@@ -1072,10 +1094,10 @@
       "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/include",
+      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
+      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
       "-Xcc",
       "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
-      "-I/opt/homebrew/include",
       "-module-cache-path",
       "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
@@ -1195,6 +1217,14 @@
         {
           "kind" : "file",
           "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift"
         }
       ],
       "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources"
