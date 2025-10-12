@@ -31,12 +31,27 @@ struct MenuBarView: View {
             VStack(spacing: 12) {
                 Text("Unlock Vault").font(.title3).bold()
                 SecureField("Passphrase", text: $unlockPass)
+                if model.allowTouchID && model.supportsBiometricUnlock {
+                    Button {
+                        model.unlockWithBiometrics()
+                        showUnlock = false
+                    } label: {
+                        Label("Use Touch ID", systemImage: "touchid")
+                    }
+                    .buttonStyle(.bordered)
+                }
                 HStack {
                     Spacer()
-                    Button("Cancel") { showUnlock = false }
-                    Button("Unlock") { model.unlock(with: unlockPass); showUnlock = false }
+                    Button("Cancel") { unlockPass = ""; showUnlock = false }
+                    Button("Unlock") {
+                        let trimmed = unlockPass.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        model.unlock(with: trimmed)
+                        unlockPass = ""
+                        showUnlock = false
+                    }
                         .buttonStyle(.borderedProminent)
-                        .disabled(unlockPass.isEmpty)
+                        .disabled(unlockPass.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }.padding(16).frame(width: 320)
         }
