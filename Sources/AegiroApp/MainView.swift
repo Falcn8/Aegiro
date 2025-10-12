@@ -124,11 +124,12 @@ struct MainView: View {
                                 Text(e.modified, style: .date).frame(width: 160, alignment: .leading)
                             }
                             .contentShape(Rectangle())
-                            .onTapGesture(count: 2) { model.preview(logicalPath: e.logicalPath) }
+                            .onTapGesture(count: 2) { model.quickLook(logicalPath: e.logicalPath) }
                             .contextMenu {
-                                Button("Preview") { model.preview(logicalPath: e.logicalPath) }
+                                Button("Quick Look") { model.quickLook(logicalPath: e.logicalPath) }
                                 Button("Export…") { model.exportSelectedWithPanel(filters: [e.logicalPath]) }
                                 Button("Reveal in Finder") { model.revealExport(logicalPath: e.logicalPath) }
+                                Button("Reveal Original") { model.revealOriginal(logicalPath: e.logicalPath) }
                                 Divider()
                                 Button("Copy name") { model.copyPathToClipboard((e.logicalPath as NSString).lastPathComponent) }
                                 Button("Copy logical path") { model.copyPathToClipboard(e.logicalPath) }
