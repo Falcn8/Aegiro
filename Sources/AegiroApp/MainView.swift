@@ -149,11 +149,13 @@ struct MainView: View {
                     symbol: model.locked ? "lock.fill" : "lock.open.fill",
                     color: model.locked ? .red : .green
                 )
-                StatusChip(
-                    text: model.manifestOK ? "Manifest OK" : "Manifest Alert",
-                    symbol: model.manifestOK ? "checkmark.seal.fill" : "exclamationmark.triangle.fill",
-                    color: model.manifestOK ? .green : .yellow
-                )
+                if !model.manifestOK {
+                    StatusChip(
+                        text: "Integrity Alert",
+                        symbol: "exclamationmark.triangle.fill",
+                        color: .yellow
+                    )
+                }
             }
             HStack {
                 Label("Pending Imports", systemImage: "tray.and.arrow.down")
@@ -179,49 +181,7 @@ struct MainView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 8) {
-            Button {
-                if model.locked {
-                    showUnlockSheet = true
-                } else {
-                    model.lockNow()
-                    selection.removeAll()
-                }
-            } label: {
-                Label(model.locked ? "Unlock" : "Lock", systemImage: model.locked ? "lock.open" : "lock")
-                    .labelStyle(.titleAndIcon)
-            }
-            .buttonStyle(.borderedProminent)
-            .help(model.locked ? "Unlock the current vault" : "Lock and seal the current vault")
-
-            Button {
-                model.importFiles()
-            } label: {
-                Label("Add", systemImage: "plus")
-            }
-            .buttonStyle(.bordered)
-            .help("Import files into the sidecar")
-
-            Button {
-                exportSelection()
-            } label: {
-                Label("Export", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(.bordered)
-            .disabled(selection.isEmpty)
-            .help(selection.isEmpty ? "Select files to export" : "Export selected files")
-
-            Button {
-                quickLookSelection()
-            } label: {
-                Label("Quick Look", systemImage: "eye")
-            }
-            .buttonStyle(.bordered)
-            .disabled(selection.isEmpty)
-            .help(selection.isEmpty ? "Select files to preview" : "Preview selection with Quick Look")
-
-            Spacer(minLength: 16)
-
+        HStack(spacing: 10) {
             searchField
 
             Picker("View Mode", selection: $viewMode) {
@@ -269,6 +229,17 @@ struct MainView: View {
             }
             .buttonStyle(.bordered)
             .help("Toggle the info drawer")
+
+            Spacer()
+
+            Button {
+                quickLookSelection()
+            } label: {
+                Label("Quick Look", systemImage: "eye")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selection.isEmpty)
+            .help(selection.isEmpty ? "Select files to preview" : "Preview selection with Quick Look")
         }
         .frame(height: 44)
         .padding(.horizontal, 12)

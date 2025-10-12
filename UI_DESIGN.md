@@ -19,7 +19,7 @@ This document captures the macOS app design for Aegiro. It is the single source 
 ### Primary navigation (left sidebar)
 
 - Vault
-  - Header capsule with vault name, lock state chip, manifest status chip
+  - Header capsule with vault name and lock state chip; integrity warning chip only when issues detected
   - "Pending Imports" (sidecar), with count badge
 - Filters
   - All Files
@@ -35,11 +35,12 @@ This document captures the macOS app design for Aegiro. It is the single source 
 ### Content (right)
 
 - Toolbar
-  - Lock/Unlock primary button
-  - Add, Export
   - Search field (live filter with debounce)
   - View toggle: List / Grid
   - Sort menu: Name, Size, MIME, Modified (asc/desc)
+  - Filter menu: All / Recently Added / Recently Modified
+  - Info drawer toggle
+  - Quick Look button for current selection
 - Content area
   - List view: 4‑column table (Name, Size, MIME, Modified) with Quick Look on double‑click
   - Grid view: adaptive thumbnails with filename + size; space toggles selection
