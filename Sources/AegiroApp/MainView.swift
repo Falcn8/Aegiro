@@ -108,8 +108,9 @@ struct MainView: View {
             }
             Spacer()
         }
-        .padding(18)
-        .frame(width: 260, alignment: .top)
+        .padding(.horizontal, 26)
+        .padding(.vertical, 18)
+        .frame(width: 288, alignment: .top)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Color(nsColor: .controlBackgroundColor))
     }
