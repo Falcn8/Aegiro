@@ -40,6 +40,7 @@ final class VaultModel: ObservableObject {
         } else {
             self.allowTouchID = true
         }
+        self.supportsBiometricUnlock = canEvaluateBiometrics()
     }
 
     func createVault(at url: URL, passphrase: String, touchID: Bool) {
@@ -79,7 +80,7 @@ final class VaultModel: ObservableObject {
             self.locked = info.locked
             self.sidecarPending = info.sidecarPending
             self.manifestOK = info.manifestOK
-            self.supportsBiometricUnlock = info.touchIDEnabled
+            self.supportsBiometricUnlock = info.touchIDEnabled && canEvaluateBiometrics()
             if !info.touchIDEnabled {
                 removeBiometricPassphrase()
             }
