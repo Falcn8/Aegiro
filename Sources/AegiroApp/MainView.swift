@@ -179,7 +179,7 @@ struct MainView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Button {
                 if model.locked {
                     showUnlockSheet = true
@@ -190,7 +190,6 @@ struct MainView: View {
             } label: {
                 Label(model.locked ? "Unlock" : "Lock", systemImage: model.locked ? "lock.open" : "lock")
                     .labelStyle(.titleAndIcon)
-                    .frame(minWidth: 90)
             }
             .buttonStyle(.borderedProminent)
             .help(model.locked ? "Unlock the current vault" : "Lock and seal the current vault")
@@ -221,7 +220,7 @@ struct MainView: View {
             .disabled(selection.isEmpty)
             .help(selection.isEmpty ? "Select files to preview" : "Preview selection with Quick Look")
 
-            Divider()
+            Spacer(minLength: 16)
 
             searchField
 
@@ -230,7 +229,7 @@ struct MainView: View {
                 Label("Grid", systemImage: "square.grid.2x2").tag(ContentViewMode.grid)
             }
             .pickerStyle(.segmented)
-            .frame(width: 130)
+            .frame(width: 120)
             .help("Toggle between list and grid layouts")
 
             Menu {
@@ -271,8 +270,9 @@ struct MainView: View {
             .buttonStyle(.bordered)
             .help("Toggle the info drawer")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .frame(height: 44)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
         .background(.thinMaterial)
     }
 
@@ -303,6 +303,7 @@ struct MainView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 12)
             if showInfoDrawer {
                 Divider()
                 InfoDrawer(
@@ -344,6 +345,7 @@ struct MainView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var gridView: some View {
@@ -360,6 +362,7 @@ struct MainView: View {
             }
             .padding(16)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func contextMenu(for entry: VaultIndexEntry) -> some View {
