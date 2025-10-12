@@ -48,10 +48,20 @@ This document captures the macOS app design for Aegiro. It is the single source 
 - Status bar
   - Count of items, selection summary, total selected size
 
+### First-run onboarding
+
+- Layout: split-pane card (left: hero illustration + value props, right: form)
+- Form fields
+  - Vault location picker with inline “Choose…” button
+  - Passphrase field with strength helper and hint text field
+  - Touch ID toggle w/ Secure Enclave note
+- Primary action: “Create Vault” (prominent); secondary “Open Existing…” link below
+- Footer: copy about local-only storage + privacy link
+
 ### Secondary surfaces
 
 - Unlock Sheet
-  - Passphrase field, Face/Touch ID hint (if flag set), backoff help text when rate‑limited
+  - Passphrase field, Face/Touch ID hint (if flag set), backoff help text when rate-limited
 - Toasts (non‑blocking)
   - Imported N files to sidecar, Exported N files, Auto‑locked, Errors
 - Preferences
@@ -87,10 +97,10 @@ This document captures the macOS app design for Aegiro. It is the single source 
   - `Sources/AegiroApp/VaultModel.swift`: create/open, unlock/lock, import/export, status, preferences (default dir, auto‑lock TTL), Quick Look support, activity monitors.
 - Primary views
   - `Sources/AegiroApp/MainView.swift`: Sidebar, toolbar (sort/filter), List/Grid, footer, context menus, Quick Look triggers, Info drawer.
-  - `Sources/AegiroApp/PreferencesView.swift`: Default vault folder, auto‑lock slider.
+  - `Sources/AegiroApp/PreferencesView.swift`: Default vault folder, auto-lock slider, Touch ID toggle.
   - `Sources/AegiroApp/MenuBarView.swift`: Lock/Unlock, Add, Export, Preferences.
-  - `Sources/AegiroApp/QuickLook.swift`: QLPreviewPanel coordinator for multi‑item preview.
-  - `Sources/AegiroApp/FirstRunView.swift`: Onboarding to create initial vault.
+  - `Sources/AegiroApp/QuickLook.swift`: QLPreviewPanel coordinator for multi-item preview.
+  - `Sources/AegiroApp/FirstRunView.swift`: Split onboarding, vault creation form, first-run helper links.
   - `Sources/AegiroApp/AppMain.swift`: App entry, Settings (Preferences), Vault command menu.
 - Core helpers (AegiroCore)
   - `Editor.updateTags` (in `Vault.swift`): applies tag updates and re‑signs manifest.
@@ -120,4 +130,3 @@ This document captures the macOS app design for Aegiro. It is the single source 
 - Dedupe and SHA256 display in Info drawer.
 - Touch ID/Keychain gating for PDK.
 - Rich Quick Look navigation and annotations.
-
