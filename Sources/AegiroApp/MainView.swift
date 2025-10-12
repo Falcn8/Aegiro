@@ -62,8 +62,25 @@ struct MainView: View {
         } detail: {
             VStack(spacing: 0) {
                 HStack {
-                    Image(systemName: "magnifyingglass")
-                    TextField("Filter", text: $filterText)
+                    HStack(spacing: 8) {
+                        Button(action: { model.openVaultWithPanel() }) {
+                            Image(systemName: "folder").help("Open Vault…")
+                        }
+                        Button(action: { model.importFiles() }) {
+                            Image(systemName: "plus").help("Add Files…")
+                        }
+                        Button(action: {
+                            if !selection.isEmpty { model.exportSelectedWithPanel(filters: Array(selection)) }
+                        }) {
+                            Image(systemName: "square.and.arrow.up").help("Export Selected…")
+                        }.disabled(selection.isEmpty)
+                        Button(action: { if model.locked { showUnlockSheet = true } else { model.lockNow() } }) {
+                            Image(systemName: model.locked ? "lock.open" : "lock").help(model.locked ? "Unlock…" : "Lock Now")
+                        }
+                        Divider()
+                        Image(systemName: "magnifyingglass")
+                        TextField("Filter", text: $filterText)
+                    }
                     Divider()
                     Picker("Sort", selection: $sortKey) {
                         Text("Name").tag("Name")

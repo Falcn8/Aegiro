@@ -176,6 +176,15 @@ final class VaultModel: ObservableObject {
         status = "Copied path"
     }
 
+    func revealOriginal(logicalPath: String) {
+        let p = URL(fileURLWithPath: logicalPath)
+        if FileManager.default.fileExists(atPath: p.path) {
+            NSWorkspace.shared.activateFileViewerSelecting([p])
+        } else {
+            status = "Original file not found; use Export or Preview instead"
+        }
+    }
+
     func startAutoLockTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
