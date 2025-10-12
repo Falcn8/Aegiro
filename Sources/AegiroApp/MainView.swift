@@ -39,9 +39,9 @@ struct MainView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             sidebar
-        } detail: {
+            Divider()
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     toolbar
@@ -58,6 +58,7 @@ struct MainView: View {
             }
             .background(Color(nsColor: .windowBackgroundColor))
         }
+        .frame(minWidth: 840, minHeight: 520)
         .sheet(isPresented: $showUnlockSheet) { unlockSheet }
         .sheet(isPresented: $showPreferences) {
             PreferencesView()
@@ -79,52 +80,58 @@ struct MainView: View {
     }
 
     private var sidebar: some View {
-        List {
-            Section {
-                vaultHeader
-            }
-            Section("Filters") {
-                sidebarRow(title: "All Files", systemImage: "tray.full", filter: .all)
-                sidebarRow(title: "Recently Added", systemImage: "clock.badge.plus", filter: .recentlyAdded)
-                sidebarRow(title: "Recently Modified", systemImage: "clock.arrow.circlepath", filter: .recentlyModified)
-            }
-            Section("Actions") {
-                Button {
+        VStack(alignment: .leading, spacing: 18) {
+            vaultHeader
+            Divider()
+            VStack(alignment: .leading, spacing: 10) {
+                sidebarButton(title: "Open Vault…", systemImage: "folder") {
                     activeFilter = .all
                     model.openVaultWithPanel()
-                } label: {
-                    Label("Open Vault…", systemImage: "folder")
                 }
-                Button {
+                sidebarButton(title: "Add Files…", systemImage: "square.and.arrow.down") {
                     model.importFiles()
-                } label: {
-                    Label("Add Files…", systemImage: "square.and.arrow.down")
                 }
-                Button {
+                sidebarButton(title: "Export…", systemImage: "square.and.arrow.up") {
                     exportSelection()
-                } label: {
-                    Label("Export…", systemImage: "square.and.arrow.up")
                 }
-                Button {
+                sidebarButton(title: model.locked ? "Unlock…" : "Lock", systemImage: model.locked ? "lock.open" : "lock") {
                     if model.locked {
                         showUnlockSheet = true
                     } else {
                         model.lockNow()
                         selection.removeAll()
                     }
-                } label: {
-                    Label(model.locked ? "Unlock…" : "Lock", systemImage: model.locked ? "lock.open" : "lock")
                 }
-                Button {
+                sidebarButton(title: "Preferences…", systemImage: "gearshape") {
                     showPreferences = true
-                } label: {
-                    Label("Preferences…", systemImage: "gearshape")
                 }
             }
+            Spacer()
         }
-        .listStyle(.sidebar)
-        .frame(minWidth: 240)
-        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+        .padding(18)
+        .frame(width: 260, alignment: .top)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .underPageBackgroundColor))
+    }
+
+    private func sidebarButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                Text(title)
+                Spacer()
+            }
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 
     private var vaultHeader: some View {
@@ -168,33 +175,6 @@ struct MainView: View {
         .padding(12)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
-    }
-
-    private func sidebarRow(title: String, systemImage: String, filter: VaultFilter) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                activeFilter = filter
-            }
-        } label: {
-            HStack {
-                Label(title, systemImage: systemImage)
-                Spacer()
-                if filter == .recentlyAdded || filter == .recentlyModified {
-                    Image(systemName: activeFilter == filter ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(activeFilter == filter ? Color.accentColor : .secondary)
-                        .accessibilityHidden(true)
-                }
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(activeFilter == filter ? Color.accentColor.opacity(0.18) : Color.clear)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
     }
 
     private var toolbar: some View {
@@ -269,6 +249,16 @@ struct MainView: View {
             }
             .menuStyle(.borderlessButton)
             .help("Change sort order")
+
+            Menu {
+                filterMenuButton(.all, title: "All Files", symbol: "tray.full")
+                filterMenuButton(.recentlyAdded, title: "Recently Added", symbol: "clock.badge.plus")
+                filterMenuButton(.recentlyModified, title: "Recently Modified", symbol: "clock.arrow.circlepath")
+            } label: {
+                Label(filterMenuTitle, systemImage: "line.3.horizontal.decrease.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .help("Filter file list")
 
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
@@ -555,6 +545,32 @@ struct MainView: View {
         } else {
             selection = [entry.id]
             lastGridAnchor = entry.id
+        }
+    }
+
+    private var filterMenuTitle: String {
+        switch activeFilter {
+        case .all: return "All Files"
+        case .recentlyAdded: return "Recently Added"
+        case .recentlyModified: return "Recently Modified"
+        }
+    }
+
+    @ViewBuilder
+    private func filterMenuButton(_ filter: VaultFilter, title: String, symbol: String) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                activeFilter = filter
+            }
+        } label: {
+            HStack {
+                Image(systemName: symbol)
+                Text(title)
+                Spacer()
+                if activeFilter == filter {
+                    Image(systemName: "checkmark")
+                }
+            }
         }
     }
 
