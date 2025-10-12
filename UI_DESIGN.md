@@ -6,13 +6,28 @@ This document captures the macOS app design for Aegiro. It is the single source 
 
 ## Design Goals
 
-- Trust & Calm: minimal chrome, clear security state, non‑modal feedback.
-- One‑handed flows: open → unlock → import → lock/export, with obvious next steps.
+- Trust & Calm: minimal chrome, clear security state, non-modal feedback.
+- One-handed flows: open → unlock → import → lock/export, with obvious next steps.
 - Fast at scale: big vaults stay snappy (lazy lists, incremental filtering).
 - Native: keyboard shortcuts everywhere; system icons, materials, and typography.
-- Accessible: VoiceOver‑friendly labels, Dynamic Type, high‑contrast compliance.
+- Accessible: VoiceOver-friendly labels, Dynamic Type, high-contrast compliance.
 
 ---
+
+## UI Flow
+
+1. **Launch** → show `FirstRunView` if no vault is configured; otherwise load the main shell.
+2. **First-run card** → create vault (optional Touch ID) or open existing vault; on success transition to the main window.
+3. **Main window**
+   - Sidebar actions: open/add/export/lock/preferences.
+   - Toolbar: search → view toggle → sort → info drawer → Quick Look.
+   - Content area: list/grid files, optional info drawer, footer status.
+4. **Unlock flow**
+   - If Touch ID enabled: biometric button fetches passphrase from secure enclave; fallback is manual passphrase.
+   - On success refresh state, populate entries, update status chip.
+5. **Preferences**
+   - Access via sidebar or `⌘,`; adjust vault folder, auto-lock timer, Touch ID toggle (disabled if vault not provisioned for biometrics).
+6. **Lock** → lock action clears passphrase, empties content, triggers optional Touch ID cleanup.
 
 ## Information Architecture
 
