@@ -202,3 +202,41 @@ Aegiro/
 
 ## Contributing
 - See `AGENTS.md` for workflow: commit every fix/change, keep diffs focused, rebuild and commit `dist/` after CLI changes.
+
+---
+
+## Troubleshooting
+
+- Linker errors about OpenSSL or liboqs (e.g., symbols `_EVP_*`, `_RAND_*`)  
+  - Ensure Homebrew dependencies are installed: `brew install liboqs argon2 openssl@3`  
+  - Use the provided build script: `bash scripts/build-real.sh` (injects the right link flags).
+
+- macOS version warnings (built for 15.0, linking 13.0)  
+  - Harmless for local builds via Homebrew bottles. For shipping, build from source targeting your deployment target.
+
+- `VaultHeader` JSON or length errors on import/open  
+  - The parser supports legacy and new headers. If you hit errors, recreate the vault with the latest CLI and re-import, or run `doctor` to inspect.
+
+- `status` shows Locked: yes / unknown entries  
+  - Provide `--passphrase` to decrypt the index: `status --vault <path> --passphrase "<pass>"`.
+
+- Preview doesn’t open a window  
+  - In headless or sandboxed environments, `open` may be ignored. Use `export` to recover files.
+
+- `pkg-config` not found / headers not found  
+  - Install `pkg-config` (usually present via Xcode CLT or Homebrew). The build script adds local `.pc` shims as a fallback.
+
+- Shred limitations on APFS  
+  - On SSD/APFS, secure deletion is best-effort. Consider full-disk encryption + vault workflows.
+
+---
+
+## Security Notes
+
+- Key derivation: Argon2id (REAL_CRYPTO) derives the PDK from your passphrase + salt; parameters default to m=256 MiB, t=3, p=1.
+- DEK wrapping: The Data Encryption Key (DEK) is AES‑GCM wrapped under the PDK and also under the Kyber shared secret (for future sharing flows).
+- Signer key wrapping: The Dilithium private key is AES‑GCM wrapped under the DEK, enabling offline manifest re‑signing on lock.
+- Chunking + nonces: File data is re‑encrypted into 1 MiB chunks on lock using AES‑GCM with deterministic 96‑bit nonces (derived via HMAC(seed, chunkIndex)).
+- Integrity: Index is AEAD-encrypted; manifest signs SHA256(index JSON) + SHA256(chunk map). `verify` validates integrity without passphrase.
+- Zero telemetry: No network access required. Keep the CLI offline; signing and KDF are all local.
+- Backups: Keep your passphrase safe. The backup includes only encrypted data + metadata; losing the passphrase means losing access.
