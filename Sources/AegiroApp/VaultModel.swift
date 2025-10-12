@@ -135,6 +135,29 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func exportSelectedWithPanel(filters: [String]) {
+        touchActivity()
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let dir = panel.url {
+            exportSelected(to: dir, filters: filters)
+        }
+    }
+
+    func preview(logicalPath: String) {
+        guard let url = vaultURL else { return }
+        let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        do {
+            _ = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: [logicalPath], outDir: tmpDir)
+            let out = tmpDir.appendingPathComponent((logicalPath as NSString).lastPathComponent)
+            NSWorkspace.shared.open(out)
+        } catch {
+            self.status = "Preview failed: \(error)"
+        }
+    }
+
     func startAutoLockTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
