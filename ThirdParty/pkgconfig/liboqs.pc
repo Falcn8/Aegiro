@@ -1,0 +1,10 @@
+prefix=/opt/homebrew
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: liboqs
+Description: Open Quantum Safe
+Version: 0
+Libs: -L${libdir} -loqs -L/opt/homebrew/opt/openssl@3/lib -lcrypto
+Cflags: -I${includedir}

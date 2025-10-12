@@ -1,0 +1,1 @@
+Apache-2.0 (abridged header for demo — please replace with full text before shipping).

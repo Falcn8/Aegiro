@@ -1,0 +1,13 @@
+{
+  "": {
+    "dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/AegiroCLI.d",
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/AegiroCLI.o",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/master.swiftdeps"
+  },
+  "/Users/codei/Downloads/Aegiro/Sources/AegiroCLI/main.swift": {
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swift.o",
+    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swiftdeps",
+    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.dia"
+  }
+}
