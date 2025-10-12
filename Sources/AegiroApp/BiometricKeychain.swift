@@ -29,7 +29,8 @@ enum BiometricKeychain {
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
+            kSecAttrAccount as String: account,
+            kSecUseDataProtectionKeychain as String: true
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
@@ -38,7 +39,8 @@ enum BiometricKeychain {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: data,
-            kSecAttrAccessControl as String: access
+            kSecAttrAccessControl as String: access,
+            kSecUseDataProtectionKeychain as String: true
         ]
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
@@ -52,7 +54,8 @@ enum BiometricKeychain {
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
+            kSecAttrAccount as String: account,
+            kSecUseDataProtectionKeychain as String: true
         ]
         SecItemDelete(deleteQuery as CFDictionary)
     }
@@ -65,7 +68,8 @@ enum BiometricKeychain {
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseAuthenticationContext as String: context
+            kSecUseAuthenticationContext as String: context,
+            kSecUseDataProtectionKeychain as String: true
         ]
 
         var item: CFTypeRef?
