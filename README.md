@@ -1,14 +1,14 @@
 # Aegiro (macOS) — Local-only, PQC-ready encrypted vault
 
-> **Status**: Build-ready skeleton with working local vault/backup CLI and SwiftUI app stubs.  
-> **Crypto**: Interfaces for **Argon2id + Kyber512 + Dilithium2** are included. By default, the project builds in **STUB_CRYPTO** mode for easy local runs (HKDF-based KDF and ECDSA signatures). Switch to **REAL_CRYPTO** to link `libargon2` and `liboqs` and meet the exact PQC/KDF spec.
+> **Status**: Working CLI with REAL_CRYPTO support, chunked in‑vault storage, manifest verification, sidecar import → lock flow, list/export/preview/doctor commands; SwiftUI app remains scaffolded.  
+> **Crypto**: **Argon2id + Kyber512 + Dilithium2** in REAL_CRYPTO mode (system `libargon2`/`liboqs`). STUB_CRYPTO remains available for local runs (HKDF/ECDSA).
 
 ---
 
 ## What’s here
 
 - **AegiroCore** (Swift library): Vault header/index/manifest per spec, chunked AES-256-GCM I/O, nonce scheme, wrappers for KDF & PQC, secure preview temp policy, shredder, privacy monitor, “secure lock” scriptables, zero-telemetry guard.
-- **AegiroCLI** (Swift exec): End-to-end demo: `create`, `import`, `lock`, `unlock`, `backup`, `verify`, `scan`, `shred`.
+- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`.
 - **AegiroApp** (SwiftUI stubs): First-run flow, main UI, menubar helper, Settings — wired to core APIs (dev-mode). XPC/LaunchAgent stubs included.
 - **Entitlements & Hardened Runtime**: prefilled.
 - **Tests**: Acceptance checks (some are integration stubs pending REAL_CRYPTO).
@@ -55,22 +55,25 @@ aegiro --help
 Checksum for the current archive:
 
 ```
-36d406371f3cd873f2ce06a211cf885cd2c76a6ed1df1f1dcdc49202e7f5c3bd  dist/aegiro-cli-macos-arm64.tar.gz
+0461bdd75bccfffac365692084e2294107b3619b8565aeedcd4ac52a6cf29a98  dist/aegiro-cli-macos-arm64.tar.gz
 ```
 
 ### REAL_CRYPTO build (Argon2id + liboqs)
 
 1) Install dependencies (macOS):
 ```bash
-brew install liboqs argon2
+brew install liboqs argon2 openssl@3
 ```
 
-2) Build **without** STUB_CRYPTO:
+2) Build and package (recommended):
 ```bash
-swift build -c release -Xswiftc -DREAL_CRYPTO
+bash scripts/build-real.sh
+./dist/aegiro-cli --help
 ```
 
-> REAL_CRYPTO mode uses system libraries via SwiftPM `systemLibrary` targets located in `Sources/Argon2C` and `Sources/OQSWrapper`. See their READMEs for symbol mapping.
+The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` and prints a SHA256 checksum.
+
+> REAL_CRYPTO uses SwiftPM `systemLibrary` targets (`Sources/Argon2C`, `Sources/OQSWrapper`, `Sources/OpenSSLShim`) and links against system libraries.
 
 ---
 
@@ -80,12 +83,17 @@ swift build -c release -Xswiftc -DREAL_CRYPTO
 # Create a new vault
 .build/release/aegiro-cli create --vault ~/AegiroVaults/alpha.aegirovault --passphrase "correct horse battery staple" --touchid
 
-# Import files
-.build/release/aegiro-cli import --vault ~/AegiroVaults/alpha.aegirovault ~/Downloads/tax.pdf ~/Desktop/passport.jpg
+# Import files (sidecar)
+.build/release/aegiro-cli import --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
 
-# Lock / unlock
-.build/release/aegiro-cli lock --vault ~/AegiroVaults/alpha.aegirovault
-.build/release/aegiro-cli unlock --vault ~/AegiroVaults/alpha.aegirovault --passphrase "correct horse battery staple"
+# Lock (ingest sidecar → index + chunk area) / unlock
+.build/release/aegiro-cli lock --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
+.build/release/aegiro-cli unlock --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
+
+# List / Export / Preview
+.build/release/aegiro-cli list --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" [--long]
+.build/release/aegiro-cli export --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" --out ~/Recovered [filters...]
+.build/release/aegiro-cli preview --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" passport
 
 # Backup export
 .build/release/aegiro-cli backup --vault ~/AegiroVaults/alpha.aegirovault --out ~/Backups/alpha_2025-10-04.aegirobackup
@@ -95,6 +103,15 @@ swift build -c release -Xswiftc -DREAL_CRYPTO
 
 # Secure shred
 .build/release/aegiro-cli shred ~/Downloads/secret.zip
+
+# Verify manifest
+.build/release/aegiro-cli verify --vault ~/AegiroVaults/alpha.aegirovault
+
+# Status (JSON)
+.build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" --json
+
+# Doctor (check, optional fix)
+.build/release/aegiro-cli doctor --vault ~/AegiroVaults/alpha.aegirovault [--passphrase "<pass>"] [--fix]
 ```
 
 ---
@@ -105,8 +122,9 @@ swift build -c release -Xswiftc -DREAL_CRYPTO
 - **Argon2id**: REAL_CRYPTO uses `libargon2`. STUB_CRYPTO uses HKDF-SHA256 placeholder (clearly labeled).
 - **Kyber512 + Dilithium2**: Interfaces via `liboqs`. STUB_CRYPTO uses ECDH(E25519) + ECDSA for demo-signing.
 - **Header**: Matches field layout (see `VaultHeader.swift`). Versioning & alg IDs included.
-- **Index**: Encrypted AEAD; filename hashing via HMAC(name, index_salt).
-- **Manifest**: SHA256 over chunk map + index root; signature via Dilithium2 (or ECDSA in STUB mode).
+- **Index**: Encrypted AEAD; filename hashing via HMAC(name, index_salt); entries include counts and metadata.
+- **Chunk Map + Area**: Length‑prefixed JSON chunk map written before the chunk area; chunk area is a concatenation of per‑chunk AES‑GCM combined ciphertexts with deterministic nonces.
+- **Manifest**: SHA256 over chunk map + index root; signature via Dilithium2 (or ECDSA in STUB mode). `verify` validates signature.
 - **Backups**: Tar-like directory with `manifest.json`, `keys.bin` (PQC-wrap only in REAL_CRYPTO), `data/`.
 - **Auto-lock & backoff**: Implemented in core/session; UX wires to timers (LaunchAgent stub).
 - **Zero Telemetry**: Network deny by default; allowlist unit test prevents regressions.
@@ -143,5 +161,11 @@ Aegiro/
 ---
 
 ## Notes
+- Legacy vaults supported: header parser accepts both MAGIC+JSON (legacy) and MAGIC+len+JSON (current).
 - Menubar helper, Finder/UI features are scaffolded. Core crypto and formats are prioritized.
 - To ship: sign/notarize, enable Hardened Runtime, pin `liboqs` version, and run the provided security checklist.
+
+---
+
+## Contributing
+- See `AGENTS.md` for workflow: commit every fix/change, keep diffs focused, rebuild and commit `dist/` after CLI changes.
