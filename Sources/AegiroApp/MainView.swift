@@ -21,6 +21,7 @@ struct MainView: View {
     @State private var toastMessage: String?
     @State private var toastDismissWork: DispatchWorkItem?
     @State private var lastGridAnchor: VaultIndexEntry.ID?
+    @State private var savedSearches: [SavedSearch] = SavedSearchStore.load()
 
     private let recentInterval: TimeInterval = 60 * 60 * 24 * 7
 
@@ -68,7 +69,7 @@ struct MainView: View {
             model.refreshStatus()
             model.startAutoLockTimer()
         }
-        .onChange(of: searchText) { _ in scheduleSearchDebounce() }
+        .onChange(of: searchText) { scheduleSearchDebounce(with: $0) }
         .onChange(of: activeFilter) { _ in trimSelection() }
         .onChange(of: searchQuery) { _ in trimSelection() }
         .onReceive(model.$entries) { _ in trimSelection() }
@@ -199,10 +200,21 @@ struct MainView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 10) {
-            searchField
+        HStack(spacing: 12) {
+            SearchToolbarField(
+                text: $searchText,
+                savedSearches: savedSearches,
+                onSubmit: { query in
+                    searchText = query
+                    scheduleSearchDebounce(with: query)
+                },
+                onSelectSaved: { saved in
+                    applySavedSearch(saved)
+                }
+            )
+            .frame(width: 280)
 
-            Picker("View Mode", selection: $viewMode) {
+            Picker("View", selection: $viewMode) {
                 Label("List", systemImage: "list.bullet.rectangle").tag(ContentViewMode.list)
                 Label("Grid", systemImage: "square.grid.2x2").tag(ContentViewMode.grid)
             }
@@ -240,21 +252,31 @@ struct MainView: View {
 
             Menu {
                 Button("Import…") { model.importFiles() }
-                    .keyboardShortcut("I", modifiers: [.command, .shift])
                     .disabled(model.locked)
                 Button("Export…") { exportSelection() }
-                    .keyboardShortcut("E", modifiers: [.command, .shift])
                     .disabled(model.locked || selection.isEmpty)
-                Button("Open Vault…") { model.openVaultWithPanel() }
-                    .keyboardShortcut("O", modifiers: [.command])
+                Button("Quick Look Selection") { quickLookSelection() }
+                    .disabled(model.locked || selection.isEmpty)
                 Divider()
-                Menu("Filter By") {
-                    Picker("Filter", selection: $activeFilter) {
-                        Text("All Files").tag(VaultFilter.all)
-                        Text("Recently Added").tag(VaultFilter.recentlyAdded)
-                        Text("Recently Modified").tag(VaultFilter.recentlyModified)
+                Picker("Filter", selection: $activeFilter) {
+                    Text("All Files").tag(VaultFilter.all)
+                    Text("Recently Added").tag(VaultFilter.recentlyAdded)
+                    Text("Recently Modified").tag(VaultFilter.recentlyModified)
+                }
+                Divider()
+                if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button("Save Search…") { saveCurrentSearch() }
+                }
+                if !savedSearches.isEmpty {
+                    Menu("Saved Filters") {
+                        ForEach(savedSearches) { saved in
+                            Button(saved.name) { applySavedSearch(saved) }
+                        }
+                        Divider()
+                        ForEach(savedSearches) { saved in
+                            Button("Remove \(saved.name)") { deleteSavedSearch(saved) }
+                        }
                     }
-                    .pickerStyle(.inline)
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -277,23 +299,6 @@ struct MainView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
         .background(.thinMaterial)
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField("Search", text: $searchText, prompt: Text("Search files"))
-                .textFieldStyle(.plain)
-                .accessibilityLabel("Search files")
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 10)
-        .frame(minWidth: 200, maxWidth: 260)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
     }
 
     private var contentArea: some View {
@@ -605,6 +610,48 @@ struct MainView: View {
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
+    private func saveCurrentSearch() {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let name = promptForSavedSearchName(defaultName: trimmed) else { return }
+        let saved = SavedSearch(id: UUID(), name: name, query: trimmed)
+        savedSearches.append(saved)
+        SavedSearchStore.save(savedSearches)
+    }
+
+    private func deleteSavedSearch(_ saved: SavedSearch) {
+        savedSearches.removeAll { $0.id == saved.id }
+        SavedSearchStore.save(savedSearches)
+    }
+
+    private func applySavedSearch(_ saved: SavedSearch) {
+        searchText = saved.query
+        searchQuery = saved.query
+        trimSelection()
+        updateSearchMenuRecents()
+    }
+
+    private func promptForSavedSearchName(defaultName: String) -> String? {
+        let alert = NSAlert()
+        alert.messageText = "Save Search"
+        alert.informativeText = "Name this smart filter."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.stringValue = defaultName
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
+        }
+        return nil
+    }
+
+    private func updateSearchMenuRecents() {
+        // Placeholder for future integration with system recents if desired
+    }
+
     private func applyFilter(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
         let now = Date()
         switch activeFilter {
@@ -622,10 +669,8 @@ struct MainView: View {
     private func applySearch(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return entries }
-        return entries.filter {
-            $0.logicalPath.localizedCaseInsensitiveContains(query) ||
-            $0.mime.localizedCaseInsensitiveContains(query)
-        }
+        let parsed = ParsedSearch(query)
+        return entries.filter { entryMatches($0, parsed: parsed) }
     }
 
     private func applySort(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
@@ -635,10 +680,12 @@ struct MainView: View {
         return sortAscending ? sorted : sorted.reversed()
     }
 
-    private func scheduleSearchDebounce() {
+    private func scheduleSearchDebounce(with text: String) {
         searchDebounceTask?.cancel()
-        let text = searchText
-        let task = DispatchWorkItem { searchQuery = text }
+        let input = text
+        let task = DispatchWorkItem {
+            searchQuery = input
+        }
         searchDebounceTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: task)
     }
@@ -697,6 +744,22 @@ struct MainView: View {
             selection = [entry.id]
             lastGridAnchor = entry.id
         }
+    }
+
+    private func entryMatches(_ entry: VaultIndexEntry, parsed: ParsedSearch) -> Bool {
+        if !parsed.names.allSatisfy({ entry.displayName.localizedCaseInsensitiveContains($0) }) { return false }
+        if !parsed.kinds.allSatisfy({ entry.kindDescription.localizedCaseInsensitiveContains($0) }) { return false }
+        if !parsed.tags.allSatisfy({ tag in entry.tags.contains { $0.localizedCaseInsensitiveContains(tag) } }) { return false }
+        if !parsed.general.isEmpty {
+            let haystacks = [entry.displayName, entry.kindDescription, entry.mime, entry.folderPath]
+            for term in parsed.general {
+                if !haystacks.contains(where: { $0.localizedCaseInsensitiveContains(term) }) &&
+                    !entry.tags.contains(where: { $0.localizedCaseInsensitiveContains(term) }) {
+                    return false
+                }
+            }
+        }
+        return true
     }
 
 }
@@ -1122,4 +1185,53 @@ private extension ByteCountFormatter {
         formatter.isAdaptive = true
         return formatter
     }()
+}
+
+private struct ParsedSearch {
+    var general: [String] = []
+    var names: [String] = []
+    var kinds: [String] = []
+    var tags: [String] = []
+
+    init(_ text: String) {
+        let tokens = ParsedSearch.tokenize(text)
+        for token in tokens {
+            if let range = token.range(of: ":") {
+                let key = String(token[..<range.lowerBound]).lowercased()
+                let value = String(token[range.upperBound...])
+                switch key {
+                case "name": names.append(value)
+                case "kind": kinds.append(value)
+                case "tag", "tags": tags.append(value)
+                default: general.append(token)
+                }
+            } else {
+                general.append(token)
+            }
+        }
+    }
+
+    private static func tokenize(_ text: String) -> [String] {
+        var tokens: [String] = []
+        var current = ""
+        var inQuotes = false
+        for char in text {
+            if char == "\"" {
+                inQuotes.toggle()
+                continue
+            }
+            if char.isWhitespace && !inQuotes {
+                if !current.isEmpty {
+                    tokens.append(current)
+                    current.removeAll(keepingCapacity: false)
+                }
+            } else {
+                current.append(char)
+            }
+        }
+        if !current.isEmpty {
+            tokens.append(current)
+        }
+        return tokens
+    }
 }
