@@ -111,7 +111,7 @@ struct MainView: View {
         .padding(18)
         .frame(width: 260, alignment: .top)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Color(nsColor: .underPageBackgroundColor))
+        .background(Color(nsColor: .controlBackgroundColor))
     }
 
     private func sidebarButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
@@ -761,14 +761,25 @@ private struct StatusChip: View {
 
     var body: some View {
         HStack(spacing: 6) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
             Image(systemName: symbol)
+                .foregroundStyle(color)
             Text(text)
+                .foregroundStyle(.primary)
         }
-        .font(.caption)
+        .font(.caption.weight(.medium))
         .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(color.opacity(0.18), in: Capsule())
-        .foregroundStyle(color)
+        .padding(.horizontal, 10)
+        .background(
+            Capsule()
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            Capsule()
+                .stroke(color.opacity(0.35), lineWidth: 1)
+        )
     }
 }
 
