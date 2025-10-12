@@ -225,7 +225,7 @@ public enum Importer {
     }
 }
 
-fileprivate struct VaultLayout {
+struct VaultLayout {
     let headerLen: Int
     let pdkWrapRange: Range<Int>
     let signerWrapLenPos: Int
@@ -239,7 +239,7 @@ fileprivate struct VaultLayout {
     let chunkAreaStart: Int
 }
 
-fileprivate func computeLayout(_ data: Data, afterHeader hdrLen: Int) -> VaultLayout {
+func computeLayout(_ data: Data, afterHeader hdrLen: Int) -> VaultLayout {
     var cursor = hdrLen
     // pdk wrap (12+32+16)
     let pdkRange = cursor..<(cursor+60)
@@ -678,5 +678,62 @@ public enum Doctor {
         let wrap = data.subdata(in: layout.signerWrapRange)
         let aad = Data("AEGIRO-V1".utf8)
         return try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: wrap.prefix(12)), combined: wrap, aad: aad)
+    }
+}
+
+public enum Editor {
+    public static func updateTags(vaultURL: URL, passphrase: String, updates: [String: [String]]) throws {
+        let data = try Data(contentsOf: vaultURL)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+
+        // Derive DEK
+        #if REAL_CRYPTO
+        let kdf = Argon2idKDF()
+        #else
+        let kdf = StubKDF()
+        #endif
+        let pdkWrap = data.subdata(in: layout.pdkWrapRange)
+        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
+        let pdk = SymmetricKey(data: pdkRaw)
+        let aad = Data("AEGIRO-V1".utf8)
+        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
+        let dek = SymmetricKey(data: dekRaw)
+
+        // Decrypt index, apply updates
+        let idxBlob = data.subdata(in: layout.idxRange)
+        var index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
+        var changed = false
+        for i in 0..<index.entries.count {
+            let logical = index.entries[i].logicalPath
+            if let tags = updates[logical] {
+                index.entries[i].tags = tags
+                changed = true
+            }
+        }
+        guard changed else { return }
+
+        // Re-encrypt index
+        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+        var d = data
+        let newLenLE = withUnsafeBytes(of: UInt32(newIdxBlob.count).littleEndian) { Data($0) }
+        d.replaceSubrange(layout.idxLenPos..<(layout.idxLenPos+4), with: newLenLE)
+        d.replaceSubrange(layout.idxRange, with: newIdxBlob)
+
+        // Re-sign manifest
+        let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: d.subdata(in: layout.signerWrapRange).prefix(12)), combined: d.subdata(in: layout.signerWrapRange), aad: aad)
+        #if REAL_CRYPTO
+        let sig = Dilithium2()
+        #else
+        let sig = StubSig()
+        #endif
+        let chunkMap = d.subdata(in: layout.chunkMapRange)
+        let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
+        let manBlob = try JSONEncoder().encode(manifest)
+        let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
+        d.replaceSubrange(layout.manLenPos..<(layout.manLenPos+4), with: manLenLE)
+        d.replaceSubrange(layout.manRange, with: manBlob)
+
+        try d.write(to: vaultURL, options: .atomic)
     }
 }
