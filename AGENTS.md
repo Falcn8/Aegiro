@@ -41,6 +41,9 @@ This repo is designed for iterative, surgical improvements. Please follow these 
 - Install binary (optional): `sudo install -m 0755 dist/aegiro-cli /usr/local/bin/aegiro`
 - Basic smoke test: `./dist/aegiro-cli --help`
 
+### Design Reference
+- Follow `UI_DESIGN.md` for macOS app layouts, patterns, and UX principles. Keep the document updated when changing app UI.
+
 ### Do Not
 - Do not commit secrets or credentials.
 - Do not bundle network dependencies in code (use system libraries as configured).
