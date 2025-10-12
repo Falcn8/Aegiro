@@ -1,0 +1,5 @@
+module OpenSSLShim [system] {
+  header "openssl_shim.h"
+  link "crypto"
+}
+

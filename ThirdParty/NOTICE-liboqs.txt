@@ -1,0 +1,1 @@
+liboqs is Apache-2.0; see https://github.com/open-quantum-safe/liboqs

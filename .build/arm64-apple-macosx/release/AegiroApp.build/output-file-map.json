@@ -1,0 +1,31 @@
+{
+  "": {
+    "dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroApp.d",
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroApp.o",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/master.swiftdeps"
+  },
+  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/AppMain.swift": {
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o",
+    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swiftdeps",
+    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.dia"
+  },
+  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift": {
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
+    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swiftdeps",
+    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.dia"
+  },
+  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift": {
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o",
+    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swiftdeps",
+    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.dia"
+  },
+  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift": {
+    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o",
+    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swiftdeps",
+    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.dia"
+  }
+}

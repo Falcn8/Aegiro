@@ -1,0 +1,6 @@
+
+module OQSWrapper [system] {
+  header "oqs.h"
+  link "oqs"
+  link "crypto"
+}
