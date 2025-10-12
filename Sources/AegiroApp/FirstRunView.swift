@@ -1,12 +1,18 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
+import Combine
 
 struct FirstRunView: View {
     @EnvironmentObject var model: VaultModel
     var onDone: () -> Void
+    @State private var step: OnboardingStep = .location
     @State private var passphrase = ""
     @State private var hint = ""
+    @State private var showPassphrase = false
+    @State private var capsLockOn = false
+    @State private var capsLockMonitor: Any?
     @State private var touchIDEnabled = true
     @State private var path: String = defaultVaultURL().path
     @State private var errorText: String?
@@ -26,9 +32,9 @@ struct FirstRunView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Set up your vault")
+                            Text(step == .location ? "Choose a vault location" : "Secure your new vault")
                                 .font(.system(size: 32, weight: .bold))
-                            Text("Create an encrypted vault or open one you already use.")
+                            Text(step == .location ? "Create an encrypted vault or open one you already use." : "Add a strong passphrase and optional Touch ID unlock.")
                                 .font(.title3)
                                 .foregroundStyle(.secondary)
                         }
@@ -55,7 +61,22 @@ struct FirstRunView: View {
                 }
             }
         }
-        .onAppear { touchIDEnabled = model.allowTouchID }
+        .onAppear {
+            touchIDEnabled = model.supportsBiometricUnlock && model.allowTouchID
+            capsLockOn = NSEvent.modifierFlags.contains(.capsLock)
+            if capsLockMonitor == nil {
+                capsLockMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+                    capsLockOn = event.modifierFlags.contains(.capsLock)
+                    return event
+                }
+            }
+        }
+        .onDisappear {
+            if let monitor = capsLockMonitor {
+                NSEvent.removeMonitor(monitor)
+                capsLockMonitor = nil
+            }
+        }
     }
 
     func choosePath() {
@@ -65,15 +86,19 @@ struct FirstRunView: View {
         let vt = UTType(filenameExtension: "aegirovault") ?? .data
         panel.allowedContentTypes = [vt]
         if panel.runModal() == .OK, let url = panel.url {
-            path = url.path
+            path = ensuredVaultPath(from: url.path)
         }
     }
 
     func create() {
-        let url = URL(fileURLWithPath: path)
-        model.allowTouchID = touchIDEnabled
+        path = ensuredVaultPath(from: path)
+        if model.supportsBiometricUnlock {
+            model.allowTouchID = touchIDEnabled
+        } else {
+            model.allowTouchID = false
+        }
         model.saveSettings()
-        model.createVault(at: url, passphrase: passphrase, touchID: touchIDEnabled)
+        model.createVault(at: URL(fileURLWithPath: path), passphrase: passphrase, touchID: touchIDEnabled && model.supportsBiometricUnlock)
         if model.vaultURL != nil {
             onDone()
         } else {
@@ -131,29 +156,74 @@ struct FirstRunView: View {
                         TextField("/path/to/vault.aegirovault", text: $path)
                             .textFieldStyle(.roundedBorder)
                             .frame(minWidth: 240)
+                            .disabled(step != .location)
                         Button {
                             choosePath()
                         } label: {
                             Label("Choose…", systemImage: "folder")
                         }
                         .buttonStyle(.bordered)
+                        .disabled(step != .location)
                     }
+                    .opacity(step == .location ? 1 : 0.4)
                 }
-                FormField(label: "Passphrase") {
-                    SecureField("Minimum 8 characters", text: $passphrase)
-                        .textFieldStyle(.roundedBorder)
+                if step == .location {
+                    Text("Pick a destination for your .aegirovault bundle. You can change it later in Preferences.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                PassphraseStrengthView(passphrase: passphrase)
-                FormField(label: "Hint (optional)") {
-                    TextField("Only stored on this Mac", text: $hint)
-                        .textFieldStyle(.roundedBorder)
+                if step == .security {
+                    FormField(label: "Passphrase") {
+                        HStack(spacing: 8) {
+                            Group {
+                                if showPassphrase {
+                                    TextField("Minimum 8 characters", text: $passphrase)
+                                } else {
+                                    SecureField("Minimum 8 characters", text: $passphrase)
+                                }
+                            }
+                            .textFieldStyle(.roundedBorder)
+                            Button {
+                                showPassphrase.toggle()
+                            } label: {
+                                Image(systemName: showPassphrase ? "eye.slash" : "eye")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                    .overlay(alignment: .trailing) {
+                        if capsLockOn {
+                            Label("Caps Lock is on", systemImage: "exclamationmark.triangle")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                                .padding(.trailing, 8)
+                        }
+                    }
+                    .onAppear {
+                        capsLockOn = NSEvent.modifierFlags.contains(.capsLock)
+                    }
+                    PassphraseStrengthView(passphrase: passphrase)
+                    FormField(label: "Hint (optional)") {
+                        TextField("Only stored on this Mac", text: $hint)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    Link("What makes a strong passphrase?", destination: URL(string: "https://support.apple.com/guide/security/password-security-sec5599cb43f/web")!)
+                        .font(.caption)
                 }
             }
 
-            Toggle(isOn: $touchIDEnabled) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Allow Touch ID on this Mac")
-                    Text("Secure Enclave keeps the key on-device.")
+            if step == .security {
+                Toggle(isOn: $touchIDEnabled) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Allow Touch ID on this Mac")
+                        Text("Secure Enclave keeps the key on-device.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!model.supportsBiometricUnlock)
+                if !model.supportsBiometricUnlock {
+                    Text("Touch ID is only available for vaults created with biometric escrow.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -167,11 +237,23 @@ struct FirstRunView: View {
 
             HStack {
                 Spacer()
-                Button("Create Vault") {
-                    create()
+                if step == .location {
+                    Button("Continue") {
+                        path = ensuredVaultPath(from: path)
+                        withAnimation(.easeInOut) { step = .security }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isLocationValid)
+                } else {
+                    Button("Back") {
+                        withAnimation(.easeInOut) { step = .location }
+                    }
+                    Button("Create Vault") {
+                        create()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canCreate)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!canCreate)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,14 +274,7 @@ struct FirstRunView: View {
     }
 
     private var canCreate: Bool {
-        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedPath.hasSuffix(".aegirovault") && passphrase.count >= 8
-    }
-
-private func valueProp(icon: String, title: String) -> some View {
-    Label(title, systemImage: icon)
-        .labelStyle(.titleAndIcon)
-        .font(.callout.weight(.semibold))
+        isLocationValid && passphrase.count >= 8
     }
 }
 
@@ -291,4 +366,28 @@ private struct FormField<Content: View>: View {
             content
         }
     }
+}
+
+private extension FirstRunView {
+    var isLocationValid: Bool {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed.lowercased().hasSuffix(".aegirovault")
+    }
+
+    func ensuredVaultPath(from path: String) -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.lowercased().hasSuffix(".aegirovault") else { return trimmed }
+        return trimmed + (trimmed.hasSuffix(".") ? "aegirovault" : ".aegirovault")
+    }
+
+    func valueProp(icon: String, title: String) -> some View {
+        Label(title, systemImage: icon)
+            .labelStyle(.titleAndIcon)
+            .font(.callout.weight(.semibold))
+    }
+}
+
+enum OnboardingStep {
+    case location
+    case security
 }
