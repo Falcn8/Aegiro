@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# Xcode (if generated locally)
+*.xcodeproj/
+DerivedData/
+xcuserdata/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Debug symbols / crash logs
+*.dSYM/
+*.crash
+*.log
+
+# Env/config
+.env
+.env.*
+
+# Archives (keep dist tracked per AGENTS.md)
+*.zip
+*.tar
+# Do not ignore dist artifacts
+# dist/
