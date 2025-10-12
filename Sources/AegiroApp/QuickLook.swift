@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import Quartz
+import AegiroCore
 
 final class QuickLookCoordinator: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     static let shared = QuickLookCoordinator()
@@ -48,4 +49,3 @@ extension VaultModel {
         }
     }
 }
-

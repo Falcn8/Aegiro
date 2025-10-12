@@ -15,6 +15,8 @@ final class VaultModel: ObservableObject {
     @Published var passphrase: String = ""
     @Published var defaultVaultDir: URL
     @Published var autoLockTTL: Int
+    @Published var allowTouchID: Bool
+    @Published private(set) var availableTags: [String: Int] = [:]
     private var timer: Timer?
     private var lastActivity: Date = .now
     private var globalMonitors: [Any] = []
@@ -30,6 +32,11 @@ final class VaultModel: ObservableObject {
         }
         let ttl = defaults.integer(forKey: "autoLockTTL")
         self.autoLockTTL = ttl > 0 ? ttl : 300
+        if defaults.object(forKey: "allowTouchID") != nil {
+            self.allowTouchID = defaults.bool(forKey: "allowTouchID")
+        } else {
+            self.allowTouchID = true
+        }
     }
 
     func createVault(at url: URL, passphrase: String, touchID: Bool) {
@@ -65,7 +72,10 @@ final class VaultModel: ObservableObject {
             self.manifestOK = info.manifestOK
             if !info.locked, !passphrase.isEmpty {
                 self.entries = (try? Exporter.list(vaultURL: url, passphrase: passphrase)) ?? []
+            } else {
+                self.entries = []
             }
+            rebuildDerivedState(from: self.entries)
         } catch {
             self.status = "Status failed: \(error)"
         }
@@ -79,6 +89,7 @@ final class VaultModel: ObservableObject {
             self.passphrase = pass
             self.locked = false
             self.entries = (try? Exporter.list(vaultURL: url, passphrase: pass)) ?? []
+            rebuildDerivedState(from: self.entries)
             self.status = "Unlocked"
         } catch {
             self.status = "Unlock failed: \(error)"
@@ -219,9 +230,21 @@ final class VaultModel: ObservableObject {
         self.locked = true
         self.entries = []
         self.status = "Auto-locked"
+        rebuildDerivedState(from: [])
     }
 
     private func touchActivity() { lastActivity = .now }
+
+    private func rebuildDerivedState(from entries: [VaultIndexEntry]) {
+        let counts = entries
+            .flatMap(\.tags)
+            .reduce(into: [String: Int]()) { result, tag in
+                result[tag, default: 0] += 1
+            }
+        if counts != availableTags {
+            availableTags = counts
+        }
+    }
 }
 
 func defaultVaultURL() -> URL {
@@ -247,6 +270,7 @@ extension VaultModel {
         let d = UserDefaults.standard
         d.set(defaultVaultDir.path, forKey: "defaultVaultDir")
         d.set(autoLockTTL, forKey: "autoLockTTL")
+        d.set(allowTouchID, forKey: "allowTouchID")
         status = "Preferences saved"
     }
 }
