@@ -6,6 +6,8 @@ struct PreferencesView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var ttlMinutes: Double = 5
     private let presets: [Int] = [1, 5, 10, 15, 30, 60]
+    @State private var showingCustomTTL = false
+    @State private var customTTLInput: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -39,10 +41,6 @@ struct PreferencesView: View {
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
-                Slider(value: $ttlMinutes, in: 1...60, step: 1) { editing in
-                    if !editing { applyTTL() }
-                }
-                .accessibilityLabel("Auto-lock timeout in minutes")
                 HStack {
                     ForEach(presets, id: \.self) { minute in
                         Button("\(minute)") {
@@ -53,7 +51,30 @@ struct PreferencesView: View {
                         .tint(ttlMinutes == Double(minute) ? .accentColor : .secondary)
                         .font(.caption.monospacedDigit())
                     }
+                    Button("Custom…") {
+                        showingCustomTTL.toggle()
+                        if showingCustomTTL {
+                            customTTLInput = String(Int(ttlMinutes))
+                        }
+                    }
+                    .buttonStyle(.bordered)
                 }
+                if showingCustomTTL {
+                    HStack(spacing: 8) {
+                        Text("Minutes")
+                            .font(.subheadline)
+                        TextField("Minutes", text: $customTTLInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            .onSubmit { applyCustomTTL() }
+                        Button("Apply") { applyCustomTTL() }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                Slider(value: $ttlMinutes, in: 1...60, step: 1) { editing in
+                    if !editing { applyTTL() }
+                }
+                .accessibilityLabel("Auto-lock timeout in minutes")
                 Text("Choose how long Aegiro stays unlocked after activity.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -110,5 +131,12 @@ struct PreferencesView: View {
     private func applyTTL() {
         let clamped = max(1, min(60, ttlMinutes.rounded()))
         model.autoLockTTL = Int(clamped) * 60
+    }
+
+    private func applyCustomTTL() {
+        guard let minutes = Double(customTTLInput.trimmingCharacters(in: .whitespaces)), minutes > 0 else { return }
+        ttlMinutes = max(1, min(60, minutes))
+        applyTTL()
+        customTTLInput = String(Int(ttlMinutes))
     }
 }
