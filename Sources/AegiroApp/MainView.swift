@@ -60,7 +60,7 @@ struct MainView: View {
             }
             .background(AegiroPalette.iceBlue.opacity(0.08))
         }
-        .frame(minWidth: 980, minHeight: 600)
+        .frame(minWidth: 980, minHeight: 700)
         .sheet(isPresented: $showUnlockSheet) { unlockSheet }
         .sheet(isPresented: $showPreferences) {
             PreferencesView()
@@ -91,53 +91,54 @@ struct MainView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            brandCard
-            workflowCard
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: 16) {
+                brandCard
+                workflowCard
 
-            VStack(spacing: 10) {
-                actionButton(title: "Open Vault", icon: "folder") {
-                    model.openVaultWithPanel()
-                    activeFilter = .all
-                }
-
-                actionButton(title: "Create Vault", icon: "plus.circle") {
-                    showCreateVaultSheet = true
-                }
-
-                actionButton(title: model.locked ? "Unlock Vault" : "Add to Sidecar", icon: model.locked ? "lock.open" : "tray.and.arrow.down") {
-                    if model.locked {
-                        showUnlockSheet = true
-                    } else {
-                        model.importFiles()
+                VStack(spacing: 10) {
+                    actionButton(title: "Open Vault", icon: "folder") {
+                        model.openVaultWithPanel()
+                        activeFilter = .all
                     }
-                }
-                .disabled(model.vaultURL == nil)
 
-                actionButton(title: "Lock and Import", icon: "lock") {
-                    model.lockNow()
-                    selection.removeAll()
-                }
-                .disabled(model.vaultURL == nil || model.locked || model.sidecarPending == 0)
+                    actionButton(title: "Create Vault", icon: "plus.circle") {
+                        showCreateVaultSheet = true
+                    }
 
-                actionButton(title: "Export Selected", icon: "square.and.arrow.up") {
-                    exportSelection()
+                    actionButton(title: model.locked ? "Unlock Vault" : "Add to Sidecar", icon: model.locked ? "lock.open" : "tray.and.arrow.down") {
+                        if model.locked {
+                            showUnlockSheet = true
+                        } else {
+                            model.importFiles()
+                        }
+                    }
+                    .disabled(model.vaultURL == nil)
+
+                    actionButton(title: "Lock and Import", icon: "lock") {
+                        model.lockNow()
+                        selection.removeAll()
+                    }
+                    .disabled(model.vaultURL == nil || model.locked || model.sidecarPending == 0)
+
+                    actionButton(title: "Export Selected", icon: "square.and.arrow.up") {
+                        exportSelection()
+                    }
+                    .disabled(model.locked || selection.isEmpty)
                 }
-                .disabled(model.locked || selection.isEmpty)
+
+                Button {
+                    showPreferences = true
+                } label: {
+                    Label("Preferences", systemImage: "gearshape")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
             }
-
-            Spacer()
-
-            Button {
-                showPreferences = true
-            } label: {
-                Label("Preferences", systemImage: "gearshape")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
         .frame(width: 300, alignment: .top)
         .background(
             LinearGradient(
