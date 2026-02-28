@@ -392,7 +392,7 @@ final class VaultModel: ObservableObject {
             case .accessControlCreationFailed:
                 return "Could not create secure storage for Touch ID."
             case .itemNotFound:
-                return "No Touch ID passphrase stored for this vault."
+                return "No Touch ID passphrase is stored for this vault. Unlock once with your passphrase to save it."
             case .unexpectedStatus(let status):
                 return "Keychain error (\(status))."
             case .stringDecodingFailed:
