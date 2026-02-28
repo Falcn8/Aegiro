@@ -1,12 +1,12 @@
 import SwiftUI
 
 enum AegiroPalette {
-    static let iceBlue = Color(hex: "#FFECD1")
-    static let tealBlue = Color(hex: "#15616D")
-    static let deepNavy = Color(hex: "#001524")
-    static let sunYellow = Color(hex: "#FFECD1")
-    static let orange = Color(hex: "#FF7D00")
-    static let primaryBlue = Color(hex: "#15616D")
+    static let iceBlue = Color(hex: "#8ECAE6")
+    static let tealBlue = Color(hex: "#219EBC")
+    static let deepNavy = Color(hex: "#023047")
+    static let sunYellow = Color(hex: "#FFB703")
+    static let orange = Color(hex: "#FB8500")
+    static let primaryBlue = Color(hex: "#219EBC")
 }
 
 extension Color {
