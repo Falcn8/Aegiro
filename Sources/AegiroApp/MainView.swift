@@ -79,6 +79,11 @@ struct MainView: View {
         .onReceive(model.$entries) { _ in
             selection = selection.intersection(Set(model.entries.map(\.id)))
         }
+        .onReceive(model.$locked) { isLocked in
+            guard showUnlockSheet, !isLocked else { return }
+            unlockPass = ""
+            showUnlockSheet = false
+        }
         .onReceive(model.$status) { updateToast(with: $0) }
         .onDisappear {
             toastDismissWork?.cancel()
@@ -483,7 +488,6 @@ struct MainView: View {
             if model.allowTouchID && model.supportsBiometricUnlock {
                 Button {
                     model.unlockWithBiometrics()
-                    showUnlockSheet = false
                 } label: {
                     Label("Use Touch ID", systemImage: "touchid")
                 }
