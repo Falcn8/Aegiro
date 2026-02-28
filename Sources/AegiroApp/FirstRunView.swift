@@ -11,6 +11,7 @@ struct FirstRunView: View {
     @State private var showPassphrase = false
     @State private var touchIDEnabled = true
     @State private var errorText: String?
+    @State private var startMode: FirstRunMode = .openExisting
 
     var body: some View {
         GeometryReader { proxy in
@@ -59,87 +60,18 @@ struct FirstRunView: View {
     }
 
     private var contentCard: some View {
-        HStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 14) {
-                valueProp(icon: "folder.badge.plus", title: "Create a new vault")
-                valueProp(icon: "lock.open", title: "Unlock instantly with passphrase")
-                valueProp(icon: "tray.and.arrow.down", title: "Stage to sidecar, then lock to import")
-                valueProp(icon: "touchid", title: "Optional Touch ID support")
-
-                Divider()
-
-                Button {
-                    openExisting()
-                } label: {
-                    Label("Open Existing Vault", systemImage: "folder")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
+        VStack(alignment: .leading, spacing: 18) {
+            Picker("Start with", selection: $startMode) {
+                Label("Open Existing", systemImage: "folder").tag(FirstRunMode.openExisting)
+                Label("Create New", systemImage: "plus.circle").tag(FirstRunMode.createNew)
             }
-            .frame(width: 250, alignment: .topLeading)
+            .pickerStyle(.segmented)
 
-            Divider()
-
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Create New Vault")
-                    .font(.title3.weight(.semibold))
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Vault location")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        TextField("/path/to/vault.aegirovault", text: $path)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Choose…") { choosePath() }
-                            .buttonStyle(.bordered)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Passphrase")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        Group {
-                            if showPassphrase {
-                                TextField("At least 8 characters", text: $passphrase)
-                            } else {
-                                SecureField("At least 8 characters", text: $passphrase)
-                            }
-                        }
-                        .textFieldStyle(.roundedBorder)
-                        Button {
-                            showPassphrase.toggle()
-                        } label: {
-                            Image(systemName: showPassphrase ? "eye.slash" : "eye")
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                }
-
-                Toggle(isOn: $touchIDEnabled) {
-                    Label("Enable Touch ID", systemImage: "touchid")
-                }
-                .disabled(!model.supportsBiometricUnlock)
-
-                if let errorText {
-                    Text(errorText)
-                        .font(.footnote)
-                        .foregroundStyle(AegiroPalette.orange)
-                }
-
-                HStack {
-                    Spacer()
-                    Button("Create Vault") {
-                        create()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(AegiroPalette.primaryBlue)
-                    .disabled(!canCreate)
-                }
+            if startMode == .openExisting {
+                openExistingContent
+            } else {
+                createVaultContent
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(24)
         .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -147,6 +79,112 @@ struct FirstRunView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
         )
+    }
+
+    private var openExistingContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Open Existing Vault")
+                .font(.title3.weight(.semibold))
+
+            Text("Start from a vault you already use, then continue with import and export workflows.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            valueProp(icon: "lock.open", title: "Unlock with your passphrase")
+            valueProp(icon: "tray.and.arrow.down", title: "Add files to sidecar and lock to import")
+            valueProp(icon: "touchid", title: "Touch ID works when a passphrase is saved on this Mac")
+
+            if let errorText {
+                Text(errorText)
+                    .font(.footnote)
+                    .foregroundStyle(AegiroPalette.orange)
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    openExisting()
+                } label: {
+                    Label("Open Vault", systemImage: "folder")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.primaryBlue)
+
+                Button("Create New Vault") {
+                    startMode = .createNew
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var createVaultContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Create New Vault")
+                .font(.title3.weight(.semibold))
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Vault location")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    TextField("/path/to/vault.aegirovault", text: $path)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose…") { choosePath() }
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Passphrase")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Group {
+                        if showPassphrase {
+                            TextField("At least 8 characters", text: $passphrase)
+                        } else {
+                            SecureField("At least 8 characters", text: $passphrase)
+                        }
+                    }
+                    .textFieldStyle(.roundedBorder)
+                    Button {
+                        showPassphrase.toggle()
+                    } label: {
+                        Image(systemName: showPassphrase ? "eye.slash" : "eye")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+
+            Toggle(isOn: $touchIDEnabled) {
+                Label("Enable Touch ID", systemImage: "touchid")
+            }
+            .disabled(!model.supportsBiometricUnlock)
+
+            if let errorText {
+                Text(errorText)
+                    .font(.footnote)
+                    .foregroundStyle(AegiroPalette.orange)
+            }
+
+            HStack {
+                Button("Open Existing Vault") {
+                    startMode = .openExisting
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button("Create Vault") {
+                    create()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.primaryBlue)
+                .disabled(!canCreate)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var footer: some View {
@@ -213,3 +251,7 @@ struct FirstRunView: View {
     }
 }
 
+private enum FirstRunMode: Hashable {
+    case openExisting
+    case createNew
+}
