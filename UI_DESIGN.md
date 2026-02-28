@@ -1,144 +1,86 @@
-## AegiroApp — Modern UI Redesign
+## AegiroApp — Modern Simplified UI
 
-This document captures the macOS app design for Aegiro. It is the single source of truth for UI/UX decisions and should be kept up‑to‑date as the app evolves.
+This document describes the current Aegiro macOS app UI and interaction model.
 
----
+## Design Intent
 
-## Design Goals
+- Keep the workflow obvious: add to sidecar, then lock to import.
+- Keep primary actions one-click: create vault, open vault, unlock, add files, lock/import, export.
+- Keep visuals modern and calm with icon-led sections and clear hierarchy.
+- Keep secondary controls available but not noisy.
 
-- Trust & Calm: minimal chrome, clear security state, non-modal feedback.
-- One-handed flows: open → unlock → import → lock/export, with obvious next steps.
-- Fast at scale: big vaults stay snappy (lazy lists, incremental filtering).
-- Native: keyboard shortcuts everywhere; system icons, materials, and typography.
-- Accessible: VoiceOver-friendly labels, Dynamic Type, high-contrast compliance.
+## Visual System
 
----
+- Palette (fixed):
+  - `#001524` (deep navy)
+  - `#15616D` (teal blue)
+  - `#FFECD1` (cream)
+  - `#FF7D00` (orange)
+- Shared theme tokens live in `Sources/AegiroApp/AegiroTheme.swift`.
+- Cards use rounded corners, soft strokes, and light gradients.
+- SF Symbols are used for all major actions and status.
 
-## UI Flow
+## Screen Model
 
-1. **Launch** → show `FirstRunView` if no vault is configured; otherwise load the main shell.
-2. **First-run card** → create vault (optional Touch ID) or open existing vault; on success transition to the main window.
-3. **Main window**
-   - Sidebar actions: open/add/export/lock/preferences.
-   - Toolbar: search → view toggle → sort → info drawer → Quick Look.
-   - Content area: list/grid files, optional info drawer, footer status.
-4. **Unlock flow**
-   - If Touch ID enabled: biometric button fetches passphrase from secure enclave; fallback is manual passphrase.
-   - On success refresh state, populate entries, update status chip.
-5. **Preferences**
-   - Access via sidebar or `⌘,`; adjust vault folder, auto-lock timer, Touch ID toggle (disabled if vault not provisioned for biometrics).
-6. **Lock** → lock action clears passphrase, empties content, triggers optional Touch ID cleanup.
+1. First-run (`FirstRunView`)
+- Modern hero + single card layout.
+- Core actions:
+  - Create new vault (location + passphrase + Touch ID option)
+  - Open existing vault
+- Messaging emphasizes local-first privacy and simple onboarding.
 
-## Information Architecture
+2. Main app (`MainView`)
+- Two-pane shell:
+  - Left: brand card, workflow card, core action buttons
+  - Right: top bar, list/grid content, status bar
+- Workflow card explicitly teaches:
+  - 1) Add files to sidecar
+  - 2) Import happens when locking
+  - 3) Lock vault to finalize
+- Top bar keeps only essentials visible:
+  - Search, filter, list/grid toggle, `More` menu
+- Content states are explicit:
+  - No vault selected
+  - Vault locked
+  - Empty vault
+  - File list/grid
 
-### Primary navigation (left sidebar)
+3. Preferences (`PreferencesView`)
+- Simple settings card with icons.
+- Core controls:
+  - Default vault folder
+  - Auto-lock timeout presets + slider
+  - Touch ID toggle
 
-- Vault
-  - Header capsule with vault name and lock state chip; integrity warning chip only when issues detected
-  - "Pending Imports" (sidecar), with count badge
-- Filters
-  - All Files
-  - Recently Added
-  - Recently Modified
-- Actions
-  - Open Vault…
-  - Add Files…
-  - Export…
-  - Lock / Unlock
-  - Preferences…
+## UX References
 
-### Content (right)
+This redesign follows interaction patterns commonly seen in major apps used by billions of users:
 
-- Toolbar
-  - Search field (live filter with tokens `name:`, `kind:`, `tag:`; saved smart filters)
-  - View toggle: List / Grid
-  - Sort menu: Name, Size, Modified (asc/desc)
-  - Inspector toggle (⌥⌘I)
-  - Quick Look button for current selection; overflow menu hosts Import/Export/Filter/Saved-filter actions
-- Content area
-  - List view: 4-column table (Name, Kind, Size, Modified) with Quick Look on double-click
-  - Grid view: adaptive thumbnails with filename, kind, size; space toggles selection
-  - Inspector (optional): collapsible right pane showing overview, security, tags, actions
-- Status bar
-  - Count of items, selection summary, total selected size, auto-lock countdown chip with extend affordance
+- File-centric clarity (Finder/Files style)
+- Minimal command surfaces with overflow menus (Google Drive/Docs style)
+- Card-based setup and settings (Notion/Slack style)
 
-### First-run onboarding
+No brand assets or proprietary UI are copied; this is pattern-level inspiration only.
 
-- Layout: split-pane card (left: hero badge + 3 succinct value bullets, right: progressive form)
-- Step 1 — Location: pick/save destination, explain staging area; actions “Continue” and “Open Existing Vault…”.
-- Step 2 — Security: passphrase field with reveal toggle, strength helper, Caps Lock hint, hint field, “What makes a strong passphrase?” link.
-- Touch ID toggle appears in Step 2 when biometric escrow is supported; disabled otherwise with a contextual explanation.
-- Primary action flows from Continue → Create Vault; footer reiterates local-only storage and links to privacy policy.
+## Important Actions (must remain easy)
 
-### Secondary surfaces
-
-- Unlock Sheet
-  - Passphrase field, Face/Touch ID hint (if flag set), backoff help text when rate-limited
-- Toasts (non‑blocking)
-  - Imported N files to sidecar, Exported N files, Auto‑locked, Errors
-- Preferences
-  - Defaults folder picker
-  - Auto-lock presets (1–60 minutes) plus Custom input with Apply
-  - “Allow Touch ID” toggle (device-local explanation); disabled when the vault was not created with biometric support
-
----
-
-## Visual Language
-
-- Color: neutral background; security state chip (green/amber/red) uses SF Symbols + semantic colors (`.green`, `.yellow`, `.red`).
-- Materials: `.thinMaterial` toolbar/header; accent via system `tint`.
-- Density: comfortable by default, compact row height option in View menu.
-- Motion: subtle transitions on lock/unlock, tag edit, and grid/list switch.
-
----
-
-## Interaction Details
-
-- Quick Look: double‑click row or `Space` to preview; `⌘Y` also opens.
-- Context menu on items: Quick Look, Export…, Reveal in Finder, Reveal Original, Copy name/path, Edit tags → inline token field.
-- Drag & drop files into window to import (sidecar); shows drop target overlay.
-- Keyboard
-  - `⌘O` Open, `⌘I` Import, `⌘E` Export, `⌘L` Lock/Unlock, `⌘F` Search
-  - Arrow keys navigate; `Space` select; `⌘A` select all
-
----
+- Create vault
+- Open vault
+- Unlock vault
+- Add files to sidecar
+- Lock to import sidecar into encrypted vault
+- Export selected files
 
 ## Implementation Map
 
-- Core model
-  - `Sources/AegiroApp/VaultModel.swift`: create/open, unlock/lock, import/export, status, preferences (default dir, auto‑lock TTL), Quick Look support, activity monitors.
-- Primary views
-  - `Sources/AegiroApp/MainView.swift`: Sidebar, toolbar (search/view/sort/inspector/quick look), list/grid, footer, context menus, inspector.
-  - `Sources/AegiroApp/PreferencesView.swift`: Default vault folder, auto-lock slider, Touch ID toggle.
-  - `Sources/AegiroApp/MenuBarView.swift`: Lock/Unlock, Add, Export, Preferences.
-  - `Sources/AegiroApp/QuickLook.swift`: QLPreviewPanel coordinator for multi-item preview.
-  - `Sources/AegiroApp/FirstRunView.swift`: Split onboarding, vault creation form, first-run helper links.
-  - `Sources/AegiroApp/AppMain.swift`: App entry, Settings (Preferences), Vault command menu.
-- Core helpers (AegiroCore)
-  - `VaultLayout`, `computeLayout`, `parseHeaderAndOffset`: internal layout helpers used by doctor/editor logic.
-- App helpers
-  - `Sources/AegiroApp/BiometricKeychain.swift`: wraps Keychain storage for biometric unlock secrets.
+- `Sources/AegiroApp/AegiroTheme.swift`: shared color tokens and hex color helper
+- `Sources/AegiroApp/FirstRunView.swift`: first-run create/open experience
+- `Sources/AegiroApp/MainView.swift`: main shell, workflow UI, list/grid, quick actions
+- `Sources/AegiroApp/PreferencesView.swift`: modern settings card
 
----
+## Validation Checklist
 
-## Accessibility & Localization
-
-- All interactive controls should have `accessibilityLabel` and hover `help` text.
-- Respect Dynamic Type and color contrast; test in Light/Dark Modes.
-- Strings routed via `Localizable.strings` for future i18n.
-
----
-
-## Performance Notes
-
-- Use Table/LazyVGrid where appropriate; consider a small icon cache by file extension.
-- Debounce search input (e.g., 150ms) for very large vaults.
-- Avoid blocking the main thread for heavy crypto I/O; lift to background when necessary.
-
----
-
-## Future Enhancements
-
-- Dedupe and SHA256 display in Inspector.
-- Touch ID/Keychain gating for PDK.
-- Rich Quick Look navigation and annotations.
+- Build passes via `BuildProject`.
+- First-run can create and open vaults.
+- Main view keeps sidecar workflow clear and visible.
+- Lock/Unlock, Import (sidecar), and Export remain functional.
