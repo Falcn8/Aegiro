@@ -50,6 +50,9 @@ final class VaultModel: ObservableObject {
             self.passphrase = passphrase
             self.status = "Vault created"
             self.allowTouchID = touchID
+            UserDefaults.standard.set(touchID, forKey: "allowTouchID")
+            UserDefaults.standard.set(v.url.path, forKey: "lastVaultPath")
+            UserDefaults.standard.set(true, forKey: "onboardingCompleted")
             self.refreshStatus()
             if touchID {
                 storePassphraseForBiometrics(passphrase)
@@ -65,6 +68,8 @@ final class VaultModel: ObservableObject {
         do {
             _ = try AegiroVault.open(at: url)
             self.vaultURL = url
+            UserDefaults.standard.set(url.path, forKey: "lastVaultPath")
+            UserDefaults.standard.set(true, forKey: "onboardingCompleted")
             self.status = "Vault loaded"
             self.refreshStatus()
         } catch {
@@ -81,7 +86,14 @@ final class VaultModel: ObservableObject {
             self.sidecarPending = info.sidecarPending
             self.manifestOK = info.manifestOK
             self.supportsBiometricUnlock = info.touchIDEnabled && canEvaluateBiometrics()
-            if !info.touchIDEnabled {
+            if info.touchIDEnabled {
+                if !allowTouchID {
+                    allowTouchID = true
+                    UserDefaults.standard.set(true, forKey: "allowTouchID")
+                }
+            } else {
+                allowTouchID = false
+                UserDefaults.standard.set(false, forKey: "allowTouchID")
                 removeBiometricPassphrase()
             }
             if !info.locked, !passphrase.isEmpty {
