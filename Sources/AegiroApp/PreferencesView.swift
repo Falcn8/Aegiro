@@ -143,3 +143,4 @@ struct PreferencesView: View {
         model.autoLockTTL = Int(clamped) * 60
     }
 }
+
