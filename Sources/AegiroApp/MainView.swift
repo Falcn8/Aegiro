@@ -81,71 +81,35 @@ struct MainView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             vaultHeader
-            Divider()
-            VStack(alignment: .leading, spacing: 10) {
-                sidebarButton(title: "Open Vault…", systemImage: "folder") {
-                    activeFilter = .all
-                    model.openVaultWithPanel()
-                }
-                sidebarButton(title: "Import…", systemImage: "square.and.arrow.down", disabled: model.locked, help: model.locked ? "Unlock to import files." : nil) {
-                    model.importFiles()
-                }
-                sidebarButton(title: "Export…", systemImage: "square.and.arrow.up", disabled: model.locked || selection.isEmpty, help: model.locked ? "Unlock to export files." : (selection.isEmpty ? "Select items to export." : nil)) {
-                    exportSelection()
-                }
-                sidebarButton(title: model.locked ? "Unlock Vault" : "Lock Vault", systemImage: model.locked ? "lock.open" : "lock") {
-                    if model.locked {
-                        showUnlockSheet = true
-                    } else {
-                        model.lockNow()
-                        selection.removeAll()
-                    }
-                }
-                sidebarButton(title: "Preferences…", systemImage: "gearshape") {
-                    showPreferences = true
-                }
+            Button(primaryWorkflowActionTitle) {
+                runPrimaryWorkflowAction()
             }
+            .buttonStyle(.borderedProminent)
+            .disabled(primaryWorkflowActionDisabled)
+            .help(primaryWorkflowActionHelp)
+
+            Button("Preferences…") {
+                showPreferences = true
+            }
+            .buttonStyle(.bordered)
+
             Spacer()
         }
-        .padding(.horizontal, 26)
+        .padding(.horizontal, 20)
         .padding(.vertical, 18)
-        .frame(width: 288, alignment: .top)
+        .frame(width: 280, alignment: .top)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
-    private func sidebarButton(title: String, systemImage: String, disabled: Bool = false, help: String? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: systemImage)
-                Text(title)
-                Spacer()
-            }
-            .font(.headline)
-            .foregroundStyle(.primary)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-            )
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .accessibilityLabel(title)
-        .help(help ?? title)
-    }
-
     private var vaultHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(model.vaultURL?.lastPathComponent ?? "No Vault Selected")
-                    .font(.headline)
-                    .lineLimit(1)
-                Spacer()
-            }
+            Text(model.vaultURL?.lastPathComponent ?? "No Vault Selected")
+                .font(.headline)
+                .lineLimit(1)
+
             HStack(spacing: 8) {
                 StatusChip(
                     text: model.locked ? "Locked" : "Unlocked",
@@ -160,34 +124,28 @@ struct MainView: View {
                         color: .yellow,
                         accessibilityLabel: "Integrity issue — run check"
                     )
-                    .onTapGesture {
-                        model.status = "Integrity issue detected. Run Check in the Inspector."
-                    }
                 }
             }
+
+            Text("Simple flow")
+                .font(.subheadline.weight(.semibold))
+            workflowRow(number: 1, title: "Add to sidecar", isComplete: model.sidecarPending > 0)
+            workflowRow(number: 2, title: "Import by locking", isComplete: !model.locked && model.sidecarPending == 0)
+            workflowRow(number: 3, title: "Lock vault", isComplete: model.locked)
+
             HStack {
-                Label("Pending Imports", systemImage: "tray.and.arrow.down")
+                Label("Pending sidecar files", systemImage: "tray.and.arrow.down")
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("\(model.sidecarPending)")
-                    .font(.caption2.monospacedDigit())
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(model.sidecarPending > 0 ? 0.25 : 0.15), in: Capsule())
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(model.sidecarPending > 0 ? Color.accentColor : .secondary)
-                    .accessibilityLabel("\(model.sidecarPending) pending imports")
             }
-            if model.sidecarPending == 0 {
-                Button("Change import location…") {
-                    showPreferences = true
-                }
-                .buttonStyle(.plain)
+
+            Text(workflowHint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                Text("Imports land in a staging area until you lock the vault.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+
             if !model.status.isEmpty {
                 Text(model.status)
                     .font(.caption)
@@ -196,7 +154,6 @@ struct MainView: View {
         }
         .padding(12)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityElement(children: .combine)
     }
 
     private var toolbar: some View {
@@ -212,7 +169,7 @@ struct MainView: View {
                     applySavedSearch(saved)
                 }
             )
-            .frame(width: 280)
+            .frame(width: 320)
 
             Picker("View", selection: $viewMode) {
                 Label("List", systemImage: "list.bullet.rectangle").tag(ContentViewMode.list)
@@ -220,51 +177,48 @@ struct MainView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 120)
-            .help("Toggle between list and grid layouts")
+
+            Spacer()
 
             Menu {
+                Button("Add Files to Sidecar…") { model.importFiles() }
+                    .disabled(model.locked)
+                Button("Export Selection…") { exportSelection() }
+                    .disabled(model.locked || selection.isEmpty)
+                Button("Quick Look Selection") { quickLookSelection() }
+                    .disabled(model.locked || selection.isEmpty)
+                Divider()
+                Button(model.locked ? "Unlock Vault" : "Lock Vault") {
+                    if model.locked {
+                        showUnlockSheet = true
+                    } else {
+                        model.lockNow()
+                        selection.removeAll()
+                    }
+                }
+                Divider()
+                Button(showInspector ? "Hide Inspector" : "Show Inspector") {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        showInspector.toggle()
+                    }
+                }
+                Divider()
                 Picker("Sort by", selection: $sortOption) {
                     ForEach(SortOption.allCases, id: \.self) { option in
                         Text(option.title).tag(option)
                     }
                 }
-                Divider()
-                Button {
+                Button(sortAscending ? "Sort Descending" : "Sort Ascending") {
                     sortAscending.toggle()
-                } label: {
-                    Label(sortAscending ? "Ascending" : "Descending", systemImage: sortAscending ? "arrow.up" : "arrow.down")
                 }
-            } label: {
-                Label("Sort", systemImage: "arrow.up.arrow.down")
-            }
-            .menuStyle(.borderlessButton)
-            .help("Change sort order")
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    showInspector.toggle()
-                }
-            } label: {
-                Label(showInspector ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right")
-            }
-            .buttonStyle(.bordered)
-            .help("Toggle the inspector")
-
-            Menu {
-                Button("Import…") { model.importFiles() }
-                    .disabled(model.locked)
-                Button("Export…") { exportSelection() }
-                    .disabled(model.locked || selection.isEmpty)
-                Button("Quick Look Selection") { quickLookSelection() }
-                    .disabled(model.locked || selection.isEmpty)
                 Divider()
                 Picker("Filter", selection: $activeFilter) {
                     Text("All Files").tag(VaultFilter.all)
                     Text("Recently Added").tag(VaultFilter.recentlyAdded)
                     Text("Recently Modified").tag(VaultFilter.recentlyModified)
                 }
-                Divider()
                 if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Divider()
                     Button("Save Search…") { saveCurrentSearch() }
                 }
                 if !savedSearches.isEmpty {
@@ -279,26 +233,83 @@ struct MainView: View {
                     }
                 }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Label("More", systemImage: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton)
-            .help("More actions")
-
-            Spacer()
-
-            Button {
-                quickLookSelection()
-            } label: {
-                Label("Quick Look", systemImage: "eye")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(selection.isEmpty || model.locked)
-            .help(selection.isEmpty ? "Select files to preview" : (model.locked ? "Unlock to preview files" : "Preview selection with Quick Look"))
         }
         .frame(height: 44)
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
         .background(.thinMaterial)
+    }
+
+    private var primaryWorkflowActionTitle: String {
+        if model.vaultURL == nil {
+            return "Open Vault…"
+        }
+        if model.locked {
+            return "Unlock Vault"
+        }
+        if model.sidecarPending > 0 {
+            return "Lock to Import \(model.sidecarPending) File\(model.sidecarPending == 1 ? "" : "s")"
+        }
+        return "Add Files to Sidecar…"
+    }
+
+    private var primaryWorkflowActionHelp: String {
+        if model.vaultURL == nil {
+            return "Open an existing vault or create one first."
+        }
+        if model.locked {
+            return "Unlock to add files to the sidecar."
+        }
+        if model.sidecarPending > 0 {
+            return "Lock now to finalize pending sidecar imports."
+        }
+        return "Choose files to stage in sidecar before import."
+    }
+
+    private var primaryWorkflowActionDisabled: Bool {
+        model.vaultURL == nil
+    }
+
+    private var workflowHint: String {
+        if model.locked {
+            return "Unlock first, then add files to sidecar."
+        }
+        if model.sidecarPending > 0 {
+            return "Lock the vault to commit staged sidecar files into encrypted storage."
+        }
+        return "Add files to sidecar to start an import batch."
+    }
+
+    private func runPrimaryWorkflowAction() {
+        guard model.vaultURL != nil else {
+            activeFilter = .all
+            model.openVaultWithPanel()
+            return
+        }
+        if model.locked {
+            showUnlockSheet = true
+            return
+        }
+        if model.sidecarPending > 0 {
+            model.lockNow()
+            selection.removeAll()
+            return
+        }
+        model.importFiles()
+    }
+
+    private func workflowRow(number: Int, title: String, isComplete: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isComplete ? .green : .secondary)
+            Text("\(number). \(title)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
     }
 
     private var contentArea: some View {
