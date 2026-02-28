@@ -29,7 +29,7 @@ enum BiometricKeychain {
         // Remove any existing item first (both modern and legacy keychain stores).
         for account in accounts {
             deletePassphrase(account: account, dataProtection: true)
-            deletePassphrase(account: account, dataProtection: false)
+            deletePassphrase(account: account, dataProtection: nil)
         }
 
         let addQuery: [String: Any] = [
@@ -50,7 +50,7 @@ enum BiometricKeychain {
     static func removePassphrase(for vaultURL: URL) {
         for account in accountCandidates(for: vaultURL) {
             deletePassphrase(account: account, dataProtection: true)
-            deletePassphrase(account: account, dataProtection: false)
+            deletePassphrase(account: account, dataProtection: nil)
         }
     }
 
@@ -61,7 +61,7 @@ enum BiometricKeychain {
             }
 
             // Backward compatibility for items saved before data-protection keychain migration.
-            if let legacy = try queryPassphrase(account: account, context: context, dataProtection: false) {
+            if let legacy = try queryPassphrase(account: account, context: context, dataProtection: nil) {
                 try save(passphrase: legacy, for: vaultURL)
                 return legacy
             }
@@ -86,17 +86,19 @@ enum BiometricKeychain {
         return candidates
     }
 
-    private static func deletePassphrase(account: String, dataProtection: Bool) {
+    private static func deletePassphrase(account: String, dataProtection: Bool?) {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
-        query[kSecUseDataProtectionKeychain as String] = dataProtection
+        if let dataProtection {
+            query[kSecUseDataProtectionKeychain as String] = dataProtection
+        }
         SecItemDelete(query as CFDictionary)
     }
 
-    private static func queryPassphrase(account: String, context: LAContext, dataProtection: Bool) throws -> String? {
+    private static func queryPassphrase(account: String, context: LAContext, dataProtection: Bool?) throws -> String? {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -105,7 +107,9 @@ enum BiometricKeychain {
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecUseAuthenticationContext as String: context
         ]
-        query[kSecUseDataProtectionKeychain as String] = dataProtection
+        if let dataProtection {
+            query[kSecUseDataProtectionKeychain as String] = dataProtection
+        }
 
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
