@@ -4,97 +4,15 @@ import AppKit
 struct PreferencesView: View {
     @EnvironmentObject var model: VaultModel
     @Environment(\.dismiss) private var dismiss
+
     @State private var ttlMinutes: Double = 5
     private let presets: [Int] = [1, 5, 10, 15, 30, 60]
-    @State private var showingCustomTTL = false
-    @State private var customTTLInput: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Text("Preferences")
-                .font(.title2)
-                .bold()
+        VStack(alignment: .leading, spacing: 20) {
+            header
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Vaults Folder")
-                    .font(.headline)
-                HStack(spacing: 12) {
-                    Text(model.defaultVaultDir.path)
-                        .font(.body.monospaced())
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    Button("Choose…") { chooseDir() }
-                        .buttonStyle(.bordered)
-                }
-                Text("Aegiro uses this folder when creating or discovering vaults.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Auto-lock Timeout")
-                        .font(.headline)
-                    Spacer()
-                    Text("\(Int(ttlMinutes)) minute\(Int(ttlMinutes) == 1 ? "" : "s")")
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                HStack {
-                    ForEach(presets, id: \.self) { minute in
-                        Button("\(minute)") {
-                            ttlMinutes = Double(minute)
-                            applyTTL()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(ttlMinutes == Double(minute) ? .accentColor : .secondary)
-                        .font(.caption.monospacedDigit())
-                    }
-                    Button("Custom…") {
-                        showingCustomTTL.toggle()
-                        if showingCustomTTL {
-                            customTTLInput = String(Int(ttlMinutes))
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                }
-                if showingCustomTTL {
-                    HStack(spacing: 8) {
-                        Text("Minutes")
-                            .font(.subheadline)
-                        TextField("Minutes", text: $customTTLInput)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                            .onSubmit { applyCustomTTL() }
-                        Button("Apply") { applyCustomTTL() }
-                            .buttonStyle(.bordered)
-                    }
-                }
-                Slider(value: $ttlMinutes, in: 1...60, step: 1) { editing in
-                    if !editing { applyTTL() }
-                }
-                .accessibilityLabel("Auto-lock timeout in minutes")
-                Text("Choose how long Aegiro stays unlocked after activity.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            Toggle(isOn: $model.allowTouchID) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Allow Touch ID")
-                    Text("Biometric unlock stays on this device and never leaves the Secure Enclave.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .toggleStyle(.switch)
-            .disabled(!model.supportsBiometricUnlock)
-            if !model.supportsBiometricUnlock {
-                Text("Touch ID must be enabled when creating the vault to use biometric unlock.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            settingsCard
 
             Spacer()
 
@@ -107,14 +25,106 @@ struct PreferencesView: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.primaryBlue)
             }
         }
-        .padding(32)
-        .frame(width: 560, height: 420)
+        .padding(28)
+        .frame(width: 620, height: 460)
+        .background(
+            LinearGradient(
+                colors: [Color.white, AegiroPalette.iceBlue.opacity(0.2)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
         .onAppear {
             ttlMinutes = max(1, min(60, Double(model.autoLockTTL) / 60.0))
         }
-        .onChange(of: ttlMinutes) { _ in applyTTL() }
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "gearshape.fill")
+                .font(.title3)
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(AegiroPalette.deepNavy, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Preferences")
+                    .font(.title2.weight(.bold))
+                Text("Simple controls for vault behavior")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var settingsCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Default vault folder", systemImage: "folder")
+                    .font(.headline)
+                HStack(spacing: 10) {
+                    Text(model.defaultVaultDir.path)
+                        .font(.callout.monospaced())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    Button("Choose…") { chooseDir() }
+                        .buttonStyle(.bordered)
+                }
+                Text("Used when creating new vaults.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label("Auto-lock timeout", systemImage: "timer")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(Int(ttlMinutes)) min")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    ForEach(presets, id: \.self) { minute in
+                        Button("\(minute)") {
+                            ttlMinutes = Double(minute)
+                            applyTTL()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(ttlMinutes == Double(minute) ? AegiroPalette.tealBlue : AegiroPalette.iceBlue)
+                    }
+                }
+
+                Slider(value: $ttlMinutes, in: 1...60, step: 1) { _ in
+                    applyTTL()
+                }
+            }
+
+            Divider()
+
+            Toggle(isOn: $model.allowTouchID) {
+                Label("Enable Touch ID", systemImage: "touchid")
+            }
+            .disabled(!model.supportsBiometricUnlock)
+
+            if !model.supportsBiometricUnlock {
+                Text("Touch ID must be configured at vault creation time.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(18)
+        .background(Color.white.opacity(0.9), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
+        )
     }
 
     private func chooseDir() {
@@ -122,7 +132,7 @@ struct PreferencesView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.message = "Choose the default folder for new vaults"
+        panel.message = "Choose default folder for new vaults"
         if panel.runModal() == .OK, let url = panel.url {
             model.defaultVaultDir = url
         }
@@ -131,12 +141,5 @@ struct PreferencesView: View {
     private func applyTTL() {
         let clamped = max(1, min(60, ttlMinutes.rounded()))
         model.autoLockTTL = Int(clamped) * 60
-    }
-
-    private func applyCustomTTL() {
-        guard let minutes = Double(customTTLInput.trimmingCharacters(in: .whitespaces)), minutes > 0 else { return }
-        ttlMinutes = max(1, min(60, minutes))
-        applyTTL()
-        customTTLInput = String(Int(ttlMinutes))
     }
 }
