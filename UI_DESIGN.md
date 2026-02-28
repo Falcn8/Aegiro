@@ -12,10 +12,11 @@ This document describes the current Aegiro macOS app UI and interaction model.
 ## Visual System
 
 - Palette (fixed):
-  - `#001524` (deep navy)
-  - `#15616D` (teal blue)
-  - `#FFECD1` (cream)
-  - `#FF7D00` (orange)
+  - `#8ECAE6` (ice blue)
+  - `#219EBC` (teal blue)
+  - `#023047` (deep navy)
+  - `#FFB703` (sun yellow)
+  - `#FB8500` (orange)
 - Shared theme tokens live in `Sources/AegiroApp/AegiroTheme.swift`.
 - Cards use rounded corners, soft strokes, and light gradients.
 - SF Symbols are used for all major actions and status.
