@@ -1,16 +1,52 @@
 
 import SwiftUI
 import AegiroCore
+import Foundation
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private static func shouldShowFirstRun() -> Bool {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: "onboardingCompleted") {
+            return false
+        }
+
+        if let lastVaultPath = defaults.string(forKey: "lastVaultPath"),
+           FileManager.default.fileExists(atPath: lastVaultPath) {
+            return false
+        }
+
+        let defaultDirPath = defaults.string(forKey: "defaultVaultDir")
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true).path
+        let defaultDir = URL(fileURLWithPath: defaultDirPath, isDirectory: true)
+        if let contents = try? FileManager.default.contentsOfDirectory(at: defaultDir, includingPropertiesForKeys: nil) {
+            let hasVault = contents.contains { $0.pathExtension.lowercased() == "aegirovault" }
+            if hasVault {
+                return false
+            }
+        }
+
+        return true
+    }
+}
 
 @main
 struct AegiroAppMain: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = VaultModel()
     @State private var showFirstRun = true
     var body: some Scene {
         WindowGroup {
             if showFirstRun {
-                FirstRunView(onDone: { showFirstRun = false })
-                    .environmentObject(model)
+                FirstRunView(onDone: {
+                    UserDefaults.standard.set(true, forKey: "onboardingCompleted")
+                    showFirstRun = false
+                })
+                .environmentObject(model)
             } else {
                 MainView()
                     .environmentObject(model)

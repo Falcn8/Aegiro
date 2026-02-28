@@ -13,22 +13,27 @@ struct FirstRunView: View {
     @State private var errorText: String?
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [AegiroPalette.iceBlue.opacity(0.35), Color.white],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+        GeometryReader { proxy in
+            ZStack {
+                LinearGradient(
+                    colors: [AegiroPalette.iceBlue.opacity(0.35), Color.white],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-            VStack(spacing: 22) {
-                heroHeader
-                contentCard
-                footer
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 22) {
+                        heroHeader
+                        contentCard
+                        footer
+                    }
+                    .padding(.horizontal, 40)
+                    .padding(.vertical, 28)
+                    .frame(maxWidth: 900)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .top)
+                }
             }
-            .padding(.horizontal, 40)
-            .padding(.vertical, 34)
-            .frame(maxWidth: 900)
         }
         .onAppear {
             touchIDEnabled = model.supportsBiometricUnlock && model.allowTouchID
@@ -43,10 +48,10 @@ struct FirstRunView: View {
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(AegiroPalette.primaryBlue, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                Text("Welcome to Aegiro")
-                    .font(.system(size: 34, weight: .bold))
+                Text("Set Up Your Vault")
+                    .font(.system(size: 30, weight: .bold))
             }
-            Text("Create or open a vault in seconds. Inspired by the clarity of familiar file and productivity apps used by billions of people.")
+            Text("Create a new vault or open one you already use.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
         }
@@ -207,3 +212,4 @@ struct FirstRunView: View {
             .font(.subheadline.weight(.semibold))
     }
 }
+
