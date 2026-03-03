@@ -5,7 +5,7 @@ This document describes the current Aegiro macOS app UI and interaction model.
 ## Design Intent
 
 - Keep the workflow obvious: add to sidecar, then lock to import.
-- Keep primary actions one-click: create vault, open vault, unlock, add files, lock/import, export.
+- Keep primary actions one-click: create vault, open vault, unlock, add files, lock/import, lock now, export, and add Touch ID while unlocked.
 - Keep visuals modern and calm with icon-led sections and clear hierarchy.
 - Keep secondary controls available but not noisy.
 
@@ -38,6 +38,9 @@ This document describes the current Aegiro macOS app UI and interaction model.
   - 1) Add files to sidecar
   - 2) Import happens when locking
   - 3) Lock vault to finalize
+- Unlocked-state actions include:
+  - Lock vault even when sidecar is empty
+  - Add Touch ID from the action panel
 - Top bar keeps only essentials visible:
   - Search, filter, list/grid toggle, `More` menu
 - Content states are explicit:
@@ -70,6 +73,8 @@ No brand assets or proprietary UI are copied; this is pattern-level inspiration 
 - Unlock vault
 - Add files to sidecar
 - Lock to import sidecar into encrypted vault
+- Lock vault when already unlocked
+- Add Touch ID while unlocked
 - Export selected files
 
 ## Implementation Map
