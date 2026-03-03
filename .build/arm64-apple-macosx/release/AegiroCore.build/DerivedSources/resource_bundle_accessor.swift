@@ -3,7 +3,7 @@ import Foundation
 extension Foundation.Bundle {
     static let module: Bundle = {
         let mainPath = Bundle.main.bundleURL.appendingPathComponent("Aegiro_AegiroCore.bundle").path
-        let buildPath = "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle"
+        let buildPath = "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle"
 
         let preferredBundle = Bundle(path: mainPath)
 
