@@ -1,37 +1,37 @@
 {
   "builtTestProducts" : [
     {
-      "binaryPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.xctest/Contents/MacOS/AegiroPackageTests",
-      "packagePath" : "/Users/codei/Downloads/Aegiro",
+      "binaryPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.xctest/Contents/MacOS/AegiroPackageTests",
+      "packagePath" : "/Users/codei/Documents/Programming/Aegiro",
       "productName" : "AegiroPackageTests"
     }
   ],
   "copyCommands" : {
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/OnboardingCopy.json" : {
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/OnboardingCopy.json" : {
       "inputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Resources/OnboardingCopy.json"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Resources/OnboardingCopy.json"
         }
       ],
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/OnboardingCopy.json"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/OnboardingCopy.json"
         }
       ]
     },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/TrustSheet.png" : {
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/TrustSheet.png" : {
       "inputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Resources/TrustSheet.png"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Resources/TrustSheet.png"
         }
       ],
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/TrustSheet.png"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Aegiro_AegiroCore.bundle/TrustSheet.png"
         }
       ]
     }
@@ -48,58 +48,83 @@
 
   ],
   "swiftCommands" : {
-    "C.AegiroApp-arm64-apple-macosx15.0-release.module" : {
+    "C.AegiroApp-arm64-apple-macosx26.0-release.module" : {
       "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
-      "fileList" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources",
-      "importPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "fileList" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources",
+      "importPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "inputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/AppMain.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AegiroTheme.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AppMain.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MainView.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MenuBarView.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/PreferencesView.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/QuickLook.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SavedSearchStore.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SearchToolbarField.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/VaultModel.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources"
         }
       ],
-      "isLibrary" : true,
+      "isLibrary" : false,
       "moduleName" : "AegiroApp",
-      "moduleOutputPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroApp.swiftmodule",
+      "moduleOutputPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroApp.swiftmodule",
       "objects" : [
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o"
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/QuickLook.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SavedSearchStore.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SearchToolbarField.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o"
       ],
       "otherArguments" : [
         "-target",
@@ -113,27 +138,27 @@
         "-DSWIFT_PACKAGE",
         "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+        "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+        "-I/opt/homebrew/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+        "-I/opt/homebrew/include",
         "-module-cache-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
-        "-parse-as-library",
-        "-emit-objc-header",
-        "-emit-objc-header-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/include/AegiroApp-Swift.h",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "AegiroApp_main",
         "-swift-version",
         "5",
         "-plugin-path",
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
         "-sdk",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-F",
         "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
         "-F",
@@ -147,7 +172,7 @@
         "-Xcc",
         "-isysroot",
         "-Xcc",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-Xcc",
         "-F",
         "-Xcc",
@@ -163,76 +188,101 @@
         "-package-name",
         "aegiro"
       ],
-      "outputFileMapPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/output-file-map.json",
+      "outputFileMapPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/output-file-map.json",
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroApp.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/QuickLook.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SavedSearchStore.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SearchToolbarField.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroApp.swiftmodule"
         }
       ],
       "prepareForIndexing" : false,
       "sources" : [
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/AppMain.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift"
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AegiroTheme.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AppMain.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MainView.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MenuBarView.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/PreferencesView.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/QuickLook.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SavedSearchStore.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SearchToolbarField.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/VaultModel.swift"
       ],
-      "tempsPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build",
+      "tempsPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build",
       "wholeModuleOptimization" : true
     },
-    "C.AegiroCLI-arm64-apple-macosx15.0-release.module" : {
+    "C.AegiroCLI-arm64-apple-macosx26.0-release.module" : {
       "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
-      "fileList" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources",
-      "importPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "fileList" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources",
+      "importPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "inputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCLI/main.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCLI/main.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources"
         }
       ],
       "isLibrary" : false,
       "moduleName" : "AegiroCLI",
-      "moduleOutputPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCLI.swiftmodule",
+      "moduleOutputPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCLI.swiftmodule",
       "objects" : [
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swift.o"
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swift.o"
       ],
       "otherArguments" : [
         "-target",
@@ -246,16 +296,16 @@
         "-DSWIFT_PACKAGE",
         "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+        "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+        "-I/opt/homebrew/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+        "-I/opt/homebrew/include",
         "-module-cache-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
         "-Xfrontend",
         "-entry-point-function-name",
@@ -266,7 +316,7 @@
         "-plugin-path",
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
         "-sdk",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-F",
         "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
         "-F",
@@ -280,7 +330,7 @@
         "-Xcc",
         "-isysroot",
         "-Xcc",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-Xcc",
         "-F",
         "-Xcc",
@@ -296,106 +346,106 @@
         "-package-name",
         "aegiro"
       ],
-      "outputFileMapPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/output-file-map.json",
+      "outputFileMapPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/output-file-map.json",
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCLI.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCLI.swiftmodule"
         }
       ],
       "prepareForIndexing" : false,
       "sources" : [
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCLI/main.swift"
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCLI/main.swift"
       ],
-      "tempsPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build",
+      "tempsPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build",
       "wholeModuleOptimization" : true
     },
-    "C.AegiroCore-arm64-apple-macosx15.0-release.module" : {
+    "C.AegiroCore-arm64-apple-macosx26.0-release.module" : {
       "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
-      "fileList" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources",
-      "importPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "fileList" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources",
+      "importPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "inputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Backup.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Backup.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Crypto.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/CryptoExtensions.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/IndexManifest.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PQC.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Session.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Session.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Shredder.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Shredder.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Vault.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Vault.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/VaultHeader.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultHeader.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
         },
         {
           "kind" : "virtual",
-          "name" : "<AegiroCore-arm64-apple-macosx15.0-release.module-resources>"
+          "name" : "<AegiroCore-arm64-apple-macosx26.0-release.module-resources>"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources"
         }
       ],
       "isLibrary" : true,
       "moduleName" : "AegiroCore",
-      "moduleOutputPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule",
+      "moduleOutputPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule",
       "objects" : [
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
       ],
       "otherArguments" : [
         "-target",
@@ -409,27 +459,27 @@
         "-DSWIFT_PACKAGE",
         "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+        "-I/opt/homebrew/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+        "-I/opt/homebrew/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+        "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
         "-module-cache-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
         "-parse-as-library",
         "-emit-objc-header",
         "-emit-objc-header-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/include/AegiroCore-Swift.h",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/include/AegiroCore-Swift.h",
         "-swift-version",
         "5",
         "-plugin-path",
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
         "-sdk",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-F",
         "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
         "-F",
@@ -443,7 +493,7 @@
         "-Xcc",
         "-isysroot",
         "-Xcc",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-Xcc",
         "-F",
         "-Xcc",
@@ -459,106 +509,106 @@
         "-package-name",
         "aegiro"
       ],
-      "outputFileMapPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/output-file-map.json",
+      "outputFileMapPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/output-file-map.json",
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
         }
       ],
       "prepareForIndexing" : false,
       "sources" : [
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Backup.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Crypto.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/CryptoExtensions.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/IndexManifest.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PQC.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Session.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Shredder.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Vault.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/VaultHeader.swift",
-        "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift"
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Backup.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Session.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Shredder.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Vault.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultHeader.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift"
       ],
-      "tempsPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build",
+      "tempsPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build",
       "wholeModuleOptimization" : true
     },
-    "C.AegiroCoreTests-arm64-apple-macosx15.0-release.module" : {
+    "C.AegiroCoreTests-arm64-apple-macosx26.0-release.module" : {
       "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
-      "fileList" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources",
-      "importPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "fileList" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources",
+      "importPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "inputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCore.swiftmodule"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources"
         }
       ],
       "isLibrary" : true,
       "moduleName" : "AegiroCoreTests",
-      "moduleOutputPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCoreTests.swiftmodule",
+      "moduleOutputPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCoreTests.swiftmodule",
       "objects" : [
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swift.o"
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swift.o"
       ],
       "otherArguments" : [
         "-target",
@@ -568,7 +618,7 @@
         "8",
         "-serialize-diagnostics",
         "-index-store-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/index/store",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/index/store",
         "-O",
         "-enable-testing",
         "-Xfrontend",
@@ -577,16 +627,16 @@
         "-DSWIFT_PACKAGE",
         "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+        "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+        "-I/opt/homebrew/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+        "-I/opt/homebrew/include",
         "-module-cache-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
         "-parse-as-library",
         "-swift-version",
@@ -594,7 +644,7 @@
         "-plugin-path",
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
         "-sdk",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-F",
         "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
         "-F",
@@ -608,7 +658,7 @@
         "-Xcc",
         "-isysroot",
         "-Xcc",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-Xcc",
         "-F",
         "-Xcc",
@@ -624,51 +674,51 @@
         "-package-name",
         "aegiro"
       ],
-      "outputFileMapPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/output-file-map.json",
+      "outputFileMapPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/output-file-map.json",
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCoreTests.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCoreTests.swiftmodule"
         }
       ],
       "prepareForIndexing" : false,
       "sources" : [
-        "/Users/codei/Downloads/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift"
+        "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift"
       ],
-      "tempsPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build",
+      "tempsPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build",
       "wholeModuleOptimization" : true
     },
-    "C.AegiroPackageTests-arm64-apple-macosx15.0-release.module" : {
+    "C.AegiroPackageTests-arm64-apple-macosx26.0-release.module" : {
       "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
-      "fileList" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources",
-      "importPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "fileList" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources",
+      "importPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "inputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCoreTests.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCoreTests.swiftmodule"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources"
         }
       ],
       "isLibrary" : true,
       "moduleName" : "AegiroPackageTests",
-      "moduleOutputPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroPackageTests.swiftmodule",
+      "moduleOutputPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroPackageTests.swiftmodule",
       "objects" : [
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/runner.swift.o"
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/runner.swift.o"
       ],
       "otherArguments" : [
         "-target",
@@ -685,25 +735,25 @@
         "-DSWIFT_PACKAGE",
         "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+        "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-        "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-        "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+        "-I/opt/homebrew/include",
         "-Xcc",
-        "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+        "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+        "-I/opt/homebrew/include",
         "-module-cache-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
         "-parseable-output",
         "-parse-as-library",
         "-emit-objc-header",
         "-emit-objc-header-path",
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/include/AegiroPackageTests-Swift.h",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/include/AegiroPackageTests-Swift.h",
         "-plugin-path",
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
         "-sdk",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-F",
         "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
         "-F",
@@ -717,7 +767,7 @@
         "-Xcc",
         "-isysroot",
         "-Xcc",
-        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
         "-Xcc",
         "-F",
         "-Xcc",
@@ -733,22 +783,22 @@
         "-package-name",
         "aegiro"
       ],
-      "outputFileMapPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/output-file-map.json",
+      "outputFileMapPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/output-file-map.json",
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/runner.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/runner.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroPackageTests.swiftmodule"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroPackageTests.swiftmodule"
         }
       ],
       "prepareForIndexing" : false,
       "sources" : [
-        "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
       ],
-      "tempsPath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build",
+      "tempsPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build",
       "wholeModuleOptimization" : true
     }
   },
@@ -763,14 +813,19 @@
       "-package-name",
       "aegiro",
       "-c",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/AppMain.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AegiroTheme.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AppMain.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MainView.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MenuBarView.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/PreferencesView.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/QuickLook.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SavedSearchStore.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SearchToolbarField.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/VaultModel.swift",
       "-I",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "-target",
       "arm64-apple-macosx13.0",
       "-whole-module-optimization",
@@ -782,27 +837,27 @@
       "-DSWIFT_PACKAGE",
       "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+      "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+      "-I/opt/homebrew/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+      "-I/opt/homebrew/include",
       "-module-cache-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
-      "-parse-as-library",
-      "-emit-objc-header",
-      "-emit-objc-header-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/include/AegiroApp-Swift.h",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "AegiroApp_main",
       "-swift-version",
       "5",
       "-plugin-path",
       "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
       "-sdk",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-F",
       "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
       "-F",
@@ -816,7 +871,7 @@
       "-Xcc",
       "-isysroot",
       "-Xcc",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-Xcc",
       "-F",
       "-Xcc",
@@ -841,9 +896,9 @@
       "-package-name",
       "aegiro",
       "-c",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCLI/main.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCLI/main.swift",
       "-I",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "-target",
       "arm64-apple-macosx13.0",
       "-whole-module-optimization",
@@ -855,16 +910,16 @@
       "-DSWIFT_PACKAGE",
       "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+      "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+      "-I/opt/homebrew/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+      "-I/opt/homebrew/include",
       "-module-cache-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
       "-Xfrontend",
       "-entry-point-function-name",
@@ -875,7 +930,7 @@
       "-plugin-path",
       "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
       "-sdk",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-F",
       "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
       "-F",
@@ -889,7 +944,7 @@
       "-Xcc",
       "-isysroot",
       "-Xcc",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-Xcc",
       "-F",
       "-Xcc",
@@ -914,20 +969,20 @@
       "-package-name",
       "aegiro",
       "-c",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Backup.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Crypto.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/CryptoExtensions.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/IndexManifest.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PQC.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Session.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Shredder.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Vault.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/VaultHeader.swift",
-      "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Backup.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Session.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Shredder.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Vault.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultHeader.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift",
       "-I",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "-target",
       "arm64-apple-macosx13.0",
       "-whole-module-optimization",
@@ -939,27 +994,27 @@
       "-DSWIFT_PACKAGE",
       "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+      "-I/opt/homebrew/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+      "-I/opt/homebrew/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+      "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
       "-module-cache-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
       "-parse-as-library",
       "-emit-objc-header",
       "-emit-objc-header-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/include/AegiroCore-Swift.h",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/include/AegiroCore-Swift.h",
       "-swift-version",
       "5",
       "-plugin-path",
       "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
       "-sdk",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-F",
       "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
       "-F",
@@ -973,7 +1028,7 @@
       "-Xcc",
       "-isysroot",
       "-Xcc",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-Xcc",
       "-F",
       "-Xcc",
@@ -998,9 +1053,9 @@
       "-package-name",
       "aegiro",
       "-c",
-      "/Users/codei/Downloads/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift",
       "-I",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "-target",
       "arm64-apple-macosx14.0",
       "-whole-module-optimization",
@@ -1008,7 +1063,7 @@
       "8",
       "-serialize-diagnostics",
       "-index-store-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/index/store",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/index/store",
       "-O",
       "-enable-testing",
       "-Xfrontend",
@@ -1017,16 +1072,16 @@
       "-DSWIFT_PACKAGE",
       "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+      "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+      "-I/opt/homebrew/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+      "-I/opt/homebrew/include",
       "-module-cache-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
       "-parse-as-library",
       "-swift-version",
@@ -1034,7 +1089,7 @@
       "-plugin-path",
       "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
       "-sdk",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-F",
       "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
       "-F",
@@ -1048,7 +1103,7 @@
       "-Xcc",
       "-isysroot",
       "-Xcc",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-Xcc",
       "-F",
       "-Xcc",
@@ -1073,9 +1128,9 @@
       "-package-name",
       "aegiro",
       "-c",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift",
       "-I",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/Modules",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
       "-target",
       "arm64-apple-macosx13.0",
       "-whole-module-optimization",
@@ -1090,25 +1145,25 @@
       "-DSWIFT_PACKAGE",
       "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OpenSSLShim/module.modulemap",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OpenSSLShim/module.modulemap",
+      "-I/opt/homebrew/Cellar/openssl@3/3.6.1/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/OQSWrapper/module.modulemap",
-      "-I/opt/homebrew/Cellar/liboqs/0.14.0/include",
-      "-I/opt/homebrew/Cellar/openssl@3/3.5.4/include",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/OQSWrapper/module.modulemap",
+      "-I/opt/homebrew/include",
       "-Xcc",
-      "-fmodule-map-file=/Users/codei/Downloads/Aegiro/Sources/Argon2C/module.modulemap",
+      "-fmodule-map-file=/Users/codei/Documents/Programming/Aegiro/Sources/Argon2C/module.modulemap",
+      "-I/opt/homebrew/include",
       "-module-cache-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/ModuleCache",
       "-parseable-output",
       "-parse-as-library",
       "-emit-objc-header",
       "-emit-objc-header-path",
-      "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/include/AegiroPackageTests-Swift.h",
+      "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/include/AegiroPackageTests-Swift.h",
       "-plugin-path",
       "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
       "-sdk",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-F",
       "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
       "-F",
@@ -1122,7 +1177,7 @@
       "-Xcc",
       "-isysroot",
       "-Xcc",
-      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
       "-Xcc",
       "-F",
       "-Xcc",
@@ -1177,14 +1232,14 @@
 
   },
   "testEntryPointCommands" : {
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift" : {
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift" : {
       "inputs" : [
 
       ],
       "outputs" : [
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
         }
       ]
     }
@@ -1195,7 +1250,7 @@
     }
   },
   "writeCommands" : {
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources" : {
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources" : {
       "alwaysOutOfDate" : false,
       "inputs" : [
         {
@@ -1204,132 +1259,52 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/AppMain.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AegiroTheme.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AppMain.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MainView.swift"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MenuBarView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/PreferencesView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/QuickLook.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SavedSearchStore.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SearchToolbarField.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/VaultModel.swift"
         }
       ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources"
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/sources"
     },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources" : {
-      "alwaysOutOfDate" : false,
-      "inputs" : [
-        {
-          "kind" : "virtual",
-          "name" : "<sources-file-list>"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCLI/main.swift"
-        }
-      ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources"
-    },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources" : {
-      "alwaysOutOfDate" : false,
-      "inputs" : [
-        {
-          "kind" : "virtual",
-          "name" : "<sources-file-list>"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Backup.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Crypto.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/CryptoExtensions.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/IndexManifest.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PQC.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Session.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Shredder.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/Vault.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/VaultHeader.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift"
-        }
-      ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources"
-    },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources" : {
-      "alwaysOutOfDate" : false,
-      "inputs" : [
-        {
-          "kind" : "virtual",
-          "name" : "<sources-file-list>"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift"
-        }
-      ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources"
-    },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources" : {
-      "alwaysOutOfDate" : false,
-      "inputs" : [
-        {
-          "kind" : "virtual",
-          "name" : "<sources-file-list>"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
-        }
-      ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources"
-    },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.product/Objects.LinkFileList" : {
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.product/Objects.LinkFileList" : {
       "alwaysOutOfDate" : false,
       "inputs" : [
         {
@@ -1338,64 +1313,200 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/QuickLook.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SavedSearchStore.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SearchToolbarField.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/runner.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
         }
       ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.product/Objects.LinkFileList"
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.product/Objects.LinkFileList"
     },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/aegiro-cli.product/Objects.LinkFileList" : {
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCLI/main.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/sources"
+    },
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Backup.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Session.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Shredder.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Vault.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultHeader.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/sources"
+    },
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/sources"
+    },
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/sources"
+    },
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.product/Objects.LinkFileList" : {
       "alwaysOutOfDate" : false,
       "inputs" : [
         {
@@ -1404,60 +1515,126 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.build/runner.swift.o"
         }
       ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/aegiro-cli.product/Objects.LinkFileList"
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroPackageTests.product/Objects.LinkFileList"
     },
-    "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt" : {
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/aegiro-cli.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCLI.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/resource_bundle_accessor.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/aegiro-cli.product/Objects.LinkFileList"
+    },
+    "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt" : {
       "alwaysOutOfDate" : true,
       "inputs" : [
         {
@@ -1469,7 +1646,7 @@
           "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
         }
       ],
-      "outputFilePath" : "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+      "outputFilePath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
     }
   }
 }
