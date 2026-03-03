@@ -128,7 +128,7 @@ struct FirstRunView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
-                    TextField("/path/to/vault.aegirovault", text: $path)
+                    TextField("/path/to/vault.agvt", text: $path)
                         .textFieldStyle(.roundedBorder)
                     Button("Choose…") { choosePath() }
                         .buttonStyle(.bordered)
@@ -203,7 +203,10 @@ struct FirstRunView: View {
         let panel = NSSavePanel()
         panel.title = "Create Aegiro Vault"
         panel.nameFieldStringValue = (path as NSString).lastPathComponent
-        panel.allowedContentTypes = [UTType(filenameExtension: "aegirovault") ?? .data]
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "agvt") ?? .data,
+            UTType(filenameExtension: "aegirovault") ?? .data
+        ]
         if panel.runModal() == .OK, let url = panel.url {
             path = ensuredVaultPath(from: url.path)
         }
@@ -236,13 +239,15 @@ struct FirstRunView: View {
 
     private var isLocationValid: Bool {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed.lowercased().hasSuffix(".aegirovault")
+        let lowered = trimmed.lowercased()
+        return !trimmed.isEmpty && (lowered.hasSuffix(".agvt") || lowered.hasSuffix(".aegirovault"))
     }
 
     private func ensuredVaultPath(from source: String) -> String {
         let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.lowercased().hasSuffix(".aegirovault") else { return trimmed }
-        return trimmed + ".aegirovault"
+        let lowered = trimmed.lowercased()
+        guard !lowered.hasSuffix(".agvt") && !lowered.hasSuffix(".aegirovault") else { return trimmed }
+        return trimmed + ".agvt"
     }
 
     private func valueProp(icon: String, title: String) -> some View {
