@@ -8,12 +8,14 @@
 ```bash
 # Build and package (recommended)
 bash scripts/build-real.sh
+./dist/aegiro-cli --version
 
 # 1) Create a new vault
 ./dist/aegiro-cli create --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 
 # 2) Import files (stored in sidecar until lock)
 ./dist/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
+# (The CLI skips importing the vault file itself and sidecar paths.)
 
 # 3) Lock (ingest sidecar → encrypted index + chunk area; re‑sign manifest)
 ./dist/aegiro-cli lock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
@@ -77,7 +79,7 @@ aegiro --help
 Checksum for the current archive:
 
 ```
-0461bdd75bccfffac365692084e2294107b3619b8565aeedcd4ac52a6cf29a98  dist/aegiro-cli-macos-arm64.tar.gz
+9f7b1132803ccb5c361d8ae690dbad48ac709d74dcbdc7acd976835055c16212  dist/aegiro-cli-macos-arm64.tar.gz
 ```
 
 ### REAL_CRYPTO build (Argon2id + liboqs)

@@ -169,6 +169,7 @@ public struct Dilithium2: PQSig {
 }
 #else
 public struct StubKEM: PQKEM {
+    public init() {}
     public func keypair() throws -> (pk: Data, sk: Data) {
         let sk = Curve25519.KeyAgreement.PrivateKey()
         return (pk: sk.publicKey.rawRepresentation, sk: sk.rawRepresentation)
@@ -188,6 +189,7 @@ public struct StubKEM: PQKEM {
 }
 
 public struct StubSig: PQSig {
+    public init() {}
     public func keypair() throws -> (pk: Data, sk: Data) {
         let sk = P256.Signing.PrivateKey()
         return (pk: sk.publicKey.rawRepresentation, sk: sk.rawRepresentation)

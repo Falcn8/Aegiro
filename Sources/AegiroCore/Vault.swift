@@ -176,6 +176,10 @@ func parseHeaderAndOffset(_ data: Data) throws -> (VaultHeader, Int) {
     throw NSError(domain: "VaultHeader", code: -12)
 }
 
+private func normalizedPath(_ url: URL) -> String {
+    return url.standardizedFileURL.resolvingSymlinksInPath().path
+}
+
 public enum Importer {
     public static func sidecarImport(vaultURL: URL, passphrase: String, files: [URL]) throws -> (imported: Int, sidecar: URL) {
         // Load header to confirm format and derive DEK
@@ -200,24 +204,45 @@ public enum Importer {
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
         try? FileManager.default.createDirectory(at: sidecar, withIntermediateDirectories: true)
         let metaURL = sidecar.appendingPathComponent("index.json")
-        var meta: [[String: Any]] = (try? JSONSerialization.jsonObject(with: Data(contentsOf: metaURL)) as? [[String: Any]]) ?? []
+        let existingMeta: [[String: Any]] = (try? JSONSerialization.jsonObject(with: Data(contentsOf: metaURL)) as? [[String: Any]]) ?? []
+        let vaultPath = normalizedPath(vaultURL)
+        let sidecarPath = normalizedPath(sidecar)
+        let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
+
+        var bySource: [String: [String: Any]] = [:]
+        for item in existingMeta {
+            guard let source = item["source"] as? String else { continue }
+            bySource[source] = item
+        }
 
         var count = 0
         for f in files {
+            let sourcePath = normalizedPath(f)
+            if sourcePath == vaultPath || sourcePath == sidecarPath || sourcePath.hasPrefix(sidecarPrefix) {
+                continue
+            }
             let plain = try Data(contentsOf: f)
             // Encrypt with random nonce; combined contains nonce+ciphertext+tag
             let sealed = try AES.GCM.seal(plain, using: dek)
             guard let combined = sealed.combined else { continue }
+
+            if let prev = bySource[sourcePath], let prevStored = prev["stored"] as? String {
+                try? FileManager.default.removeItem(at: sidecar.appendingPathComponent(prevStored))
+            }
+
             let outName = UUID().uuidString + ".bin"
             let outURL = sidecar.appendingPathComponent(outName)
             try combined.write(to: outURL)
-            meta.append([
-                "source": f.path,
+            bySource[sourcePath] = [
+                "source": sourcePath,
                 "stored": outName,
                 "size": plain.count,
                 "when": Date().timeIntervalSince1970
-            ])
+            ]
             count += 1
+        }
+        let meta = bySource.values.sorted {
+            (($0["when"] as? Double) ?? 0) < (($1["when"] as? Double) ?? 0)
         }
         let metaData = try JSONSerialization.data(withJSONObject: meta, options: [.prettyPrinted])
         try metaData.write(to: metaURL)
@@ -334,70 +359,114 @@ public enum Locker {
         let metaURL = sidecar.appendingPathComponent("index.json")
         guard FileManager.default.fileExists(atPath: metaURL.path) else { return 0 }
         let metaObj = try JSONSerialization.jsonObject(with: Data(contentsOf: metaURL)) as? [[String: Any]] ?? []
+        let vaultPath = normalizedPath(vaultURL)
+        let sidecarPath = normalizedPath(sidecar)
+        let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
 
-        var added = 0
-        var chunkBlobs: [(name: String, blob: Data, path: String, size: Int, nameHash: Data)] = []
-        for item in metaObj {
-            guard let source = item["source"] as? String,
-                  let stored = item["stored"] as? String,
-                  let size = item["size"] as? Int else { continue }
-            let name = (source as NSString).lastPathComponent
-            let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
-            let entry = VaultIndexEntry(nameHash: h,
-                                        logicalPath: source,
-                                        size: UInt64(size),
-                                        mime: "application/octet-stream",
-                                        tags: [],
-                                        chunkCount: 1,
-                                        created: Date(),
-                                        modified: Date(),
-                                        sidecarName: stored)
-            index.entries.append(entry)
-            added += 1
-            // Read encrypted blob from sidecar for in-vault storage
-            let blobURL = sidecar.appendingPathComponent(stored)
-            if let blob = try? Data(contentsOf: blobURL) {
-                chunkBlobs.append((name: stored, blob: blob, path: source, size: size, nameHash: h))
-            }
+        struct StagedBlob {
+            let path: String
+            let blob: Data
+            let nameHash: Data
+            let order: Int
         }
 
-        // Build new index blob (encrypted)
-        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+        // Deduplicate by logical path: newest sidecar record wins.
+        var stagedByPath: [String: StagedBlob] = [:]
+        var order = 0
+        for item in metaObj {
+            defer { order += 1 }
+            guard let source = item["source"] as? String,
+                  let stored = item["stored"] as? String else { continue }
+            let normalizedSource = normalizedPath(URL(fileURLWithPath: source))
+            if normalizedSource == vaultPath || normalizedSource == sidecarPath || normalizedSource.hasPrefix(sidecarPrefix) {
+                continue
+            }
+            let blobURL = sidecar.appendingPathComponent(stored)
+            guard let blob = try? Data(contentsOf: blobURL) else { continue }
+            let name = (normalizedSource as NSString).lastPathComponent
+            let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
+            stagedByPath[normalizedSource] = StagedBlob(path: normalizedSource, blob: blob, nameHash: h, order: order)
+        }
+        let staged = stagedByPath.values.sorted { $0.order < $1.order }
+        guard !staged.isEmpty else {
+            try? FileManager.default.removeItem(at: sidecar)
+            return 0
+        }
 
-        // Decrypt sidecar blobs to plaintext and re-encrypt in chunks with deterministic nonces
+        // Preserve existing encrypted chunks except for paths being replaced.
+        let replacingPaths = Set(staged.map { $0.path })
+        let existingCM = data.subdata(in: layout.chunkMapRange)
+        let existingChunks = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
+        let existingArea = data.subdata(in: layout.chunkAreaStart..<data.count)
+
         let chunkSize = 1024 * 1024
-        var relOffset: UInt64 = 0
-        var cmArray: [[String: Any]] = []
         var chunkArea = Data()
-        for item in chunkBlobs {
-            // decrypt sidecar combined
+        var chunkInfos: [ChunkInfo] = []
+        chunkArea.reserveCapacity(existingArea.count)
+
+        for c in existingChunks where !replacingPaths.contains(c.name) {
+            let start = Int(c.relOffset)
+            let end = start + c.length
+            guard start >= 0, end <= existingArea.count else { continue }
+            let blob = existingArea.subdata(in: start..<end)
+            let offset = UInt64(chunkArea.count)
+            chunkArea.append(blob)
+            chunkInfos.append(ChunkInfo(name: c.name, relOffset: offset, length: blob.count))
+        }
+
+        // Replace matching entries while keeping metadata for untouched files.
+        let priorByPath = Dictionary(uniqueKeysWithValues: index.entries.map { ($0.logicalPath, $0) })
+        index.entries.removeAll { replacingPaths.contains($0.logicalPath) }
+
+        // Decrypt sidecar blobs and append newly encrypted chunks.
+        for item in staged {
             let sealed = try AES.GCM.SealedBox(combined: item.blob)
             let plain = try AES.GCM.open(sealed, using: dek)
-            // derive per-file seed from DEK and nameHash
+
             let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
             var fileChunkIndex: UInt64 = 0
             var remaining = plain.count
             var cursorPlain = 0
-            var perFileChunks: [[String: Any]] = []
+            var perFileCount = 0
             while remaining > 0 {
                 let n = min(remaining, chunkSize)
                 let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
                 let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
                 let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
-                let entry: [String: Any] = [
-                    "name": item.path,
-                    "relOffset": relOffset,
-                    "length": combined.count
-                ]
-                cmArray.append(entry)
-                relOffset += UInt64(combined.count)
+                let offset = UInt64(chunkArea.count)
                 chunkArea.append(combined)
+                chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
                 fileChunkIndex += 1
+                perFileCount += 1
                 remaining -= n
                 cursorPlain += n
             }
+
+            let previous = priorByPath[item.path]
+            let now = Date()
+            let entry = VaultIndexEntry(nameHash: item.nameHash,
+                                        logicalPath: item.path,
+                                        size: UInt64(plain.count),
+                                        mime: previous?.mime ?? "application/octet-stream",
+                                        tags: previous?.tags ?? [],
+                                        chunkCount: perFileCount,
+                                        created: previous?.created ?? now,
+                                        modified: now,
+                                        sidecarName: nil)
+            index.entries.append(entry)
         }
-        let chunkMap = try JSONSerialization.data(withJSONObject: cmArray, options: [])
+        let chunkCounts = chunkInfos.reduce(into: [String: Int]()) { counts, chunk in
+            counts[chunk.name, default: 0] += 1
+        }
+        for i in index.entries.indices {
+            let logical = index.entries[i].logicalPath
+            index.entries[i].chunkCount = chunkCounts[logical] ?? 0
+            index.entries[i].sidecarName = nil
+        }
+
+        // Build new index/blob and chunk map.
+        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+        let chunkMap = try JSONEncoder().encode(chunkInfos)
 
         // Re-sign manifest using Dilithium SK (wrapped under DEK)
         let signerWrap = data.subdata(in: layout.signerWrapRange)
@@ -451,12 +520,8 @@ public enum Locker {
         try out.write(to: vaultURL, options: .atomic)
 
         // cleanup sidecar
-        if let files = try? FileManager.default.contentsOfDirectory(atPath: sidecar.path) {
-            for f in files { try? FileManager.default.removeItem(at: sidecar.appendingPathComponent(f)) }
-            try? FileManager.default.removeItem(at: sidecar)
-        }
-
-        return added
+        try? FileManager.default.removeItem(at: sidecar)
+        return staged.count
     }
 }
 
