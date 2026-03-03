@@ -30,7 +30,7 @@ struct CLI {
                 }
             }
             guard let p = path, !pass.isEmpty else {
-                hint("Missing required options for create.", tip: "Use: create --vault <path.aegirovault> --passphrase \"<pass>\"")
+                hint("Missing required options for create.", tip: "Use: create --vault <path.agvt> --passphrase \"<pass>\"")
             }
             let v = try AegiroVault.create(at: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass, touchID: touch)
             print("Vault created at \(v.url.path)")
@@ -251,7 +251,7 @@ Aegiro CLI v\(AEGIRO_CLI_VERSION)
 Usage:
   --version | version                      Show CLI version
   --help    | help                         Show this help
-  create --vault <path.aegirovault> --passphrase "<pass>" [--touchid]
+  create --vault <path.agvt> --passphrase "<pass>" [--touchid]
   import --vault <path> --passphrase "<pass>" <files...>
   lock --vault <path> --passphrase "<pass>"
   unlock --vault <path> --passphrase "<pass>"
