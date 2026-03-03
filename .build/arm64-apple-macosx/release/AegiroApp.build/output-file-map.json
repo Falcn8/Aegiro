@@ -1,43 +1,73 @@
 {
   "": {
-    "dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroApp.d",
-    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroApp.o",
-    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/master.swiftdeps"
+    "dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroApp.d",
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroApp.o",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/master.swiftdeps"
   },
-  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/AppMain.swift": {
-    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o",
-    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain~partial.swiftmodule",
-    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swiftdeps",
-    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.dia"
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AegiroTheme.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme.dia"
   },
-  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/FirstRunView.swift": {
-    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
-    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView~partial.swiftmodule",
-    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swiftdeps",
-    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.dia"
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AppMain.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.dia"
   },
-  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MainView.swift": {
-    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o",
-    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView~partial.swiftmodule",
-    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swiftdeps",
-    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.dia"
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.dia"
   },
-  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/MenuBarView.swift": {
-    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o",
-    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView~partial.swiftmodule",
-    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swiftdeps",
-    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.dia"
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.dia"
   },
-  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/PreferencesView.swift": {
-    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o",
-    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView~partial.swiftmodule",
-    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swiftdeps",
-    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.dia"
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MainView.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.dia"
   },
-  "/Users/codei/Downloads/Aegiro/Sources/AegiroApp/VaultModel.swift": {
-    "object": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o",
-    "swiftmodule": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel~partial.swiftmodule",
-    "swift-dependencies": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swiftdeps",
-    "diagnostics": "/Users/codei/Downloads/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.dia"
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MenuBarView.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/PreferencesView.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/QuickLook.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/QuickLook.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/QuickLook~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/QuickLook.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/QuickLook.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SavedSearchStore.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SavedSearchStore.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SavedSearchStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SavedSearchStore.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SavedSearchStore.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/SearchToolbarField.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SearchToolbarField.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SearchToolbarField~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SearchToolbarField.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/SearchToolbarField.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/VaultModel.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.dia"
   }
 }
