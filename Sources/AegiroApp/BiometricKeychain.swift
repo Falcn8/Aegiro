@@ -32,19 +32,24 @@ enum BiometricKeychain {
             deletePassphrase(account: account, dataProtection: nil)
         }
 
-        let addQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: primaryAccount,
-            kSecValueData as String: data,
-            kSecAttrAccessControl as String: access,
-            kSecUseDataProtectionKeychain as String: true
-        ]
-
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw BiometricKeychainError.unexpectedStatus(status)
+        var lastStatus: OSStatus = errSecSuccess
+        for dataProtection in [true, nil] {
+            let status = addPassphrase(
+                account: primaryAccount,
+                data: data,
+                access: access,
+                dataProtection: dataProtection
+            )
+            if status == errSecSuccess {
+                return
+            }
+            lastStatus = status
+            // If this build lacks data protection keychain entitlement, retry with legacy keychain.
+            if status == errSecMissingEntitlement && dataProtection != nil {
+                continue
+            }
         }
+        throw BiometricKeychainError.unexpectedStatus(lastStatus)
     }
 
     static func removePassphrase(for vaultURL: URL) {
@@ -56,12 +61,12 @@ enum BiometricKeychain {
 
     static func loadPassphrase(for vaultURL: URL, context: LAContext) throws -> String {
         for account in accountCandidates(for: vaultURL) {
-            if let passphrase = try queryPassphrase(account: account, context: context, dataProtection: true) {
+            if let passphrase = try queryPassphrase(account: account, context: context, dataProtection: true, allowEntitlementFallback: true) {
                 return passphrase
             }
 
             // Backward compatibility for items saved before data-protection keychain migration.
-            if let legacy = try queryPassphrase(account: account, context: context, dataProtection: nil) {
+            if let legacy = try queryPassphrase(account: account, context: context, dataProtection: nil, allowEntitlementFallback: false) {
                 try save(passphrase: legacy, for: vaultURL)
                 return legacy
             }
@@ -98,7 +103,26 @@ enum BiometricKeychain {
         SecItemDelete(query as CFDictionary)
     }
 
-    private static func queryPassphrase(account: String, context: LAContext, dataProtection: Bool?) throws -> String? {
+    private static func addPassphrase(account: String, data: Data, access: SecAccessControl, dataProtection: Bool?) -> OSStatus {
+        var addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: data,
+            kSecAttrAccessControl as String: access
+        ]
+        if let dataProtection {
+            addQuery[kSecUseDataProtectionKeychain as String] = dataProtection
+        }
+        return SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    private static func queryPassphrase(
+        account: String,
+        context: LAContext,
+        dataProtection: Bool?,
+        allowEntitlementFallback: Bool
+    ) throws -> String? {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -120,6 +144,8 @@ enum BiometricKeychain {
             }
             return pass
         case errSecItemNotFound:
+            return nil
+        case errSecMissingEntitlement where allowEntitlementFallback:
             return nil
         default:
             throw BiometricKeychainError.unexpectedStatus(status)
