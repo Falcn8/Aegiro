@@ -3,6 +3,7 @@ import SwiftUI
 import AppKit
 import AegiroCore
 import UniformTypeIdentifiers
+import Security
 @preconcurrency import LocalAuthentication
 
 @MainActor
@@ -394,6 +395,9 @@ final class VaultModel: ObservableObject {
             case .itemNotFound:
                 return "No Touch ID passphrase is stored for this vault. Unlock once with your passphrase to save it."
             case .unexpectedStatus(let status):
+                if status == errSecMissingEntitlement {
+                    return "This app build cannot access the secure keychain for Touch ID."
+                }
                 return "Keychain error (\(status))."
             case .stringDecodingFailed:
                 return "Stored credential is invalid."
