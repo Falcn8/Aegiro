@@ -339,6 +339,38 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func addTouchIDForUnlockedVault() {
+        touchActivity()
+        guard let url = vaultURL else {
+            status = "Open a vault first"
+            return
+        }
+        guard !locked else {
+            status = "Unlock to add Touch ID"
+            return
+        }
+        guard !passphrase.isEmpty else {
+            status = "Unlock with passphrase once to add Touch ID"
+            return
+        }
+        guard canEvaluateBiometrics() else {
+            status = "Touch ID unavailable on this Mac"
+            return
+        }
+
+        do {
+            try VaultSettings.setTouchIDEnabled(vaultURL: url, enabled: true)
+            allowTouchID = true
+            UserDefaults.standard.set(true, forKey: "allowTouchID")
+            supportsBiometricUnlock = true
+            storePassphraseForBiometrics(passphrase)
+            status = "Touch ID enabled for this vault"
+            refreshStatus()
+        } catch {
+            status = "Touch ID setup failed: \(error)"
+        }
+    }
+
     private func touchActivity() {
         lastActivity = .now
         resetAutoLockDeadline()

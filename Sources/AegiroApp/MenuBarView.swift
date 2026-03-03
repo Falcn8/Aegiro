@@ -18,9 +18,12 @@ struct MenuBarView: View {
                 Button("Unlock…") { showUnlock = true }
             } else {
                 Button("Lock Now") { model.lockNow() }
+                if !model.allowTouchID {
+                    Button("Add Touch ID") { model.addTouchIDForUnlockedVault() }
+                }
                 Button("Import…") { model.importFiles() }
                 Button("Export…") { model.exportSelectedWithPanel() }
-                    Button("Preferences…") { NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) }
+                Button("Preferences…") { NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) }
             }
             if !model.status.isEmpty {
                 Divider()
