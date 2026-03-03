@@ -416,7 +416,7 @@ func defaultVaultURL() -> URL {
     let base = UserDefaults.standard.string(forKey: "defaultVaultDir").flatMap { URL(fileURLWithPath: $0, isDirectory: true) }
         ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults")
     try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-    return base.appendingPathComponent("alpha.aegirovault")
+    return base.appendingPathComponent("alpha.agvt")
 }
 
 extension VaultModel {
@@ -425,7 +425,10 @@ extension VaultModel {
         p.title = "Open Aegiro Vault"
         p.allowsMultipleSelection = false
         p.canChooseDirectories = false
-        p.allowedContentTypes = [UTType(filenameExtension: "aegirovault") ?? .data]
+        p.allowedContentTypes = [
+            UTType(filenameExtension: "agvt") ?? .data,
+            UTType(filenameExtension: "aegirovault") ?? .data
+        ]
         if p.runModal() == .OK, let url = p.url {
             openVault(at: url)
         }

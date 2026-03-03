@@ -24,7 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true).path
         let defaultDir = URL(fileURLWithPath: defaultDirPath, isDirectory: true)
         if let contents = try? FileManager.default.contentsOfDirectory(at: defaultDir, includingPropertiesForKeys: nil) {
-            let hasVault = contents.contains { $0.pathExtension.lowercased() == "aegirovault" }
+            let hasVault = contents.contains {
+                let ext = $0.pathExtension.lowercased()
+                return ext == "agvt" || ext == "aegirovault"
+            }
             if hasVault {
                 return false
             }

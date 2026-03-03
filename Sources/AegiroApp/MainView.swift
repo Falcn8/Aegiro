@@ -680,7 +680,7 @@ private struct CreateVaultSheet: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
-                    TextField("/path/to/vault.aegirovault", text: $path)
+                    TextField("/path/to/vault.agvt", text: $path)
                         .textFieldStyle(.roundedBorder)
                     Button("Choose…") { choosePath() }
                         .buttonStyle(.bordered)
@@ -745,7 +745,10 @@ private struct CreateVaultSheet: View {
         let panel = NSSavePanel()
         panel.title = "Create Aegiro Vault"
         panel.nameFieldStringValue = (path as NSString).lastPathComponent
-        panel.allowedContentTypes = [UTType(filenameExtension: "aegirovault") ?? .data]
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "agvt") ?? .data,
+            UTType(filenameExtension: "aegirovault") ?? .data
+        ]
         if panel.runModal() == .OK, let url = panel.url {
             path = ensuredVaultPath(from: url.path)
         }
@@ -762,8 +765,9 @@ private struct CreateVaultSheet: View {
 
     private func ensuredVaultPath(from source: String) -> String {
         let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.lowercased().hasSuffix(".aegirovault") else { return trimmed }
-        return trimmed + ".aegirovault"
+        let lowered = trimmed.lowercased()
+        guard !lowered.hasSuffix(".agvt") && !lowered.hasSuffix(".aegirovault") else { return trimmed }
+        return trimmed + ".agvt"
     }
 }
 

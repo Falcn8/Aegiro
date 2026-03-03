@@ -10,19 +10,19 @@
 bash scripts/build-real.sh
 
 # 1) Create a new vault
-./dist/aegiro-cli create --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
+./dist/aegiro-cli create --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 
 # 2) Import files (stored in sidecar until lock)
-./dist/aegiro-cli import --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
+./dist/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
 
 # 3) Lock (ingest sidecar → encrypted index + chunk area; re‑sign manifest)
-./dist/aegiro-cli lock --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
+./dist/aegiro-cli lock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 
 # 4) List entries
-./dist/aegiro-cli list --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" [--long]
+./dist/aegiro-cli list --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" [--long]
 
 # 5) Export entries
-./dist/aegiro-cli export --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" --out ~/Recovered [filters...]
+./dist/aegiro-cli export --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --out ~/Recovered [filters...]
 ```
 
 ---
@@ -103,22 +103,22 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 
 ```bash
 # Create a new vault
-.build/release/aegiro-cli create --vault ~/AegiroVaults/alpha.aegirovault --passphrase "correct horse battery staple" --touchid
+.build/release/aegiro-cli create --vault ~/AegiroVaults/alpha.agvt --passphrase "correct horse battery staple" --touchid
 
 # Import files (sidecar)
-.build/release/aegiro-cli import --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
+.build/release/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
 
 # Lock (ingest sidecar → index + chunk area) / unlock
-.build/release/aegiro-cli lock --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
-.build/release/aegiro-cli unlock --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>"
+.build/release/aegiro-cli lock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
+.build/release/aegiro-cli unlock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 
 # List / Export / Preview
-.build/release/aegiro-cli list --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" [--long]
-.build/release/aegiro-cli export --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" --out ~/Recovered [filters...]
-.build/release/aegiro-cli preview --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" passport
+.build/release/aegiro-cli list --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" [--long]
+.build/release/aegiro-cli export --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --out ~/Recovered [filters...]
+.build/release/aegiro-cli preview --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" passport
 
 # Backup export
-.build/release/aegiro-cli backup --vault ~/AegiroVaults/alpha.aegirovault --out ~/Backups/alpha_2025-10-04.aegirobackup
+.build/release/aegiro-cli backup --vault ~/AegiroVaults/alpha.agvt --out ~/Backups/alpha_2025-10-04.aegirobackup
 
 # Privacy scan + suggest moves
 .build/release/aegiro-cli scan --targets ~/Downloads ~/Desktop
@@ -127,10 +127,10 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 .build/release/aegiro-cli shred ~/Downloads/secret.zip
 
 # Verify manifest
-.build/release/aegiro-cli verify --vault ~/AegiroVaults/alpha.aegirovault
+.build/release/aegiro-cli verify --vault ~/AegiroVaults/alpha.agvt
 
 # Status (JSON)
-.build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.aegirovault --passphrase "<pass>" --json
+.build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --json
 
 Example output:
 
@@ -144,7 +144,7 @@ Example output:
 ```
 
 # Doctor (check, optional fix)
-.build/release/aegiro-cli doctor --vault ~/AegiroVaults/alpha.aegirovault [--passphrase "<pass>"] [--fix]
+.build/release/aegiro-cli doctor --vault ~/AegiroVaults/alpha.agvt [--passphrase "<pass>"] [--fix]
 ```
 
 ---
