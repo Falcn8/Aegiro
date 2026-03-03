@@ -652,6 +652,33 @@ public enum VaultStatus {
     }
 }
 
+public enum VaultSettings {
+    public static func setTouchIDEnabled(vaultURL: URL, enabled: Bool) throws {
+        let data = try Data(contentsOf: vaultURL)
+        let (head, headerEnd) = try parseHeaderAndOffset(data)
+
+        var updated = head
+        if enabled {
+            updated.flags |= 0b1
+        } else {
+            updated.flags &= ~UInt32(0b1)
+        }
+
+        let newHeader = try updated.serialize()
+        guard newHeader.count == headerEnd else {
+            throw NSError(
+                domain: "VaultSettings",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Vault header size changed; Touch ID flag update is not safe for this vault."]
+            )
+        }
+
+        var out = data
+        out.replaceSubrange(0..<headerEnd, with: newHeader)
+        try out.write(to: vaultURL, options: .atomic)
+    }
+}
+
 public struct DoctorReport: Codable {
     public var headerOK: Bool
     public var manifestOK: Bool
