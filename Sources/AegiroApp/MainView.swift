@@ -115,11 +115,18 @@ struct MainView: View {
                     }
                     .disabled(model.vaultURL == nil)
 
-                    actionButton(title: "Lock and Import", icon: "lock") {
+                    actionButton(title: model.sidecarPending > 0 ? "Lock and Import" : "Lock Vault", icon: "lock") {
                         model.lockNow()
                         selection.removeAll()
                     }
-                    .disabled(model.vaultURL == nil || model.locked || model.sidecarPending == 0)
+                    .disabled(model.vaultURL == nil || model.locked)
+
+                    if !model.locked && !model.allowTouchID {
+                        actionButton(title: "Add Touch ID", icon: "touchid") {
+                            model.addTouchIDForUnlockedVault()
+                        }
+                        .disabled(model.vaultURL == nil)
+                    }
 
                     actionButton(title: "Export Selected", icon: "square.and.arrow.up") {
                         exportSelection()
