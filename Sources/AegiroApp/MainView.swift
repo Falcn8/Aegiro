@@ -106,7 +106,7 @@ struct MainView: View {
                         showCreateVaultSheet = true
                     }
 
-                    actionButton(title: model.locked ? "Unlock Vault" : "Add to Sidecar", icon: model.locked ? "lock.open" : "tray.and.arrow.down") {
+                    actionButton(title: model.locked ? "Unlock Vault" : "Add Files", icon: model.locked ? "lock.open" : "tray.and.arrow.down") {
                         if model.locked {
                             showUnlockSheet = true
                         } else {
@@ -115,7 +115,7 @@ struct MainView: View {
                     }
                     .disabled(model.vaultURL == nil)
 
-                    actionButton(title: model.sidecarPending > 0 ? "Lock and Import" : "Lock Vault", icon: "lock") {
+                    actionButton(title: "Lock Vault", icon: "lock") {
                         model.lockNow()
                         selection.removeAll()
                     }
@@ -196,21 +196,8 @@ struct MainView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Simple flow")
                 .font(.headline)
-            workflowRow(number: 1, icon: "tray.and.arrow.down", text: "Add files to sidecar", done: model.sidecarPending > 0)
-            workflowRow(number: 2, icon: "arrow.down.doc", text: "Import happens when you lock", done: !model.locked && model.sidecarPending == 0)
-            workflowRow(number: 3, icon: "lock", text: "Lock vault to finalize", done: model.locked)
-
-            Divider()
-
-            HStack {
-                Label("Pending", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(model.sidecarPending)")
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(model.sidecarPending > 0 ? AegiroPalette.orange : .secondary)
-            }
+            workflowRow(number: 1, icon: "tray.and.arrow.down", text: "Import writes directly into encrypted vault", done: !model.locked && !model.entries.isEmpty)
+            workflowRow(number: 2, icon: "lock", text: "Lock vault when finished", done: model.locked)
 
             Text(workflowHint)
                 .font(.caption)
@@ -332,7 +319,7 @@ struct MainView: View {
                 .foregroundStyle(AegiroPalette.deepNavy)
             Text("Vault is locked")
                 .font(.title3.weight(.semibold))
-            Text("Unlock to add files to sidecar or browse contents.")
+            Text("Unlock to import files or browse contents.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Button {
@@ -353,13 +340,13 @@ struct MainView: View {
                 .foregroundStyle(AegiroPalette.tealBlue)
             Text("No files yet")
                 .font(.title3.weight(.semibold))
-            Text("Add files to sidecar, then lock to import.")
+            Text("Import files to add encrypted content directly to this vault.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Button {
                 model.importFiles()
             } label: {
-                Label("Add Files to Sidecar", systemImage: "tray.and.arrow.down")
+                Label("Import Files", systemImage: "tray.and.arrow.down")
             }
             .buttonStyle(.borderedProminent)
             .tint(AegiroPalette.primaryBlue)
@@ -567,12 +554,12 @@ struct MainView: View {
 
     private var workflowHint: String {
         if model.locked {
-            return "Unlock, add files to sidecar, then lock to import."
+            return "Unlock to import files directly into encrypted storage."
         }
-        if model.sidecarPending > 0 {
-            return "Lock now to import staged files into encrypted storage."
+        if model.entries.isEmpty {
+            return "Use Import to add files directly to the vault."
         }
-        return "Add files to sidecar to start your next import batch."
+        return "Imports are immediate; lock when you are done."
     }
 
     private func toggleSelection(_ entry: VaultIndexEntry) {

@@ -62,8 +62,8 @@ struct CLI {
                 hint("Missing --passphrase for import.", tip: "Use: import --vault <path> --passphrase \"<pass>\" <files...>")
             }
             let vpath = NSString(string: p).expandingTildeInPath
-            let (imported, sidecar) = try Importer.sidecarImport(vaultURL: URL(fileURLWithPath: vpath), passphrase: pass, files: files.map { URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath) })
-            print("Imported \(imported) file(s) into sidecar: \(sidecar.path)")
+            let (imported, _) = try Importer.sidecarImport(vaultURL: URL(fileURLWithPath: vpath), passphrase: pass, files: files.map { URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath) })
+            print("Imported \(imported) file(s) directly into encrypted vault.")
         case "unlock":
             var path: String?
             var pass: String = ""
@@ -176,7 +176,11 @@ struct CLI {
                 hint("Missing required options for lock.", tip: "Use: lock --vault <path> --passphrase \"<pass>\"")
             }
             let added = try Locker.lockFromSidecar(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass)
-            print("Locked. Added \(added) item(s) from sidecar into encrypted index. Manifest re-sign pending.")
+            if added > 0 {
+                print("Lock complete. Imported \(added) legacy staged item(s) from sidecar.")
+            } else {
+                print("Lock complete. No staged files found; imports are immediate.")
+            }
         case "backup":
             var path: String?
             var out: String?
