@@ -91,7 +91,7 @@ struct FirstRunView: View {
                 .foregroundStyle(.secondary)
 
             valueProp(icon: "lock.open", title: "Unlock with your passphrase")
-            valueProp(icon: "tray.and.arrow.down", title: "Add files to sidecar and lock to import")
+            valueProp(icon: "tray.and.arrow.down", title: "Import files directly into encrypted storage")
             valueProp(icon: "touchid", title: "Touch ID works when a passphrase is saved on this Mac")
 
             if let errorText {

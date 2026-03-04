@@ -182,71 +182,36 @@ private func normalizedPath(_ url: URL) -> String {
 
 public enum Importer {
     public static func sidecarImport(vaultURL: URL, passphrase: String, files: [URL]) throws -> (imported: Int, sidecar: URL) {
-        // Load header to confirm format and derive DEK
+        let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
-        let pdkWrap = data.subdata(in: hdrLen..<(hdrLen+60))
-
-        // Derive PDK and unwrap DEK
-        #if REAL_CRYPTO
-        let kdf = Argon2idKDF()
-        #else
-        let kdf = StubKDF()
-        #endif
-        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
-        let pdk = SymmetricKey(data: pdkRaw)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let dek = try Exporter.deriveDEK(data: data, passphrase: passphrase)
         let aad = Data("AEGIRO-V1".utf8)
-        // Combined contains nonce, ciphertext, tag; SealedBox will parse nonce from combined
-        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
-        let dek = SymmetricKey(data: dekRaw)
+        let items = try directImportItems(files: files, vaultURL: vaultURL, sidecarURL: sidecar, head: head)
+        let imported = try mergeImportedPlainItems(vaultURL: vaultURL, data: data, head: head, layout: layout, dek: dek, aad: aad, items: items)
+        try? FileManager.default.removeItem(at: sidecar)
+        return (imported, sidecar)
+    }
 
-        // Sidecar folder
-        let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
-        try? FileManager.default.createDirectory(at: sidecar, withIntermediateDirectories: true)
-        let metaURL = sidecar.appendingPathComponent("index.json")
-        let existingMeta: [[String: Any]] = (try? JSONSerialization.jsonObject(with: Data(contentsOf: metaURL)) as? [[String: Any]]) ?? []
+    private static func directImportItems(files: [URL], vaultURL: URL, sidecarURL: URL, head: VaultHeader) throws -> [PlainImportItem] {
         let vaultPath = normalizedPath(vaultURL)
-        let sidecarPath = normalizedPath(sidecar)
+        let sidecarPath = normalizedPath(sidecarURL)
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
-
-        var bySource: [String: [String: Any]] = [:]
-        for item in existingMeta {
-            guard let source = item["source"] as? String else { continue }
-            bySource[source] = item
-        }
-
-        var count = 0
+        var bySource: [String: PlainImportItem] = [:]
+        var order = 0
         for f in files {
             let sourcePath = normalizedPath(f)
             if sourcePath == vaultPath || sourcePath == sidecarPath || sourcePath.hasPrefix(sidecarPrefix) {
                 continue
             }
             let plain = try Data(contentsOf: f)
-            // Encrypt with random nonce; combined contains nonce+ciphertext+tag
-            let sealed = try AES.GCM.seal(plain, using: dek)
-            guard let combined = sealed.combined else { continue }
-
-            if let prev = bySource[sourcePath], let prevStored = prev["stored"] as? String {
-                try? FileManager.default.removeItem(at: sidecar.appendingPathComponent(prevStored))
-            }
-
-            let outName = UUID().uuidString + ".bin"
-            let outURL = sidecar.appendingPathComponent(outName)
-            try combined.write(to: outURL)
-            bySource[sourcePath] = [
-                "source": sourcePath,
-                "stored": outName,
-                "size": plain.count,
-                "when": Date().timeIntervalSince1970
-            ]
-            count += 1
+            let name = (sourcePath as NSString).lastPathComponent
+            let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
+            bySource[sourcePath] = PlainImportItem(path: sourcePath, plain: plain, nameHash: h, order: order)
+            order += 1
         }
-        let meta = bySource.values.sorted {
-            (($0["when"] as? Double) ?? 0) < (($1["when"] as? Double) ?? 0)
-        }
-        let metaData = try JSONSerialization.data(withJSONObject: meta, options: [.prettyPrinted])
-        try metaData.write(to: metaURL)
-        return (count, sidecar)
+        return bySource.values.sorted { $0.order < $1.order }
     }
 }
 
@@ -312,6 +277,148 @@ func computeLayout(_ data: Data, afterHeader hdrLen: Int) -> VaultLayout {
                        chunkAreaStart: chunkStart)
 }
 
+private struct PlainImportItem {
+    let path: String
+    let plain: Data
+    let nameHash: Data
+    let order: Int
+}
+
+private func mergeImportedPlainItems(vaultURL: URL,
+                                     data: Data,
+                                     head: VaultHeader,
+                                     layout: VaultLayout,
+                                     dek: SymmetricKey,
+                                     aad: Data,
+                                     items: [PlainImportItem]) throws -> Int {
+    guard !items.isEmpty else { return 0 }
+
+    let idxBlobOld = data.subdata(in: layout.idxRange)
+    var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
+
+    // Preserve existing encrypted chunks except for paths being replaced.
+    let replacingPaths = Set(items.map { $0.path })
+    let existingCM = data.subdata(in: layout.chunkMapRange)
+    let existingChunks = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
+    let existingArea = data.subdata(in: layout.chunkAreaStart..<data.count)
+
+    let chunkSize = 1024 * 1024
+    var chunkArea = Data()
+    var chunkInfos: [ChunkInfo] = []
+    chunkArea.reserveCapacity(existingArea.count)
+
+    for c in existingChunks where !replacingPaths.contains(c.name) {
+        let start = Int(c.relOffset)
+        let end = start + c.length
+        guard start >= 0, end <= existingArea.count else { continue }
+        let blob = existingArea.subdata(in: start..<end)
+        let offset = UInt64(chunkArea.count)
+        chunkArea.append(blob)
+        chunkInfos.append(ChunkInfo(name: c.name, relOffset: offset, length: blob.count))
+    }
+
+    // Replace matching entries while keeping metadata for untouched files.
+    let priorByPath = Dictionary(uniqueKeysWithValues: index.entries.map { ($0.logicalPath, $0) })
+    index.entries.removeAll { replacingPaths.contains($0.logicalPath) }
+
+    // Encrypt new plaintext data and append chunk descriptors.
+    for item in items.sorted(by: { $0.order < $1.order }) {
+        let plain = item.plain
+        let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
+        var fileChunkIndex: UInt64 = 0
+        var remaining = plain.count
+        var cursorPlain = 0
+        var perFileCount = 0
+        while remaining > 0 {
+            let n = min(remaining, chunkSize)
+            let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
+            let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
+            let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
+            let offset = UInt64(chunkArea.count)
+            chunkArea.append(combined)
+            chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
+            fileChunkIndex += 1
+            perFileCount += 1
+            remaining -= n
+            cursorPlain += n
+        }
+
+        let previous = priorByPath[item.path]
+        let now = Date()
+        let entry = VaultIndexEntry(nameHash: item.nameHash,
+                                    logicalPath: item.path,
+                                    size: UInt64(plain.count),
+                                    mime: previous?.mime ?? "application/octet-stream",
+                                    tags: previous?.tags ?? [],
+                                    chunkCount: perFileCount,
+                                    created: previous?.created ?? now,
+                                    modified: now,
+                                    sidecarName: nil)
+        index.entries.append(entry)
+    }
+
+    let chunkCounts = chunkInfos.reduce(into: [String: Int]()) { counts, chunk in
+        counts[chunk.name, default: 0] += 1
+    }
+    for i in index.entries.indices {
+        let logical = index.entries[i].logicalPath
+        index.entries[i].chunkCount = chunkCounts[logical] ?? 0
+        index.entries[i].sidecarName = nil
+    }
+
+    // Build new index/blob and chunk map.
+    let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+    let chunkMap = try JSONEncoder().encode(chunkInfos)
+
+    // Re-sign manifest using signer SK (wrapped under DEK).
+    let signerWrap = data.subdata(in: layout.signerWrapRange)
+    let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
+    #if REAL_CRYPTO
+    let sig = Dilithium2()
+    #else
+    let sig = StubSig()
+    #endif
+    let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
+    let manBlob = try JSONEncoder().encode(manifest)
+
+    // Reconstruct vault file in-memory (header + wraps + idx + manifest + chunk map + chunk area).
+    var cursor = layout.headerLen
+    cursor += 60 // pdk wrap
+    let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+    let ctStart = cursor + 4
+    let ct = data.subdata(in: ctStart..<(ctStart + Int(ctLen)))
+    cursor = ctStart + Int(ctLen)
+    let pqWrap = data.subdata(in: cursor..<(cursor+60))
+
+    let signerLen = data.subdata(in: layout.signerWrapLenPos..<(layout.signerWrapLenPos+4))
+    let signerBlob = data.subdata(in: layout.signerWrapRange)
+    let pdkBlob = data.subdata(in: layout.pdkWrapRange)
+
+    let idxLenLE = withUnsafeBytes(of: UInt32(newIdxBlob.count).littleEndian) { Data($0) }
+    let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
+
+    var out = Data()
+    let finalHeader = try head.serialize()
+    out.append(finalHeader)
+    out.append(pdkBlob)
+    out.append(withUnsafeBytes(of: ctLen.littleEndian) { Data($0) })
+    out.append(ct)
+    out.append(pqWrap)
+    out.append(signerLen)
+    out.append(signerBlob)
+    out.append(idxLenLE)
+    out.append(newIdxBlob)
+    out.append(manLenLE)
+    out.append(manBlob)
+    let cmLenLE = withUnsafeBytes(of: UInt32(chunkMap.count).littleEndian) { Data($0) }
+    out.append(cmLenLE)
+    out.append(chunkMap)
+    out.append(chunkArea)
+
+    try out.write(to: vaultURL, options: .atomic)
+    return items.count
+}
+
 public enum Locker {
     public static func unlockInfo(vaultURL: URL, passphrase: String) throws -> Int {
         let data = try Data(contentsOf: vaultURL)
@@ -337,22 +444,8 @@ public enum Locker {
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
-        let pdkWrap = data.subdata(in: layout.pdkWrapRange)
-
-        #if REAL_CRYPTO
-        let kdf = Argon2idKDF()
-        #else
-        let kdf = StubKDF()
-        #endif
-        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
-        let pdk = SymmetricKey(data: pdkRaw)
+        let dek = try Exporter.deriveDEK(data: data, passphrase: passphrase)
         let aad = Data("AEGIRO-V1".utf8)
-        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
-        let dek = SymmetricKey(data: dekRaw)
-
-        // Decrypt current index
-        let idxBlobOld = data.subdata(in: layout.idxRange)
-        var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
 
         // Read sidecar meta
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
@@ -363,15 +456,8 @@ public enum Locker {
         let sidecarPath = normalizedPath(sidecar)
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
 
-        struct StagedBlob {
-            let path: String
-            let blob: Data
-            let nameHash: Data
-            let order: Int
-        }
-
         // Deduplicate by logical path: newest sidecar record wins.
-        var stagedByPath: [String: StagedBlob] = [:]
+        var stagedByPath: [String: PlainImportItem] = [:]
         var order = 0
         for item in metaObj {
             defer { order += 1 }
@@ -383,145 +469,22 @@ public enum Locker {
             }
             let blobURL = sidecar.appendingPathComponent(stored)
             guard let blob = try? Data(contentsOf: blobURL) else { continue }
+            guard let sealed = try? AES.GCM.SealedBox(combined: blob),
+                  let plain = try? AES.GCM.open(sealed, using: dek) else { continue }
             let name = (normalizedSource as NSString).lastPathComponent
             let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
-            stagedByPath[normalizedSource] = StagedBlob(path: normalizedSource, blob: blob, nameHash: h, order: order)
+            stagedByPath[normalizedSource] = PlainImportItem(path: normalizedSource, plain: plain, nameHash: h, order: order)
         }
         let staged = stagedByPath.values.sorted { $0.order < $1.order }
         guard !staged.isEmpty else {
             try? FileManager.default.removeItem(at: sidecar)
             return 0
         }
-
-        // Preserve existing encrypted chunks except for paths being replaced.
-        let replacingPaths = Set(staged.map { $0.path })
-        let existingCM = data.subdata(in: layout.chunkMapRange)
-        let existingChunks = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
-        let existingArea = data.subdata(in: layout.chunkAreaStart..<data.count)
-
-        let chunkSize = 1024 * 1024
-        var chunkArea = Data()
-        var chunkInfos: [ChunkInfo] = []
-        chunkArea.reserveCapacity(existingArea.count)
-
-        for c in existingChunks where !replacingPaths.contains(c.name) {
-            let start = Int(c.relOffset)
-            let end = start + c.length
-            guard start >= 0, end <= existingArea.count else { continue }
-            let blob = existingArea.subdata(in: start..<end)
-            let offset = UInt64(chunkArea.count)
-            chunkArea.append(blob)
-            chunkInfos.append(ChunkInfo(name: c.name, relOffset: offset, length: blob.count))
-        }
-
-        // Replace matching entries while keeping metadata for untouched files.
-        let priorByPath = Dictionary(uniqueKeysWithValues: index.entries.map { ($0.logicalPath, $0) })
-        index.entries.removeAll { replacingPaths.contains($0.logicalPath) }
-
-        // Decrypt sidecar blobs and append newly encrypted chunks.
-        for item in staged {
-            let sealed = try AES.GCM.SealedBox(combined: item.blob)
-            let plain = try AES.GCM.open(sealed, using: dek)
-
-            let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
-            var fileChunkIndex: UInt64 = 0
-            var remaining = plain.count
-            var cursorPlain = 0
-            var perFileCount = 0
-            while remaining > 0 {
-                let n = min(remaining, chunkSize)
-                let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
-                let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
-                let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
-                let offset = UInt64(chunkArea.count)
-                chunkArea.append(combined)
-                chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
-                fileChunkIndex += 1
-                perFileCount += 1
-                remaining -= n
-                cursorPlain += n
-            }
-
-            let previous = priorByPath[item.path]
-            let now = Date()
-            let entry = VaultIndexEntry(nameHash: item.nameHash,
-                                        logicalPath: item.path,
-                                        size: UInt64(plain.count),
-                                        mime: previous?.mime ?? "application/octet-stream",
-                                        tags: previous?.tags ?? [],
-                                        chunkCount: perFileCount,
-                                        created: previous?.created ?? now,
-                                        modified: now,
-                                        sidecarName: nil)
-            index.entries.append(entry)
-        }
-        let chunkCounts = chunkInfos.reduce(into: [String: Int]()) { counts, chunk in
-            counts[chunk.name, default: 0] += 1
-        }
-        for i in index.entries.indices {
-            let logical = index.entries[i].logicalPath
-            index.entries[i].chunkCount = chunkCounts[logical] ?? 0
-            index.entries[i].sidecarName = nil
-        }
-
-        // Build new index/blob and chunk map.
-        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
-        let chunkMap = try JSONEncoder().encode(chunkInfos)
-
-        // Re-sign manifest using Dilithium SK (wrapped under DEK)
-        let signerWrap = data.subdata(in: layout.signerWrapRange)
-        let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
-        #if REAL_CRYPTO
-        let sig = Dilithium2()
-        #else
-        let sig = StubSig()
-        #endif
-        let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
-        let manBlob = try JSONEncoder().encode(manifest)
-
-        // Reconstruct vault file in-memory (header + wraps + idx + manifest + chunk map + chunk area)
-        // Extract existing KEM ct and pqWrap
-        var cursor = layout.headerLen
-        cursor += 60 // pdk wrap
-        let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        let ctStart = cursor + 4
-        let ct = data.subdata(in: ctStart..<(ctStart + Int(ctLen)))
-        cursor = ctStart + Int(ctLen)
-        let pqWrap = data.subdata(in: cursor..<(cursor+60))
-
-        let signerLen = data.subdata(in: layout.signerWrapLenPos..<(layout.signerWrapLenPos+4))
-        let signerBlob = data.subdata(in: layout.signerWrapRange)
-
-        let pdkBlob = pdkWrap
-        let idxLenLE = withUnsafeBytes(of: UInt32(newIdxBlob.count).littleEndian) { Data($0) }
-        let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
-
-        var out = Data()
-        // Header remains unchanged
-        let finalHeader = try head.serialize()
-        out.append(finalHeader)
-        out.append(pdkBlob)
-        out.append(withUnsafeBytes(of: ctLen.littleEndian) { Data($0) })
-        out.append(ct)
-        out.append(pqWrap)
-        out.append(signerLen)
-        out.append(signerBlob)
-        out.append(idxLenLE)
-        out.append(newIdxBlob)
-        out.append(manLenLE)
-        out.append(manBlob)
-        // chunk map
-        let cmLenLE = withUnsafeBytes(of: UInt32(chunkMap.count).littleEndian) { Data($0) }
-        out.append(cmLenLE)
-        out.append(chunkMap)
-        // chunk area
-        out.append(chunkArea)
-
-        try out.write(to: vaultURL, options: .atomic)
+        let added = try mergeImportedPlainItems(vaultURL: vaultURL, data: data, head: head, layout: layout, dek: dek, aad: aad, items: staged)
 
         // cleanup sidecar
         try? FileManager.default.removeItem(at: sidecar)
-        return staged.count
+        return added
     }
 }
 

@@ -139,7 +139,11 @@ final class VaultModel: ObservableObject {
         guard let url = vaultURL else { return }
         do {
             let added = try Locker.lockFromSidecar(vaultURL: url, passphrase: passphrase)
-            self.status = "Locked. Ingested \(added) item(s)"
+            if added > 0 {
+                self.status = "Locked. Imported \(added) legacy staged item(s)"
+            } else {
+                self.status = "Locked"
+            }
             self.refreshStatus()
         } catch {
             self.status = "Lock failed: \(error)"
@@ -159,8 +163,8 @@ final class VaultModel: ObservableObject {
         panel.canChooseDirectories = false
         if panel.runModal() == .OK {
             do {
-                let (_, sidecar) = try Importer.sidecarImport(vaultURL: url, passphrase: passphrase, files: panel.urls)
-                self.status = "Imported to sidecar: \(sidecar.lastPathComponent)"
+                let (imported, _) = try Importer.sidecarImport(vaultURL: url, passphrase: passphrase, files: panel.urls)
+                self.status = imported == 0 ? "No files imported" : "Imported \(imported) file(s) into encrypted vault"
                 self.refreshStatus()
             } catch {
                 self.status = "Import failed: \(error)"
