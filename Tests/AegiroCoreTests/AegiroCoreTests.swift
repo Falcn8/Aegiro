@@ -30,7 +30,7 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssert(matches.count >= 0)
     }
 
-    func testLockPreservesExistingEntriesAcrossCycles() throws {
+    func testImportPreservesExistingEntriesAcrossCycles() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
@@ -45,11 +45,15 @@ final class AegiroCoreTests: XCTestCase {
         try d1.write(to: f1)
         try d2.write(to: f2)
 
-        _ = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1])
-        XCTAssertEqual(try Locker.lockFromSidecar(vaultURL: vaultURL, passphrase: "test-pass"), 1)
+        let (imported1, _) = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1])
+        XCTAssertEqual(imported1, 1)
+        XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 1)
+        XCTAssertEqual(try Locker.lockFromSidecar(vaultURL: vaultURL, passphrase: "test-pass"), 0)
 
-        _ = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f2])
-        XCTAssertEqual(try Locker.lockFromSidecar(vaultURL: vaultURL, passphrase: "test-pass"), 1)
+        let (imported2, _) = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f2])
+        XCTAssertEqual(imported2, 1)
+        XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 2)
+        XCTAssertEqual(try Locker.lockFromSidecar(vaultURL: vaultURL, passphrase: "test-pass"), 0)
 
         let outDir = tmp.appendingPathComponent("out", isDirectory: true)
         let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
@@ -71,11 +75,7 @@ final class AegiroCoreTests: XCTestCase {
 
         let result = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [vaultURL])
         XCTAssertEqual(result.imported, 0)
-
-        let sidecarIndex = result.sidecar.appendingPathComponent("index.json")
-        if let data = try? Data(contentsOf: sidecarIndex),
-           let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-            XCTAssertTrue(arr.isEmpty)
-        }
+        XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: result.sidecar.path))
     }
 }

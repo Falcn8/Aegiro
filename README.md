@@ -1,6 +1,6 @@
 # Aegiro (macOS) — Local-only, PQC-ready encrypted vault
 
-> **Status**: Working CLI with REAL_CRYPTO support, chunked in‑vault storage, manifest verification, sidecar import → lock flow, list/export/preview/doctor commands; SwiftUI app remains scaffolded.  
+> **Status**: Working CLI with REAL_CRYPTO support, chunked in‑vault storage, manifest verification, direct encrypted import flow, list/export/preview/doctor commands; SwiftUI app remains scaffolded.  
 > **Crypto**: **Argon2id + Kyber512 + Dilithium2** in REAL_CRYPTO mode (system `libargon2`/`liboqs`). STUB_CRYPTO remains available for local runs (HKDF/ECDSA).
 
 ## Quick Start
@@ -13,11 +13,11 @@ bash scripts/build-real.sh
 # 1) Create a new vault
 ./dist/aegiro-cli create --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 
-# 2) Import files (stored in sidecar until lock)
+# 2) Import files (written directly into encrypted vault storage)
 ./dist/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
-# (The CLI skips importing the vault file itself and sidecar paths.)
+# (The CLI skips importing the vault file itself and legacy sidecar paths.)
 
-# 3) Lock (ingest sidecar → encrypted index + chunk area; re‑sign manifest)
+# 3) (Optional) lock command for legacy staged-data cleanup/import
 ./dist/aegiro-cli lock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 
 # 4) List entries
@@ -79,7 +79,7 @@ aegiro --help
 Checksum for the current archive:
 
 ```
-9f7b1132803ccb5c361d8ae690dbad48ac709d74dcbdc7acd976835055c16212  dist/aegiro-cli-macos-arm64.tar.gz
+a5afa879900c10c07a28043ef7779b102d51e346f4c5273070b58d623a17787a  dist/aegiro-cli-macos-arm64.tar.gz
 ```
 
 ### REAL_CRYPTO build (Argon2id + liboqs)
@@ -107,10 +107,10 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 # Create a new vault
 .build/release/aegiro-cli create --vault ~/AegiroVaults/alpha.agvt --passphrase "correct horse battery staple" --touchid
 
-# Import files (sidecar)
+# Import files (direct encrypted write)
 .build/release/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
 
-# Lock (ingest sidecar → index + chunk area) / unlock
+# Lock (legacy staged-data cleanup/import) / unlock
 .build/release/aegiro-cli lock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 .build/release/aegiro-cli unlock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 
@@ -238,7 +238,7 @@ Aegiro/
 - Key derivation: Argon2id (REAL_CRYPTO) derives the PDK from your passphrase + salt; parameters default to m=256 MiB, t=3, p=1.
 - DEK wrapping: The Data Encryption Key (DEK) is AES‑GCM wrapped under the PDK and also under the Kyber shared secret (for future sharing flows).
 - Signer key wrapping: The Dilithium private key is AES‑GCM wrapped under the DEK, enabling offline manifest re‑signing on lock.
-- Chunking + nonces: File data is re‑encrypted into 1 MiB chunks on lock using AES‑GCM with deterministic 96‑bit nonces (derived via HMAC(seed, chunkIndex)).
+- Chunking + nonces: File data is encrypted into 1 MiB chunks on import using AES‑GCM with deterministic 96‑bit nonces (derived via HMAC(seed, chunkIndex)).
 - Integrity: Index is AEAD-encrypted; manifest signs SHA256(index JSON) + SHA256(chunk map). `verify` validates integrity without passphrase.
 - Zero telemetry: No network access required. Keep the CLI offline; signing and KDF are all local.
 - Backups: Keep your passphrase safe. The backup includes only encrypted data + metadata; losing the passphrase means losing access.
