@@ -673,7 +673,7 @@ struct MainView: View {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useBytes, .useKB, .useMB, .useGB, .useTB]
         formatter.countStyle = .file
-        return "\(formatter.string(fromByteCount: Int64(bytes))) (\(bytes) bytes)"
+        return formatter.string(fromByteCount: Int64(bytes))
     }
 
     private func formatLastEdited(_ date: Date?) -> String {
