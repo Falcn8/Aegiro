@@ -208,20 +208,22 @@ struct MainView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Label("", systemImage: "magnifyingglass")
                 .labelStyle(.iconOnly)
                 .foregroundStyle(.secondary)
             TextField("Search files", text: $searchText)
                 .textFieldStyle(.plain)
-                .frame(minWidth: 180)
+                .frame(minWidth: 120)
+                .layoutPriority(1)
 
             Picker("View", selection: $viewMode) {
                 Label("List", systemImage: "list.bullet").tag(ContentViewMode.list)
                 Label("Grid", systemImage: "square.grid.2x2").tag(ContentViewMode.grid)
             }
+            .labelsHidden()
             .pickerStyle(.segmented)
-            .frame(width: 140)
+            .frame(width: 120)
 
             Spacer(minLength: 0)
 
@@ -233,15 +235,18 @@ struct MainView: View {
                     Text(option.title).tag(option)
                 }
             }
+            .labelsHidden()
             .pickerStyle(.menu)
-            .frame(width: 130)
+            .frame(width: 112)
 
             Button {
                 sortAscending.toggle()
             } label: {
-                Label(sortAscending ? "Asc" : "Desc", systemImage: sortAscending ? "arrow.up" : "arrow.down")
+                Label(sortAscending ? "Ascending" : "Descending", systemImage: sortAscending ? "arrow.up" : "arrow.down")
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.bordered)
+            .help(sortAscending ? "Sorting ascending" : "Sorting descending")
 
             Divider()
                 .frame(height: 18)
@@ -251,7 +256,9 @@ struct MainView: View {
             } label: {
                 Label("Quick Look", systemImage: "eye")
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.bordered)
+            .help("Quick Look selection")
             .disabled(model.locked || selection.isEmpty)
 
             Button {
@@ -259,10 +266,13 @@ struct MainView: View {
             } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.borderedProminent)
             .tint(AegiroPalette.primaryBlue)
+            .help("Export selection")
             .disabled(model.locked || selection.isEmpty)
         }
+        .controlSize(.small)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(.thinMaterial)
