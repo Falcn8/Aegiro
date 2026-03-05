@@ -127,14 +127,13 @@ final class VaultModel: ObservableObject {
             _ = try Locker.unlockInfo(vaultURL: url, passphrase: pass)
             self.passphrase = pass
             self.locked = false
-            self.entries = (try? Exporter.list(vaultURL: url, passphrase: pass)) ?? []
             self.status = "Unlocked"
             if allowTouchID {
                 storePassphraseForBiometrics(pass)
             } else {
                 removeBiometricPassphrase()
             }
-            resetAutoLockDeadline()
+            refreshStatus()
         } catch {
             self.status = "Unlock failed: \(error)"
         }
