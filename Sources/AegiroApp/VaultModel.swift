@@ -469,7 +469,7 @@ func defaultVaultURL() -> URL {
 extension VaultModel {
     func openVaultWithPanel() {
         let p = NSOpenPanel()
-        p.title = "Open Aegiro Vault"
+        p.title = "Open Vault (Aegiro Vaults)"
         p.allowsMultipleSelection = false
         p.canChooseDirectories = false
         p.allowedContentTypes = [

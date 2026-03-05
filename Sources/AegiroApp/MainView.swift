@@ -10,6 +10,9 @@ struct MainView: View {
     @State private var unlockPass = ""
     @State private var showPreferences = false
     @State private var showCreateVaultSheet = false
+    @State private var showExportPicker = false
+    @State private var exportPickerSearch = ""
+    @State private var exportPickerSelection: Set<VaultIndexEntry.ID> = []
 
     @State private var searchText = ""
     @State private var selection: Set<VaultIndexEntry.ID> = []
@@ -25,11 +28,20 @@ struct MainView: View {
     }
 
     private var selectedEntries: [VaultIndexEntry] {
-        filteredEntries.filter { selection.contains($0.id) }
+        model.entries.filter { selection.contains($0.id) }
     }
 
     private var selectedSize: Int64 {
         selectedEntries.reduce(0) { $0 + Int64($1.size) }
+    }
+
+    private var focusedEntry: VaultIndexEntry? {
+        selectedEntries.count == 1 ? selectedEntries.first : nil
+    }
+
+    private var exportPickerEntries: [VaultIndexEntry] {
+        let searched = applySearch(query: exportPickerSearch, entries: model.entries)
+        return applySort(to: searched)
     }
 
     var body: some View {
@@ -69,6 +81,7 @@ struct MainView: View {
             }
             .environmentObject(model)
         }
+        .sheet(isPresented: $showExportPicker) { exportPickerSheet }
         .onAppear {
             model.refreshStatus()
             model.startAutoLockTimer()
@@ -93,6 +106,9 @@ struct MainView: View {
                 brandCard
                 vaultInfoCard
                 workflowCard
+                if !model.locked && !selection.isEmpty {
+                    selectedFileCard
+                }
 
                 VStack(spacing: 10) {
                     actionButton(title: "Open Vault", icon: "folder") {
@@ -129,6 +145,11 @@ struct MainView: View {
                         exportSelection()
                     }
                     .disabled(model.locked || selection.isEmpty)
+
+                    actionButton(title: "Select Files to Export", icon: "line.3.horizontal.decrease.circle") {
+                        openExportPicker()
+                    }
+                    .disabled(model.locked || model.entries.isEmpty)
                 }
 
                 Button {
@@ -162,9 +183,9 @@ struct MainView: View {
                     .frame(width: 36, height: 36)
                     .background(AegiroPalette.primaryBlue, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Aegiro")
+                    Text("Aegiro Vaults")
                         .font(.title3.weight(.bold))
-                    Text("Secure vault workflow")
+                    Text("Quantum-safe vault security")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -268,6 +289,16 @@ struct MainView: View {
 
             Divider()
                 .frame(height: 18)
+
+            Button {
+                openExportPicker()
+            } label: {
+                Label("Select Files", systemImage: "line.3.horizontal.decrease.circle")
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.bordered)
+            .help("Select files to export")
+            .disabled(model.locked || model.entries.isEmpty)
 
             Button {
                 quickLookSelection()
@@ -471,6 +502,7 @@ struct MainView: View {
 
     private func rowMenu(entry: VaultIndexEntry) -> some View {
         Group {
+            Button("Show File Info") { selection = [entry.id] }
             Button("Quick Look") { model.quickLook(logicalPath: entry.logicalPath) }
                 .disabled(model.locked)
             Button("Export") { model.exportSelectedWithPanel(filter: entry.logicalPath) }
@@ -503,6 +535,151 @@ struct MainView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(Color(nsColor: .underPageBackgroundColor))
+    }
+
+    private var selectedFileCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let entry = focusedEntry {
+                Text("Selected File")
+                    .font(.headline)
+                infoRow(label: "Name", value: entry.displayName)
+                infoRow(label: "Kind", value: entry.kindDescription)
+                infoRow(label: "Size", value: entry.formattedSize)
+                infoRow(label: "Modified", value: entry.modified.formatted(date: .abbreviated, time: .shortened))
+                Text(entry.logicalPath)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                HStack(spacing: 8) {
+                    Button {
+                        model.quickLook(logicalPath: entry.logicalPath)
+                    } label: {
+                        Label("Quick Look", systemImage: "eye")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        model.exportSelectedWithPanel(filter: entry.logicalPath)
+                    } label: {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.primaryBlue)
+                }
+                .controlSize(.small)
+            } else {
+                Text("Selected Files")
+                    .font(.headline)
+                infoRow(label: "Count", value: "\(selection.count)")
+                infoRow(label: "Total size", value: ByteCountFormatter.fileFormatter.string(fromByteCount: selectedSize))
+                HStack(spacing: 8) {
+                    Button {
+                        quickLookSelection()
+                    } label: {
+                        Label("Quick Look", systemImage: "eye")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        exportSelection()
+                    } label: {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.primaryBlue)
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
+        )
+    }
+
+    private var exportPickerSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Select Files to Export", systemImage: "square.and.arrow.up")
+                .font(.title3.weight(.bold))
+
+            TextField("Search files", text: $exportPickerSearch)
+                .textFieldStyle(.roundedBorder)
+
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(exportPickerEntries) { entry in
+                        Button {
+                            toggleExportPickerSelection(entry.id)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: exportPickerSelection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(exportPickerSelection.contains(entry.id) ? AegiroPalette.tealBlue : .secondary)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(entry.displayName)
+                                        .lineLimit(1)
+                                    Text(entry.folderPath)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                Text(entry.formattedSize)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(exportPickerSelection.contains(entry.id) ? AegiroPalette.iceBlue.opacity(0.3) : Color.white)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(AegiroPalette.iceBlue.opacity(0.7), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .frame(maxHeight: .infinity)
+
+            HStack {
+                Button("Select All") {
+                    exportPickerSelection = Set(exportPickerEntries.map(\.id))
+                }
+                .buttonStyle(.bordered)
+
+                Button("Clear") {
+                    exportPickerSelection.removeAll()
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Text("\(exportPickerSelection.count) selected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    showExportPicker = false
+                }
+                Button("Export") {
+                    confirmExportPicker()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.primaryBlue)
+                .disabled(exportPickerSelection.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 640, height: 560)
     }
 
     private var unlockSheet: some View {
@@ -644,14 +821,51 @@ struct MainView: View {
         }
     }
 
+    private func openExportPicker() {
+        guard !model.locked else {
+            model.status = "Unlock to export files"
+            return
+        }
+        guard !model.entries.isEmpty else {
+            model.status = "No files available to export"
+            return
+        }
+        exportPickerSearch = ""
+        exportPickerSelection = selection
+        showExportPicker = true
+    }
+
+    private func toggleExportPickerSelection(_ id: VaultIndexEntry.ID) {
+        if exportPickerSelection.contains(id) {
+            exportPickerSelection.remove(id)
+        } else {
+            exportPickerSelection.insert(id)
+        }
+    }
+
+    private func confirmExportPicker() {
+        let filters = Array(exportPickerSelection)
+        guard !filters.isEmpty else {
+            model.status = "Select at least one file to export"
+            return
+        }
+        selection = Set(filters)
+        showExportPicker = false
+        model.exportSelectedWithPanel(filters: filters)
+    }
+
     private func applySearch(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
-        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        applySearch(query: searchText, entries: entries)
+    }
+
+    private func applySearch(query: String, entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return entries }
         return entries.filter {
             $0.displayName.localizedCaseInsensitiveContains(q)
-            || $0.logicalPath.localizedCaseInsensitiveContains(q)
-            || $0.mime.localizedCaseInsensitiveContains(q)
-            || $0.tags.contains(where: { $0.localizedCaseInsensitiveContains(q) })
+                || $0.logicalPath.localizedCaseInsensitiveContains(q)
+                || $0.mime.localizedCaseInsensitiveContains(q)
+                || $0.tags.contains(where: { $0.localizedCaseInsensitiveContains(q) })
         }
     }
 
@@ -781,7 +995,7 @@ private struct CreateVaultSheet: View {
 
     private func choosePath() {
         let panel = NSSavePanel()
-        panel.title = "Create Aegiro Vault"
+        panel.title = "Create Vault (Aegiro Vaults)"
         panel.nameFieldStringValue = (path as NSString).lastPathComponent
         panel.allowedContentTypes = [
             UTType(filenameExtension: "agvt") ?? .data,
