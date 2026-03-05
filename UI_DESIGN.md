@@ -47,6 +47,9 @@ This document describes the current Aegiro Vaults macOS app UI and interaction m
   - Add Touch ID from the action panel
 - Top bar keeps only essentials visible:
   - Search, list/grid toggle, sort controls, select files, quick look, export
+- Select files is a toggle mode:
+  - When enabled, files show circle selectors for multi-select
+  - When disabled, list/grid return to normal browsing
 - Selected file card adds direct actions:
   - Quick Look selected file(s)
   - Export selected file(s)
@@ -84,7 +87,7 @@ No brand assets or proprietary UI are copied; this is pattern-level inspiration 
 - Lock vault when already unlocked
 - Add Touch ID while unlocked
 - Export selected files
-- Select files to export from an explicit picker
+- Toggle selection mode and choose files inline before export
 
 ## Implementation Map
 
