@@ -91,6 +91,7 @@ struct MainView: View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 16) {
                 brandCard
+                vaultInfoCard
                 workflowCard
 
                 VStack(spacing: 10) {
@@ -198,6 +199,23 @@ struct MainView: View {
             Text(workflowHint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
+        )
+    }
+
+    private var vaultInfoCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Vault Info")
+                .font(.headline)
+
+            infoRow(label: "Files", value: model.vaultFileCount.map(String.init) ?? "Unknown (locked)")
+            infoRow(label: "Vault size", value: formatVaultSize(model.vaultSizeBytes))
+            infoRow(label: "Last edited", value: formatLastEdited(model.vaultLastEdited))
         }
         .padding(14)
         .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -387,7 +405,7 @@ struct MainView: View {
                 }
                 .contextMenu { rowMenu(entry: entry) }
             }
-            .width(min: 280, ideal: 360)
+            .width(min: 270, ideal: 350)
 
             TableColumn("Kind") { entry in
                 Text(entry.kindDescription)
@@ -567,6 +585,18 @@ struct MainView: View {
         }
     }
 
+    private func infoRow(label: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
     private var workflowHint: String {
         if model.locked {
             return "Unlock to import files directly into encrypted storage."
@@ -637,6 +667,18 @@ struct MainView: View {
         let minutes = total / 60
         let remainder = total % 60
         return String(format: "%02d:%02d", minutes, remainder)
+    }
+
+    private func formatVaultSize(_ bytes: UInt64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useBytes, .useKB, .useMB, .useGB, .useTB]
+        formatter.countStyle = .file
+        return "\(formatter.string(fromByteCount: Int64(bytes))) (\(bytes) bytes)"
+    }
+
+    private func formatLastEdited(_ date: Date?) -> String {
+        guard let date else { return "Unknown" }
+        return date.formatted(date: .abbreviated, time: .shortened)
     }
 
     private func updateToast(with text: String) {
