@@ -42,7 +42,7 @@ This document describes the current Aegiro macOS app UI and interaction model.
   - Lock vault even when sidecar is empty
   - Add Touch ID from the action panel
 - Top bar keeps only essentials visible:
-  - Search, list/grid toggle, `More` menu
+  - Search, list/grid toggle, sort controls, quick look, export
 - Content states are explicit:
   - No vault selected
   - Vault locked

@@ -214,6 +214,7 @@ struct MainView: View {
                 .foregroundStyle(.secondary)
             TextField("Search files", text: $searchText)
                 .textFieldStyle(.plain)
+                .frame(minWidth: 180)
 
             Picker("View", selection: $viewMode) {
                 Label("List", systemImage: "list.bullet").tag(ContentViewMode.list)
@@ -222,26 +223,45 @@ struct MainView: View {
             .pickerStyle(.segmented)
             .frame(width: 140)
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            Menu {
-                Picker("Sort", selection: $sortOption) {
-                    ForEach(SortOption.allCases, id: \.self) { option in
-                        Text(option.title).tag(option)
-                    }
+            Divider()
+                .frame(height: 18)
+
+            Picker("Sort", selection: $sortOption) {
+                ForEach(SortOption.allCases, id: \.self) { option in
+                    Text(option.title).tag(option)
                 }
-                Button(sortAscending ? "Sort Descending" : "Sort Ascending") {
-                    sortAscending.toggle()
-                }
-                Divider()
-                Button("Quick Look Selection") { quickLookSelection() }
-                    .disabled(model.locked || selection.isEmpty)
-                Button("Export Selection") { exportSelection() }
-                    .disabled(model.locked || selection.isEmpty)
-            } label: {
-                Label("More", systemImage: "ellipsis.circle")
             }
-            .menuStyle(.borderlessButton)
+            .pickerStyle(.menu)
+            .frame(width: 130)
+
+            Button {
+                sortAscending.toggle()
+            } label: {
+                Label(sortAscending ? "Asc" : "Desc", systemImage: sortAscending ? "arrow.up" : "arrow.down")
+            }
+            .buttonStyle(.bordered)
+
+            Divider()
+                .frame(height: 18)
+
+            Button {
+                quickLookSelection()
+            } label: {
+                Label("Quick Look", systemImage: "eye")
+            }
+            .buttonStyle(.bordered)
+            .disabled(model.locked || selection.isEmpty)
+
+            Button {
+                exportSelection()
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AegiroPalette.primaryBlue)
+            .disabled(model.locked || selection.isEmpty)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
