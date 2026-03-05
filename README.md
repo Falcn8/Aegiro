@@ -131,13 +131,34 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 # Verify manifest
 .build/release/aegiro-cli verify --vault ~/AegiroVaults/alpha.agvt
 
+# Status
+.build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
+
 # Status (JSON)
 .build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --json
 
-Example output:
+Example text output:
+
+```text
+Vault Info
+File count: 2
+Vault size: 24 KB (24028 bytes)
+Last edited: 5 Mar 2026 at 11:52:08 AM
+
+Status
+Locked: no
+Sidecar pending: 0
+Manifest: OK
+Touch ID: disabled
+```
+
+Example JSON output:
 
 ```json
 {
+  "touchIDEnabled" : false,
+  "vaultLastModified" : "2026-03-05T02:52:08Z",
+  "vaultSizeBytes" : 24028,
   "locked" : false,
   "entries" : 2,
   "sidecarPending" : 0,
