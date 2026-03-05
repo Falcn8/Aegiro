@@ -40,7 +40,7 @@ struct MainView: View {
     private var sidebarBackground: LinearGradient {
         if model.locked {
             return LinearGradient(
-                colors: [AegiroPalette.tealBlue.opacity(0.48), AegiroPalette.orange.opacity(0.30)],
+                colors: [AegiroPalette.orange.opacity(0.42), AegiroPalette.orange.opacity(0.22)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -55,7 +55,7 @@ struct MainView: View {
     private var mainPaneBackground: LinearGradient {
         if model.locked {
             return LinearGradient(
-                colors: [AegiroPalette.tealBlue.opacity(0.20), AegiroPalette.orange.opacity(0.16)],
+                colors: [AegiroPalette.orange.opacity(0.24), AegiroPalette.orange.opacity(0.12)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

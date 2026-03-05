@@ -22,7 +22,7 @@ This document describes the current AegiroVault macOS app UI and interaction mod
 - SF Symbols are used for all major actions and status.
 - Lock-state background is explicit:
   - Unlocked keeps the existing cool ice-blue feel
-  - Locked shifts shell gradients to teal → orange
+  - Locked shifts shell gradients to orange
 
 ## Screen Model
 
