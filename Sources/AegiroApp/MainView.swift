@@ -175,7 +175,7 @@ struct MainView: View {
                     .frame(width: 36, height: 36)
                     .background(AegiroPalette.primaryBlue, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Aegiro Vaults")
+                    Text("AegiroVault")
                         .font(.title3.weight(.bold))
                     Text("Quantum-safe vault security")
                         .font(.caption)
@@ -895,7 +895,7 @@ private struct CreateVaultSheet: View {
 
     private func choosePath() {
         let panel = NSSavePanel()
-        panel.title = "Create Vault (Aegiro Vaults)"
+        panel.title = "Create Vault (AegiroVault)"
         panel.nameFieldStringValue = (path as NSString).lastPathComponent
         panel.allowedContentTypes = [
             UTType(filenameExtension: "agvt") ?? .data,
