@@ -1,11 +1,11 @@
-## AegiroApp — Modern Simplified UI
+## Aegiro Vaults App — Modern Simplified UI
 
-This document describes the current Aegiro macOS app UI and interaction model.
+This document describes the current Aegiro Vaults macOS app UI and interaction model.
 
 ## Design Intent
 
 - Keep the workflow obvious: add to sidecar, then lock to import.
-- Keep primary actions one-click: create vault, open vault, unlock, add files, lock/import, lock now, export, and add Touch ID while unlocked.
+- Keep primary actions one-click: create vault, open vault, unlock, add files, lock/import, lock now, select files, export, and add Touch ID while unlocked.
 - Keep visuals modern and calm with icon-led sections and clear hierarchy.
 - Keep secondary controls available but not noisy.
 
@@ -32,10 +32,10 @@ This document describes the current Aegiro macOS app UI and interaction model.
 
 2. Main app (`MainView`)
 - Two-pane shell:
-  - Left: brand card, vault info card, workflow card, core action buttons
+  - Left: brand card, vault info card, workflow card, selected-file card, core action buttons
   - Right: top bar, list/grid content, status bar
 - Vault info card surfaces key metadata:
-  - File count
+  - File count (updates immediately after unlock)
   - Vault file size
   - Last edited timestamp
 - Workflow card explicitly teaches:
@@ -46,7 +46,11 @@ This document describes the current Aegiro macOS app UI and interaction model.
   - Lock vault even when sidecar is empty
   - Add Touch ID from the action panel
 - Top bar keeps only essentials visible:
-  - Search, list/grid toggle, sort controls, quick look, export
+  - Search, list/grid toggle, sort controls, select files, quick look, export
+- Selected file card adds direct actions:
+  - Quick Look selected file(s)
+  - Export selected file(s)
+  - File metadata for single-selection (name, kind, size, modified, path)
 - Content states are explicit:
   - No vault selected
   - Vault locked
@@ -80,6 +84,7 @@ No brand assets or proprietary UI are copied; this is pattern-level inspiration 
 - Lock vault when already unlocked
 - Add Touch ID while unlocked
 - Export selected files
+- Select files to export from an explicit picker
 
 ## Implementation Map
 
