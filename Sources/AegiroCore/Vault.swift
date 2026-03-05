@@ -561,11 +561,16 @@ public struct VaultStatusInfo: Codable {
     public var sidecarPending: Int
     public var manifestOK: Bool
     public var touchIDEnabled: Bool
+    public var vaultSizeBytes: UInt64
+    public var vaultLastModified: Date?
 }
 
 public enum VaultStatus {
     public static func get(vaultURL: URL, passphrase: String?) throws -> VaultStatusInfo {
         let data = try Data(contentsOf: vaultURL)
+        let attrs = (try? FileManager.default.attributesOfItem(atPath: vaultURL.path)) ?? [:]
+        let vaultSizeBytes = (attrs[.size] as? NSNumber)?.uint64Value ?? UInt64(data.count)
+        let vaultLastModified = attrs[.modificationDate] as? Date
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
 
@@ -611,7 +616,15 @@ public enum VaultStatus {
             }
         }
         let touchIDEnabled = (head.flags & 0b1) != 0
-        return VaultStatusInfo(locked: locked, entries: entriesCount, sidecarPending: pending, manifestOK: ok, touchIDEnabled: touchIDEnabled)
+        return VaultStatusInfo(
+            locked: locked,
+            entries: entriesCount,
+            sidecarPending: pending,
+            manifestOK: ok,
+            touchIDEnabled: touchIDEnabled,
+            vaultSizeBytes: vaultSizeBytes,
+            vaultLastModified: vaultLastModified
+        )
     }
 }
 

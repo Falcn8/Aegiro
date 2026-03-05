@@ -235,20 +235,40 @@ struct CLI {
         case "status":
             var path: String?
             var pass: String = ""
+            var asJSON = false
             var it = args.dropFirst().makeIterator()
             while let a = it.next() {
                 switch a {
                 case "--vault": path = it.next()
                 case "--passphrase": pass = it.next() ?? ""
+                case "--json": asJSON = true
                 default: break
                 }
             }
             guard let p = path else { hint("Missing --vault for status.", tip: "Use: status --vault <path> [--passphrase \"<pass>\"]") }
             let info = try VaultStatus.get(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass.isEmpty ? nil : pass)
-            print("Locked: \(info.locked ? "yes" : "no")")
-            print("Entries: \(info.entries != nil ? String(info.entries!) : "unknown (locked)")")
-            print("Sidecar pending: \(info.sidecarPending)")
-            print("Manifest: \(info.manifestOK ? "OK" : "INVALID")")
+            if asJSON {
+                let enc = JSONEncoder()
+                enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+                enc.dateEncodingStrategy = .iso8601
+                let data = try enc.encode(info)
+                print(String(data: data, encoding: .utf8) ?? "{}")
+            } else {
+                print("Vault Info")
+                print("File count: \(info.entries != nil ? String(info.entries!) : "unknown (locked)")")
+                print("Vault size: \(formatBytes(info.vaultSizeBytes)) (\(info.vaultSizeBytes) bytes)")
+                if let modified = info.vaultLastModified {
+                    print("Last edited: \(formatTimestamp(modified))")
+                } else {
+                    print("Last edited: unknown")
+                }
+                print("")
+                print("Status")
+                print("Locked: \(info.locked ? "yes" : "no")")
+                print("Sidecar pending: \(info.sidecarPending)")
+                print("Manifest: \(info.manifestOK ? "OK" : "INVALID")")
+                print("Touch ID: \(info.touchIDEnabled ? "enabled" : "disabled")")
+            }
         default:
             hint("Unknown command: \(cmd)", tip: "Run --help to see available commands.")
         }
@@ -279,6 +299,20 @@ Usage:
     static func hint(_ message: String, tip: String, code: Exit = .usage) -> Never {
         fputs("Error: \(message)\nHint:  \(tip)\n", stderr)
         exit(code.rawValue)
+    }
+
+    static func formatBytes(_ bytes: UInt64) -> String {
+        let f = ByteCountFormatter()
+        f.allowedUnits = [.useBytes, .useKB, .useMB, .useGB, .useTB]
+        f.countStyle = .file
+        return f.string(fromByteCount: Int64(bytes))
+    }
+
+    static func formatTimestamp(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .medium
+        return f.string(from: date)
     }
 }
 
