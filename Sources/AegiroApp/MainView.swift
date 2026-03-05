@@ -10,9 +10,7 @@ struct MainView: View {
     @State private var unlockPass = ""
     @State private var showPreferences = false
     @State private var showCreateVaultSheet = false
-    @State private var showExportPicker = false
-    @State private var exportPickerSearch = ""
-    @State private var exportPickerSelection: Set<VaultIndexEntry.ID> = []
+    @State private var selectionMode = false
 
     @State private var searchText = ""
     @State private var selection: Set<VaultIndexEntry.ID> = []
@@ -37,11 +35,6 @@ struct MainView: View {
 
     private var focusedEntry: VaultIndexEntry? {
         selectedEntries.count == 1 ? selectedEntries.first : nil
-    }
-
-    private var exportPickerEntries: [VaultIndexEntry] {
-        let searched = applySearch(query: exportPickerSearch, entries: model.entries)
-        return applySort(to: searched)
     }
 
     var body: some View {
@@ -81,7 +74,6 @@ struct MainView: View {
             }
             .environmentObject(model)
         }
-        .sheet(isPresented: $showExportPicker) { exportPickerSheet }
         .onAppear {
             model.refreshStatus()
             model.startAutoLockTimer()
@@ -90,7 +82,12 @@ struct MainView: View {
             selection = selection.intersection(Set(model.entries.map(\.id)))
         }
         .onReceive(model.$locked) { isLocked in
-            guard showUnlockSheet, !isLocked else { return }
+            if isLocked {
+                selectionMode = false
+                selection.removeAll()
+                return
+            }
+            guard showUnlockSheet else { return }
             unlockPass = ""
             showUnlockSheet = false
         }
@@ -145,11 +142,6 @@ struct MainView: View {
                         exportSelection()
                     }
                     .disabled(model.locked || selection.isEmpty)
-
-                    actionButton(title: "Select Files to Export", icon: "line.3.horizontal.decrease.circle") {
-                        openExportPicker()
-                    }
-                    .disabled(model.locked || model.entries.isEmpty)
                 }
 
                 Button {
@@ -291,13 +283,12 @@ struct MainView: View {
                 .frame(height: 18)
 
             Button {
-                openExportPicker()
+                toggleSelectionMode()
             } label: {
-                Label("Select Files", systemImage: "line.3.horizontal.decrease.circle")
+                Label(selectionMode ? "Done Selecting" : "Select Files", systemImage: selectionMode ? "checkmark.circle.fill" : "circle")
             }
-            .labelStyle(.iconOnly)
             .buttonStyle(.bordered)
-            .help("Select files to export")
+            .help(selectionMode ? "Stop selecting files" : "Enable file selection mode")
             .disabled(model.locked || model.entries.isEmpty)
 
             Button {
@@ -420,9 +411,18 @@ struct MainView: View {
     }
 
     private var listView: some View {
-        Table(filteredEntries, selection: $selection) {
+        Table(filteredEntries) {
             TableColumn("Name") { entry in
                 HStack(spacing: 10) {
+                    if selectionMode {
+                        Button {
+                            toggleSelection(entry)
+                        } label: {
+                            Image(systemName: selection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(selection.contains(entry.id) ? AegiroPalette.tealBlue : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
                     Image(systemName: entry.systemIcon)
                         .foregroundStyle(AegiroPalette.deepNavy)
                     VStack(alignment: .leading, spacing: 2) {
@@ -436,7 +436,7 @@ struct MainView: View {
                 }
                 .contextMenu { rowMenu(entry: entry) }
             }
-            .width(min: 220, ideal: 300)
+            .width(min: 235, ideal: 315)
 
             TableColumn("Kind") { entry in
                 Text(entry.kindDescription)
@@ -461,7 +461,11 @@ struct MainView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 14)], spacing: 14) {
                 ForEach(filteredEntries) { entry in
                     Button {
-                        toggleSelection(entry)
+                        if selectionMode {
+                            toggleSelection(entry)
+                        } else {
+                            selection = [entry.id]
+                        }
                     } label: {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
@@ -469,9 +473,9 @@ struct MainView: View {
                                     .font(.title3)
                                     .foregroundStyle(AegiroPalette.primaryBlue)
                                 Spacer()
-                                if selection.contains(entry.id) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(AegiroPalette.tealBlue)
+                                if selectionMode {
+                                    Image(systemName: selection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(selection.contains(entry.id) ? AegiroPalette.tealBlue : .secondary)
                                 }
                             }
                             Text(entry.displayName)
@@ -597,89 +601,6 @@ struct MainView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
         )
-    }
-
-    private var exportPickerSheet: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("Select Files to Export", systemImage: "square.and.arrow.up")
-                .font(.title3.weight(.bold))
-
-            TextField("Search files", text: $exportPickerSearch)
-                .textFieldStyle(.roundedBorder)
-
-            ScrollView {
-                LazyVStack(spacing: 6) {
-                    ForEach(exportPickerEntries) { entry in
-                        Button {
-                            toggleExportPickerSelection(entry.id)
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: exportPickerSelection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(exportPickerSelection.contains(entry.id) ? AegiroPalette.tealBlue : .secondary)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(entry.displayName)
-                                        .lineLimit(1)
-                                    Text(entry.folderPath)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                Spacer()
-                                Text(entry.formattedSize)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(exportPickerSelection.contains(entry.id) ? AegiroPalette.iceBlue.opacity(0.3) : Color.white)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(AegiroPalette.iceBlue.opacity(0.7), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .frame(maxHeight: .infinity)
-
-            HStack {
-                Button("Select All") {
-                    exportPickerSelection = Set(exportPickerEntries.map(\.id))
-                }
-                .buttonStyle(.bordered)
-
-                Button("Clear") {
-                    exportPickerSelection.removeAll()
-                }
-                .buttonStyle(.bordered)
-
-                Spacer()
-
-                Text("\(exportPickerSelection.count) selected")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack {
-                Spacer()
-                Button("Cancel") {
-                    showExportPicker = false
-                }
-                Button("Export") {
-                    confirmExportPicker()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AegiroPalette.primaryBlue)
-                .disabled(exportPickerSelection.isEmpty)
-            }
-        }
-        .padding(20)
-        .frame(width: 640, height: 560)
     }
 
     private var unlockSheet: some View {
@@ -821,37 +742,16 @@ struct MainView: View {
         }
     }
 
-    private func openExportPicker() {
+    private func toggleSelectionMode() {
         guard !model.locked else {
-            model.status = "Unlock to export files"
+            model.status = "Unlock to select files"
             return
         }
         guard !model.entries.isEmpty else {
-            model.status = "No files available to export"
+            model.status = "No files available to select"
             return
         }
-        exportPickerSearch = ""
-        exportPickerSelection = selection
-        showExportPicker = true
-    }
-
-    private func toggleExportPickerSelection(_ id: VaultIndexEntry.ID) {
-        if exportPickerSelection.contains(id) {
-            exportPickerSelection.remove(id)
-        } else {
-            exportPickerSelection.insert(id)
-        }
-    }
-
-    private func confirmExportPicker() {
-        let filters = Array(exportPickerSelection)
-        guard !filters.isEmpty else {
-            model.status = "Select at least one file to export"
-            return
-        }
-        selection = Set(filters)
-        showExportPicker = false
-        model.exportSelectedWithPanel(filters: filters)
+        selectionMode.toggle()
     }
 
     private func applySearch(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
