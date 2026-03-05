@@ -201,7 +201,7 @@ struct FirstRunView: View {
 
     private func choosePath() {
         let panel = NSSavePanel()
-        panel.title = "Create Vault (Aegiro Vaults)"
+        panel.title = "Create Vault (AegiroVault)"
         panel.nameFieldStringValue = (path as NSString).lastPathComponent
         panel.allowedContentTypes = [
             UTType(filenameExtension: "agvt") ?? .data,

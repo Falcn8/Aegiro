@@ -1,6 +1,6 @@
-## Aegiro Vaults App — Modern Simplified UI
+## AegiroVault App — Modern Simplified UI
 
-This document describes the current Aegiro Vaults macOS app UI and interaction model.
+This document describes the current AegiroVault macOS app UI and interaction model.
 
 ## Design Intent
 
