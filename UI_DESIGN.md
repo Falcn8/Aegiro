@@ -32,8 +32,12 @@ This document describes the current Aegiro macOS app UI and interaction model.
 
 2. Main app (`MainView`)
 - Two-pane shell:
-  - Left: brand card, workflow card, core action buttons
+  - Left: brand card, vault info card, workflow card, core action buttons
   - Right: top bar, list/grid content, status bar
+- Vault info card surfaces key metadata:
+  - File count
+  - Vault file size
+  - Last edited timestamp
 - Workflow card explicitly teaches:
   - 1) Add files to sidecar
   - 2) Import happens when locking

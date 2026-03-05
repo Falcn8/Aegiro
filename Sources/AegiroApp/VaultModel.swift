@@ -11,6 +11,9 @@ final class VaultModel: ObservableObject {
     @Published var vaultURL: URL?
     @Published var locked: Bool = true
     @Published var entries: [VaultIndexEntry] = []
+    @Published var vaultFileCount: Int?
+    @Published var vaultSizeBytes: UInt64 = 0
+    @Published var vaultLastEdited: Date?
     @Published var sidecarPending: Int = 0
     @Published var manifestOK: Bool = false
     @Published var status: String = ""
@@ -84,6 +87,9 @@ final class VaultModel: ObservableObject {
         do {
             let info = try VaultStatus.get(vaultURL: url, passphrase: passphrase.isEmpty ? nil : passphrase)
             self.locked = info.locked
+            self.vaultFileCount = info.entries
+            self.vaultSizeBytes = info.vaultSizeBytes
+            self.vaultLastEdited = info.vaultLastModified
             self.sidecarPending = info.sidecarPending
             self.manifestOK = info.manifestOK
             self.supportsBiometricUnlock = info.touchIDEnabled && canEvaluateBiometrics()
@@ -299,6 +305,7 @@ final class VaultModel: ObservableObject {
         self.passphrase = ""
         self.locked = true
         self.entries = []
+        self.vaultFileCount = nil
         self.status = "Auto-locked"
         autoLockDeadline = nil
         autoLockRemaining = 0
