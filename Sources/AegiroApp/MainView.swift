@@ -405,7 +405,7 @@ struct MainView: View {
                 }
                 .contextMenu { rowMenu(entry: entry) }
             }
-            .width(min: 270, ideal: 350)
+            .width(min: 260, ideal: 340)
 
             TableColumn("Kind") { entry in
                 Text(entry.kindDescription)
