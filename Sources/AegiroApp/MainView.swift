@@ -37,6 +37,36 @@ struct MainView: View {
         selectedEntries.count == 1 ? selectedEntries.first : nil
     }
 
+    private var sidebarBackground: LinearGradient {
+        if model.locked {
+            return LinearGradient(
+                colors: [AegiroPalette.tealBlue.opacity(0.48), AegiroPalette.orange.opacity(0.30)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        return LinearGradient(
+            colors: [AegiroPalette.iceBlue.opacity(0.35), Color.white],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var mainPaneBackground: LinearGradient {
+        if model.locked {
+            return LinearGradient(
+                colors: [AegiroPalette.tealBlue.opacity(0.20), AegiroPalette.orange.opacity(0.16)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        return LinearGradient(
+            colors: [AegiroPalette.iceBlue.opacity(0.10), Color.white.opacity(0.9)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             sidebar
@@ -60,7 +90,7 @@ struct MainView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .background(AegiroPalette.iceBlue.opacity(0.08))
+            .background(mainPaneBackground)
         }
         .frame(minWidth: 980, minHeight: 700)
         .sheet(isPresented: $showUnlockSheet) { unlockSheet }
@@ -157,13 +187,7 @@ struct MainView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(width: 300, alignment: .top)
-        .background(
-            LinearGradient(
-                colors: [AegiroPalette.iceBlue.opacity(0.35), Color.white],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        .background(sidebarBackground)
     }
 
     private var brandCard: some View {
