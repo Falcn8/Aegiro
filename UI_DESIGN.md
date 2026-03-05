@@ -20,6 +20,9 @@ This document describes the current AegiroVault macOS app UI and interaction mod
 - Shared theme tokens live in `Sources/AegiroApp/AegiroTheme.swift`.
 - Cards use rounded corners, soft strokes, and light gradients.
 - SF Symbols are used for all major actions and status.
+- Lock-state background is explicit:
+  - Unlocked keeps the existing cool ice-blue feel
+  - Locked shifts shell gradients to teal → orange
 
 ## Screen Model
 
