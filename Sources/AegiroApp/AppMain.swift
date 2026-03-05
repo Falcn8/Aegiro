@@ -56,7 +56,7 @@ struct AegiroAppMain: App {
             }
         }
         .windowStyle(.hiddenTitleBar)
-        MenuBarExtra("Aegiro Vaults", systemImage: "lock.shield") {
+        MenuBarExtra("AegiroVault", systemImage: "lock.shield") {
             MenuBarView()
                 .environmentObject(model)
         }
