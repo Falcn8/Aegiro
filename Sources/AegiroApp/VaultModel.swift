@@ -139,6 +139,7 @@ final class VaultModel: ObservableObject {
         guard let url = vaultURL else { return }
         do {
             let added = try Locker.lockFromSidecar(vaultURL: url, passphrase: passphrase)
+            lockSession()
             if added > 0 {
                 self.status = "Locked. Imported \(added) legacy staged item(s)"
             } else {
