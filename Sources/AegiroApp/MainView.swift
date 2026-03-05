@@ -16,14 +16,11 @@ struct MainView: View {
     @State private var viewMode: ContentViewMode = .list
     @State private var sortOption: SortOption = .modified
     @State private var sortAscending = false
-    @State private var activeFilter: VaultFilter = .all
-
     @State private var toastMessage: String?
     @State private var toastDismissWork: DispatchWorkItem?
 
     private var filteredEntries: [VaultIndexEntry] {
-        let filtered = applyFilter(to: model.entries)
-        let searched = applySearch(to: filtered)
+        let searched = applySearch(to: model.entries)
         return applySort(to: searched)
     }
 
@@ -99,7 +96,6 @@ struct MainView: View {
                 VStack(spacing: 10) {
                     actionButton(title: "Open Vault", icon: "folder") {
                         model.openVaultWithPanel()
-                        activeFilter = .all
                     }
 
                     actionButton(title: "Create Vault", icon: "plus.circle") {
@@ -218,17 +214,6 @@ struct MainView: View {
                 .foregroundStyle(.secondary)
             TextField("Search files", text: $searchText)
                 .textFieldStyle(.plain)
-
-            Divider()
-                .frame(height: 18)
-
-            Picker("Filter", selection: $activeFilter) {
-                Text("All").tag(VaultFilter.all)
-                Text("Recent").tag(VaultFilter.recentlyModified)
-                Text("Added").tag(VaultFilter.recentlyAdded)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 220)
 
             Picker("View", selection: $viewMode) {
                 Label("List", systemImage: "list.bullet").tag(ContentViewMode.list)
@@ -599,19 +584,6 @@ struct MainView: View {
         }
     }
 
-    private func applyFilter(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
-        switch activeFilter {
-        case .all:
-            return entries
-        case .recentlyAdded:
-            let threshold = Date().addingTimeInterval(-(60 * 60 * 24 * 7))
-            return entries.filter { $0.created >= threshold }
-        case .recentlyModified:
-            let threshold = Date().addingTimeInterval(-(60 * 60 * 24 * 7))
-            return entries.filter { $0.modified >= threshold }
-        }
-    }
-
     private func applySearch(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return entries }
@@ -768,12 +740,6 @@ private struct CreateVaultSheet: View {
 private enum ContentViewMode: Hashable {
     case list
     case grid
-}
-
-private enum VaultFilter: Hashable {
-    case all
-    case recentlyAdded
-    case recentlyModified
 }
 
 private enum SortOption: CaseIterable {
