@@ -257,9 +257,10 @@ Aegiro/
 ## Security Notes
 
 - Key derivation: Argon2id (REAL_CRYPTO) derives the PDK from your passphrase + salt; parameters default to m=256 MiB, t=3, p=1.
-- DEK wrapping: The Data Encryption Key (DEK) is AES‑GCM wrapped under the PDK and also under the Kyber shared secret (for future sharing flows).
+- Unlock flow (new vaults): The passphrase-derived key unwraps a PQ access key; that key unwraps the Kyber secret key, Kyber decapsulation derives the shared secret, and only then is the DEK unwrapped.
 - Signer key wrapping: The Dilithium private key is AES‑GCM wrapped under the DEK, enabling offline manifest re‑signing on lock.
 - Chunking + nonces: File data is encrypted into 1 MiB chunks on import using AES‑GCM with deterministic 96‑bit nonces (derived via HMAC(seed, chunkIndex)).
 - Integrity: Index is AEAD-encrypted; manifest signs SHA256(index JSON) + SHA256(chunk map). `verify` validates integrity without passphrase.
 - Zero telemetry: No network access required. Keep the CLI offline; signing and KDF are all local.
 - Backups: Keep your passphrase safe. The backup includes only encrypted data + metadata; losing the passphrase means losing access.
+- Compatibility note: legacy vaults (created before this PQ unlock flow) still use direct PDK->DEK unwrap until migrated.

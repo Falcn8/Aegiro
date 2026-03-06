@@ -78,4 +78,26 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 0)
         XCTAssertFalse(FileManager.default.fileExists(atPath: result.sidecar.path))
     }
+
+    func testPQCBundleRequiredForUnlockOnNewVault() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        var data = try Data(contentsOf: vaultURL)
+        let (header, hdrLen) = try parseHeaderAndOffset(data)
+        XCTAssertNotEqual(header.flags & 0b10, 0, "new vaults should require PQC unlock path")
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        XCTAssertGreaterThan(layout.pqCtRange.count, 0)
+
+        // Corrupt the encoded PQ access bundle; unlock must fail.
+        let i = layout.pqCtRange.lowerBound
+        data[i] = data[i] ^ 0x01
+        try data.write(to: vaultURL, options: .atomic)
+
+        XCTAssertThrowsError(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass"))
+    }
 }
