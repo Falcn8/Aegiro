@@ -58,6 +58,8 @@ Main window uses a three-zone shell:
   - Command-click toggles multi-selection.
   - Shift-click selects ranges.
   - List and grid views support drag-to-select rectangle.
+  - Up/Down arrow keys move selection to previous/next item.
+  - Shift+Up/Shift+Down extends range selection from the anchor.
 - Space bar opens Quick Look for the current selection.
 - File details are shown from a top-bar Info popover.
 - Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
