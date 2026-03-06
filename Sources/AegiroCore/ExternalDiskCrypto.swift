@@ -49,6 +49,19 @@ public struct APFSVolumeOption: Hashable, Identifiable, Sendable {
     }
 }
 
+public struct MountedNonAPFSVolume: Hashable, Identifiable, Sendable {
+    public var id: String { mountPoint }
+    public let deviceIdentifier: String
+    public let mountPoint: String
+    public let filesystemType: String
+
+    public init(deviceIdentifier: String, mountPoint: String, filesystemType: String) {
+        self.deviceIdentifier = deviceIdentifier
+        self.mountPoint = mountPoint
+        self.filesystemType = filesystemType
+    }
+}
+
 private struct DiskRecoveryBundle: Codable {
     let version: UInt16
     let created_unix: UInt64
@@ -143,8 +156,24 @@ public enum ExternalDiskCrypto {
         guard let plistData = output.stdout.data(using: .utf8) else {
             throw AEGError.io("Unable to decode diskutil APFS list output")
         }
-        let mountPoints = (try? mountedAPFSVolumeMap()) ?? [:]
+        let mountPoints = (try? mountedVolumes().reduce(into: [String: String]()) { partialResult, snapshot in
+            if snapshot.filesystemType == "apfs" {
+                partialResult[snapshot.deviceIdentifier] = snapshot.mountPoint
+            }
+        }) ?? [:]
         return try parseAPFSVolumeOptions(from: plistData, mountPoints: mountPoints)
+    }
+
+    public static func listMountedNonAPFSVolumes() throws -> [MountedNonAPFSVolume] {
+        try mountedVolumes()
+            .filter { $0.filesystemType != "apfs" }
+            .filter { $0.mountPoint == "/Volumes" || $0.mountPoint.hasPrefix("/Volumes/") }
+            .map { MountedNonAPFSVolume(deviceIdentifier: $0.deviceIdentifier,
+                                        mountPoint: $0.mountPoint,
+                                        filesystemType: $0.filesystemType) }
+            .sorted {
+                $0.mountPoint.localizedCaseInsensitiveCompare($1.mountPoint) == .orderedAscending
+            }
     }
 
     static func recoverDiskPassphrase(diskIdentifier: String,
@@ -301,7 +330,7 @@ public enum ExternalDiskCrypto {
         return (internalRank, option.name.lowercased(), option.identifier)
     }
 
-    private static func mountedAPFSVolumeMap() throws -> [String: String] {
+    private static func mountedVolumes() throws -> [MountedVolumeSnapshot] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/sbin/mount")
         let stdoutPipe = Pipe()
@@ -318,11 +347,11 @@ public enum ExternalDiskCrypto {
             let details = stderr.isEmpty ? stdout : stderr
             throw AEGError.io("mount failed (\(process.terminationStatus)): \(details)")
         }
-        return parseMountedAPFSVolumeMap(from: stdout)
+        return parseMountedVolumes(from: stdout)
     }
 
-    private static func parseMountedAPFSVolumeMap(from output: String) -> [String: String] {
-        var map: [String: String] = [:]
+    private static func parseMountedVolumes(from output: String) -> [MountedVolumeSnapshot] {
+        var snapshots: [MountedVolumeSnapshot] = []
 
         for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
             let text = String(line)
@@ -340,14 +369,21 @@ public enum ExternalDiskCrypto {
             let rawMountPoint = String(text[onRange.upperBound..<optionsStart.lowerBound])
             let optionsRange = text.index(after: optionsStart.lowerBound)..<text.index(before: text.endIndex)
             let options = String(text[optionsRange])
-            guard options.split(separator: ",").contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "apfs" }) else {
+            let tokens = options
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            guard let filesystemType = tokens.first, !filesystemType.isEmpty else {
                 continue
             }
 
-            map[device] = unescapeMountPath(rawMountPoint)
+            snapshots.append(
+                MountedVolumeSnapshot(deviceIdentifier: device,
+                                     mountPoint: unescapeMountPath(rawMountPoint),
+                                     filesystemType: filesystemType)
+            )
         }
 
-        return map
+        return snapshots
     }
 
     private static func unescapeMountPath(_ rawPath: String) -> String {
@@ -373,6 +409,12 @@ public enum ExternalDiskCrypto {
     private static func bundleAAD(for diskIdentifier: String) -> Data {
         Data("\(bundleAADPrefix):\(diskIdentifier)".utf8)
     }
+}
+
+private struct MountedVolumeSnapshot {
+    let deviceIdentifier: String
+    let mountPoint: String
+    let filesystemType: String
 }
 
 private struct APFSListPlist: Decodable {
