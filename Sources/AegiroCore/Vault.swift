@@ -844,4 +844,97 @@ public enum Editor {
 
         try d.write(to: vaultURL, options: .atomic)
     }
+
+    public static func deleteEntries(vaultURL: URL, passphrase: String, logicalPaths: [String]) throws -> Int {
+        let targets = Set(
+            logicalPaths
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
+        guard !targets.isEmpty else { return 0 }
+
+        let data = try Data(contentsOf: vaultURL)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+
+        let dek = try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
+        let aad = vaultAAD
+
+        let idxBlobOld = data.subdata(in: layout.idxRange)
+        var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
+        let oldCount = index.entries.count
+        index.entries.removeAll { targets.contains($0.logicalPath) }
+        let removed = oldCount - index.entries.count
+        guard removed > 0 else { return 0 }
+
+        let existingCM = data.subdata(in: layout.chunkMapRange)
+        let existingChunks = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
+        let existingArea = data.subdata(in: layout.chunkAreaStart..<data.count)
+
+        var chunkArea = Data()
+        var chunkInfos: [ChunkInfo] = []
+        chunkArea.reserveCapacity(existingArea.count)
+
+        for c in existingChunks where !targets.contains(c.name) {
+            let start = Int(c.relOffset)
+            let end = start + c.length
+            guard start >= 0, end <= existingArea.count else { continue }
+            let blob = existingArea.subdata(in: start..<end)
+            let offset = UInt64(chunkArea.count)
+            chunkArea.append(blob)
+            chunkInfos.append(ChunkInfo(name: c.name, relOffset: offset, length: blob.count))
+        }
+
+        let chunkCounts = chunkInfos.reduce(into: [String: Int]()) { counts, chunk in
+            counts[chunk.name, default: 0] += 1
+        }
+        for i in index.entries.indices {
+            let logical = index.entries[i].logicalPath
+            index.entries[i].chunkCount = chunkCounts[logical] ?? 0
+            index.entries[i].sidecarName = nil
+        }
+
+        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+        let chunkMap = try JSONEncoder().encode(chunkInfos)
+
+        let signerWrap = data.subdata(in: layout.signerWrapRange)
+        let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
+        #if REAL_CRYPTO
+        let sig = Dilithium2()
+        #else
+        let sig = StubSig()
+        #endif
+        let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
+        let manBlob = try JSONEncoder().encode(manifest)
+
+        let pqCt = data.subdata(in: layout.pqCtRange)
+        let pqWrap = data.subdata(in: layout.pqWrapRange)
+        let signerLen = data.subdata(in: layout.signerWrapLenPos..<(layout.signerWrapLenPos+4))
+        let signerBlob = data.subdata(in: layout.signerWrapRange)
+        let pdkBlob = data.subdata(in: layout.pdkWrapRange)
+
+        let idxLenLE = withUnsafeBytes(of: UInt32(newIdxBlob.count).littleEndian) { Data($0) }
+        let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
+        let cmLenLE = withUnsafeBytes(of: UInt32(chunkMap.count).littleEndian) { Data($0) }
+
+        var out = Data()
+        let finalHeader = try head.serialize()
+        out.append(finalHeader)
+        out.append(pdkBlob)
+        out.append(withUnsafeBytes(of: UInt32(pqCt.count).littleEndian) { Data($0) })
+        out.append(pqCt)
+        out.append(pqWrap)
+        out.append(signerLen)
+        out.append(signerBlob)
+        out.append(idxLenLE)
+        out.append(newIdxBlob)
+        out.append(manLenLE)
+        out.append(manBlob)
+        out.append(cmLenLE)
+        out.append(chunkMap)
+        out.append(chunkArea)
+
+        try out.write(to: vaultURL, options: .atomic)
+        return removed
+    }
 }

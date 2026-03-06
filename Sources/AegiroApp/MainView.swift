@@ -34,6 +34,8 @@ struct MainView: View {
     @State private var listDragStart: CGPoint?
     @State private var listSelectionRect: CGRect?
     @State private var listSelectionBase: Set<VaultIndexEntry.ID> = []
+    @State private var showDeleteConfirmation = false
+    @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
 
     private var filteredEntries: [VaultIndexEntry] {
         let searched = applySearch(to: model.entries)
@@ -93,6 +95,16 @@ struct MainView: View {
         .sheet(isPresented: $showDoctorSheet) {
             DoctorSheet()
                 .environmentObject(model)
+        }
+        .alert(deleteConfirmationTitle, isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                pendingDeleteIDs = []
+            }
+            Button("Delete", role: .destructive) {
+                confirmDelete()
+            }
+        } message: {
+            Text(deleteConfirmationMessage)
         }
         .onAppear {
             model.refreshStatus()
@@ -766,10 +778,10 @@ struct MainView: View {
 
             Divider()
 
-            Button("Delete") {
-                model.status = "Delete is not available yet in the macOS app."
+            Button("Delete", role: .destructive) {
+                requestDelete(fromContextEntry: entry)
             }
-            .disabled(true)
+            .disabled(model.locked)
         }
     }
 
@@ -904,6 +916,18 @@ struct MainView: View {
         )
     }
 
+    private var deleteConfirmationTitle: String {
+        pendingDeleteIDs.count == 1 ? "Delete File?" : "Delete \(pendingDeleteIDs.count) Files?"
+    }
+
+    private var deleteConfirmationMessage: String {
+        if pendingDeleteIDs.count == 1, let only = pendingDeleteIDs.first {
+            let name = (only as NSString).lastPathComponent
+            return "\"\(name)\" will be permanently removed from this vault."
+        }
+        return "These files will be permanently removed from this vault."
+    }
+
     private func verifyVaultState() {
         model.refreshStatus()
         if model.locked {
@@ -911,6 +935,29 @@ struct MainView: View {
             return
         }
         model.status = model.manifestOK ? "Vault integrity verified." : "Integrity warning: manifest verification failed."
+    }
+
+    private func requestDelete(fromContextEntry entry: VaultIndexEntry) {
+        guard !model.locked else {
+            model.status = "Unlock to delete files"
+            return
+        }
+        let targets: [VaultIndexEntry.ID]
+        if selection.contains(entry.id) && selection.count > 1 {
+            targets = Array(selection)
+        } else {
+            targets = [entry.id]
+        }
+        pendingDeleteIDs = targets
+        showDeleteConfirmation = !targets.isEmpty
+    }
+
+    private func confirmDelete() {
+        let targets = pendingDeleteIDs
+        pendingDeleteIDs = []
+        guard !targets.isEmpty else { return }
+        model.deleteEntries(logicalPaths: targets)
+        selection.subtract(targets)
     }
 
     private func handleGridClick(on entry: VaultIndexEntry) {
