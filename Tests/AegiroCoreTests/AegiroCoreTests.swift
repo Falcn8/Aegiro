@@ -100,4 +100,32 @@ final class AegiroCoreTests: XCTestCase {
 
         XCTAssertThrowsError(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass"))
     }
+
+    func testExternalDiskRecoveryBundleRoundTripDryRun() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let diskID = "disk99s1"
+        let recovery = tmp.appendingPathComponent("disk99s1.aegiro-diskkey.json")
+
+        _ = try ExternalDiskCrypto.encryptAPFSVolume(diskIdentifier: diskID,
+                                                     recoveryPassphrase: "bundle-pass",
+                                                     recoveryURL: recovery,
+                                                     dryRun: true)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recovery.path))
+
+        XCTAssertNoThrow(try ExternalDiskCrypto.unlockAPFSVolume(diskIdentifier: diskID,
+                                                                 recoveryPassphrase: "bundle-pass",
+                                                                 recoveryURL: recovery,
+                                                                 dryRun: true))
+        XCTAssertThrowsError(try ExternalDiskCrypto.unlockAPFSVolume(diskIdentifier: diskID,
+                                                                     recoveryPassphrase: "wrong-pass",
+                                                                     recoveryURL: recovery,
+                                                                     dryRun: true))
+        XCTAssertThrowsError(try ExternalDiskCrypto.unlockAPFSVolume(diskIdentifier: "disk99s2",
+                                                                     recoveryPassphrase: "bundle-pass",
+                                                                     recoveryURL: recovery,
+                                                                     dryRun: true))
+    }
 }

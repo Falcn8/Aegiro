@@ -269,6 +269,70 @@ struct CLI {
                 print("Manifest: \(info.manifestOK ? "OK" : "INVALID")")
                 print("Touch ID: \(info.touchIDEnabled ? "enabled" : "disabled")")
             }
+        case "disk-encrypt":
+            var disk: String?
+            var pass: String = ""
+            var recovery: String?
+            var dryRun = false
+            var force = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--disk": disk = it.next()
+                case "--passphrase": pass = it.next() ?? ""
+                case "--recovery": recovery = it.next()
+                case "--dry-run": dryRun = true
+                case "--force": force = true
+                default: break
+                }
+            }
+            guard let d = disk, !pass.isEmpty else {
+                hint("Missing required options for disk-encrypt.", tip: "Use: disk-encrypt --disk <diskXsY> --passphrase \"<recovery-pass>\" [--recovery <path.json>] [--dry-run] [--force]")
+            }
+            let recURL: URL
+            if let r = recovery {
+                recURL = URL(fileURLWithPath: NSString(string: r).expandingTildeInPath)
+            } else {
+                recURL = defaultDiskRecoveryURL(diskIdentifier: d)
+            }
+            let result = try ExternalDiskCrypto.encryptAPFSVolume(diskIdentifier: d,
+                                                                  recoveryPassphrase: pass,
+                                                                  recoveryURL: recURL,
+                                                                  dryRun: dryRun,
+                                                                  overwrite: force)
+            if result.dryRun {
+                print("Dry run: generated PQC recovery bundle without calling diskutil encrypt.")
+            } else {
+                print("Started APFS encryption for \(d).")
+            }
+            print("PQC recovery bundle: \(result.recoveryURL.path)")
+        case "disk-unlock":
+            var disk: String?
+            var pass: String = ""
+            var recovery: String?
+            var dryRun = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--disk": disk = it.next()
+                case "--passphrase": pass = it.next() ?? ""
+                case "--recovery": recovery = it.next()
+                case "--dry-run": dryRun = true
+                default: break
+                }
+            }
+            guard let d = disk, !pass.isEmpty, let r = recovery else {
+                hint("Missing required options for disk-unlock.", tip: "Use: disk-unlock --disk <diskXsY> --recovery <path.json> --passphrase \"<recovery-pass>\" [--dry-run]")
+            }
+            try ExternalDiskCrypto.unlockAPFSVolume(diskIdentifier: d,
+                                                    recoveryPassphrase: pass,
+                                                    recoveryURL: URL(fileURLWithPath: NSString(string: r).expandingTildeInPath),
+                                                    dryRun: dryRun)
+            if dryRun {
+                print("Dry run: recovery bundle validated and PQC decapsulation succeeded.")
+            } else {
+                print("Unlock command sent for \(d).")
+            }
         default:
             hint("Unknown command: \(cmd)", tip: "Run --help to see available commands.")
         }
@@ -291,6 +355,8 @@ Usage:
   backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]
   scan <paths...>
   shred <paths...>
+  disk-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
+  disk-unlock --disk <diskXsY> --recovery <path.json> --passphrase "<recovery-pass>" [--dry-run]
   verify --vault <path>                    Verify manifest signature
   status --vault <path> [--passphrase "<pass>"] [--json]
 """)
@@ -313,6 +379,12 @@ Usage:
         f.dateStyle = .medium
         f.timeStyle = .medium
         return f.string(from: date)
+    }
+
+    static func defaultDiskRecoveryURL(diskIdentifier: String) -> URL {
+        let safeID = diskIdentifier.replacingOccurrences(of: "/", with: "_")
+        return URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+            .appendingPathComponent("\(safeID).aegiro-diskkey.json")
     }
 }
 
