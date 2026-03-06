@@ -246,6 +246,37 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func deleteEntries(logicalPaths: [String]) {
+        touchActivity()
+        guard let vaultURL else { return }
+        guard !locked else {
+            status = "Unlock to delete files"
+            return
+        }
+        guard !passphrase.isEmpty else {
+            status = "Unlock with your passphrase to delete files"
+            return
+        }
+
+        let targets = Array(Set(logicalPaths.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }))
+        guard !targets.isEmpty else {
+            status = "No files selected for deletion"
+            return
+        }
+
+        do {
+            let removed = try Editor.deleteEntries(vaultURL: vaultURL, passphrase: passphrase, logicalPaths: targets)
+            if removed == 0 {
+                status = "No matching files found to delete"
+            } else {
+                status = "Deleted \(removed) file(s)"
+            }
+            refreshStatus()
+        } catch {
+            status = "Delete failed: \(error)"
+        }
+    }
+
     func preview(logicalPath: String) {
         guard let url = vaultURL else { return }
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
