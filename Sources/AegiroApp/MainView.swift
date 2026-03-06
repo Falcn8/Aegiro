@@ -14,9 +14,9 @@ struct MainView: View {
     @State private var showDiskUnlockSheet = false
     @State private var showDoctorSheet = false
 
-    @State private var selectionMode = false
     @State private var searchText = ""
     @State private var selection: Set<VaultIndexEntry.ID> = []
+    @State private var selectionAnchor: VaultIndexEntry.ID?
     @State private var viewMode: ContentViewMode = .list
     @State private var sortOption: SortOption = .modified
     @State private var sortAscending = false
@@ -25,6 +25,10 @@ struct MainView: View {
     @State private var toastDismissWork: DispatchWorkItem?
     @State private var isDropTargeted = false
     @State private var isProcessingDrop = false
+    @State private var gridItemFrames: [VaultIndexEntry.ID: CGRect] = [:]
+    @State private var gridDragStart: CGPoint?
+    @State private var gridSelectionRect: CGRect?
+    @State private var gridSelectionBase: Set<VaultIndexEntry.ID> = []
 
     private var filteredEntries: [VaultIndexEntry] {
         let searched = applySearch(to: model.entries)
@@ -89,15 +93,16 @@ struct MainView: View {
             model.startAutoLockTimer()
         }
         .onReceive(model.$entries) { _ in
-            selection = selection.intersection(Set(model.entries.map(\.id)))
-            if model.entries.isEmpty {
-                selectionMode = false
+            let validIDs = Set(model.entries.map(\.id))
+            selection = selection.intersection(validIDs)
+            if let selectionAnchor, !validIDs.contains(selectionAnchor) {
+                self.selectionAnchor = nil
             }
         }
         .onReceive(model.$locked) { isLocked in
             if isLocked {
-                selectionMode = false
                 selection.removeAll()
+                selectionAnchor = nil
                 return
             }
             guard showUnlockSheet else { return }
@@ -105,6 +110,15 @@ struct MainView: View {
             showUnlockSheet = false
         }
         .onReceive(model.$status) { updateToast(with: $0) }
+        .onChange(of: selection) { newSelection in
+            if newSelection.isEmpty {
+                selectionAnchor = nil
+                return
+            }
+            if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { newSelection.contains($0) }) {
+                selectionAnchor = lastVisibleSelected
+            }
+        }
         .onDisappear {
             toastDismissWork?.cancel()
         }
@@ -171,15 +185,6 @@ struct MainView: View {
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")
                 }
-
-                Button {
-                    toggleSelectionMode()
-                } label: {
-                    Image(systemName: selectionMode ? "checkmark.circle.fill" : "checkmark.circle")
-                }
-                .buttonStyle(.borderless)
-                .help(selectionMode ? "Exit selection mode" : "Enter selection mode")
-                .disabled(model.locked || model.entries.isEmpty)
 
                 Button {
                     showPreferences = true
@@ -497,19 +502,6 @@ struct MainView: View {
 
     private var listView: some View {
         Table(filteredEntries, selection: $selection) {
-            TableColumn("") { entry in
-                Button {
-                    toggleSelection(entry)
-                } label: {
-                    Image(systemName: selection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(selection.contains(entry.id) ? AegiroPalette.securityGreen : AegiroPalette.textMuted)
-                        .opacity(selectionMode ? 1 : 0)
-                }
-                .buttonStyle(.plain)
-                .disabled(!selectionMode)
-            }
-            .width(28)
-
             TableColumn("Name") { entry in
                 HStack(spacing: 10) {
                     Image(systemName: entry.systemIcon)
@@ -550,57 +542,88 @@ struct MainView: View {
     }
 
     private var gridView: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
-                ForEach(filteredEntries) { entry in
-                    Button {
-                        if selectionMode {
-                            toggleSelection(entry)
-                        } else {
-                            selection = [entry.id]
-                        }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: entry.systemIcon)
-                                    .foregroundStyle(AegiroPalette.accentIndigo)
-                                Spacer()
-                                if selectionMode {
-                                    Image(systemName: selection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(selection.contains(entry.id) ? AegiroPalette.securityGreen : AegiroPalette.textMuted)
+        ZStack(alignment: .topLeading) {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
+                    ForEach(filteredEntries) { entry in
+                        Button {
+                            handleGridClick(on: entry)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Image(systemName: entry.systemIcon)
+                                        .foregroundStyle(AegiroPalette.accentIndigo)
+                                    Spacer()
+                                    if selection.contains(entry.id) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(AegiroPalette.securityGreen)
+                                    }
                                 }
+
+                                Text(entry.displayName)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(AegiroPalette.textPrimary)
+                                    .lineLimit(1)
+
+                                Text(entry.formattedSize)
+                                    .font(.system(size: 12, weight: .regular))
+                                    .foregroundStyle(AegiroPalette.textSecondary)
+
+                                Text("Modified \(entry.modified.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.system(size: 12, weight: .regular))
+                                    .foregroundStyle(AegiroPalette.textMuted)
                             }
-
-                            Text(entry.displayName)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(AegiroPalette.textPrimary)
-                                .lineLimit(1)
-
-                            Text(entry.formattedSize)
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundStyle(AegiroPalette.textSecondary)
-
-                            Text("Modified \(entry.modified.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundStyle(AegiroPalette.textMuted)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(selection.contains(entry.id) ? AegiroPalette.selection : AegiroPalette.backgroundCard)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(selection.contains(entry.id) ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+                            )
                         }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .buttonStyle(.plain)
+                        .contextMenu { rowMenu(entry: entry) }
                         .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(selection.contains(entry.id) ? AegiroPalette.selection : AegiroPalette.backgroundCard)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                            GeometryReader { proxy in
+                                Color.clear.preference(
+                                    key: GridItemFramePreferenceKey.self,
+                                    value: [entry.id: proxy.frame(in: .named("grid-selection-space"))]
+                                )
+                            }
                         )
                     }
-                    .buttonStyle(.plain)
-                    .contextMenu { rowMenu(entry: entry) }
                 }
+                .padding(12)
             }
-            .padding(12)
+
+            if let gridSelectionRect {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(AegiroPalette.accentIndigo.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(AegiroPalette.accentIndigo.opacity(0.9), style: StrokeStyle(lineWidth: 1, dash: [5]))
+                    )
+                    .frame(width: gridSelectionRect.width, height: gridSelectionRect.height)
+                    .offset(x: gridSelectionRect.minX, y: gridSelectionRect.minY)
+                    .allowsHitTesting(false)
+            }
         }
+        .coordinateSpace(name: "grid-selection-space")
+        .onPreferenceChange(GridItemFramePreferenceKey.self) { value in
+            gridItemFrames = value
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 3, coordinateSpace: .named("grid-selection-space"))
+                .onChanged(handleGridDragChanged)
+                .onEnded { _ in
+                    gridDragStart = nil
+                    gridSelectionRect = nil
+                    gridSelectionBase = []
+                }
+        )
     }
 
     private func rowMenu(entry: VaultIndexEntry) -> some View {
@@ -773,12 +796,85 @@ struct MainView: View {
         model.status = model.manifestOK ? "Vault integrity verified." : "Integrity warning: manifest verification failed."
     }
 
-    private func toggleSelection(_ entry: VaultIndexEntry) {
-        if selection.contains(entry.id) {
-            selection.remove(entry.id)
-        } else {
-            selection.insert(entry.id)
+    private func handleGridClick(on entry: VaultIndexEntry) {
+        let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
+        updateSelectionForClick(on: entry.id, modifiers: modifiers)
+    }
+
+    private func updateSelectionForClick(on entryID: VaultIndexEntry.ID, modifiers: NSEvent.ModifierFlags) {
+        let visibleIDs = filteredEntries.map(\.id)
+        let hasCommand = modifiers.contains(.command)
+        let hasShift = modifiers.contains(.shift)
+
+        if hasShift {
+            let anchor = selectionAnchor ?? visibleIDs.first(where: { selection.contains($0) }) ?? entryID
+            let range = selectionRange(from: anchor, to: entryID, orderedIDs: visibleIDs)
+            if hasCommand {
+                selection.formUnion(range)
+            } else {
+                selection = range
+            }
+            selectionAnchor = anchor
+            return
         }
+
+        if hasCommand {
+            if selection.contains(entryID) {
+                selection.remove(entryID)
+            } else {
+                selection.insert(entryID)
+            }
+            selectionAnchor = entryID
+            return
+        }
+
+        selection = [entryID]
+        selectionAnchor = entryID
+    }
+
+    private func selectionRange(from startID: VaultIndexEntry.ID, to endID: VaultIndexEntry.ID, orderedIDs: [VaultIndexEntry.ID]) -> Set<VaultIndexEntry.ID> {
+        guard let startIndex = orderedIDs.firstIndex(of: startID),
+              let endIndex = orderedIDs.firstIndex(of: endID) else {
+            return [endID]
+        }
+        let lower = min(startIndex, endIndex)
+        let upper = max(startIndex, endIndex)
+        return Set(orderedIDs[lower...upper])
+    }
+
+    private func handleGridDragChanged(_ value: DragGesture.Value) {
+        if gridDragStart == nil {
+            gridDragStart = value.startLocation
+            gridSelectionBase = selection
+        }
+        guard let gridDragStart else { return }
+
+        let rect = normalizedRect(from: gridDragStart, to: value.location)
+        gridSelectionRect = rect
+
+        let intersectingIDs = Set(gridItemFrames.compactMap { id, frame in
+            frame.intersects(rect) ? id : nil
+        })
+
+        let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
+        if modifiers.contains(.command) || modifiers.contains(.shift) {
+            selection = gridSelectionBase.union(intersectingIDs)
+        } else {
+            selection = intersectingIDs
+        }
+
+        if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { selection.contains($0) }) {
+            selectionAnchor = lastVisibleSelected
+        }
+    }
+
+    private func normalizedRect(from start: CGPoint, to end: CGPoint) -> CGRect {
+        CGRect(
+            x: min(start.x, end.x),
+            y: min(start.y, end.y),
+            width: abs(end.x - start.x),
+            height: abs(end.y - start.y)
+        )
     }
 
     private func unlockIfPossible() {
@@ -798,21 +894,6 @@ struct MainView: View {
             model.exportSelectedWithPanel()
         } else {
             model.exportSelectedWithPanel(filters: Array(selection))
-        }
-    }
-
-    private func toggleSelectionMode() {
-        guard !model.locked else {
-            model.status = "Unlock to select files"
-            return
-        }
-        guard !model.entries.isEmpty else {
-            model.status = "No files available to select"
-            return
-        }
-        selectionMode.toggle()
-        if !selectionMode {
-            selection.removeAll()
         }
     }
 
@@ -911,6 +992,14 @@ struct MainView: View {
         }
         toastDismissWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.8, execute: work)
+    }
+}
+
+private struct GridItemFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [VaultIndexEntry.ID: CGRect] = [:]
+
+    static func reduce(value: inout [VaultIndexEntry.ID: CGRect], nextValue: () -> [VaultIndexEntry.ID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 
