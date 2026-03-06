@@ -13,6 +13,7 @@ struct MainView: View {
     @State private var showDiskEncryptSheet = false
     @State private var showDiskUnlockSheet = false
     @State private var showDoctorSheet = false
+    @State private var showFileInfoPopover = false
 
     @State private var searchText = ""
     @State private var selection: Set<VaultIndexEntry.ID> = []
@@ -29,6 +30,10 @@ struct MainView: View {
     @State private var gridDragStart: CGPoint?
     @State private var gridSelectionRect: CGRect?
     @State private var gridSelectionBase: Set<VaultIndexEntry.ID> = []
+    @State private var listItemFrames: [VaultIndexEntry.ID: CGRect] = [:]
+    @State private var listDragStart: CGPoint?
+    @State private var listSelectionRect: CGRect?
+    @State private var listSelectionBase: Set<VaultIndexEntry.ID> = []
 
     private var filteredEntries: [VaultIndexEntry] {
         let searched = applySearch(to: model.entries)
@@ -58,6 +63,7 @@ struct MainView: View {
             }
             horizontalDivider
             statusBar
+            quickLookKeyboardShortcut
         }
         .frame(minWidth: 1080, minHeight: 720)
         .background(AegiroPalette.backgroundMain.ignoresSafeArea())
@@ -113,10 +119,14 @@ struct MainView: View {
         .onChange(of: selection) { newSelection in
             if newSelection.isEmpty {
                 selectionAnchor = nil
+                showFileInfoPopover = false
                 return
             }
             if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { newSelection.contains($0) }) {
                 selectionAnchor = lastVisibleSelected
+            }
+            if focusedEntry == nil {
+                showFileInfoPopover = false
             }
         }
         .onDisappear {
@@ -187,6 +197,17 @@ struct MainView: View {
                 }
 
                 Button {
+                    showFileInfoPopover = true
+                } label: {
+                    Image(systemName: "info.circle")
+                }
+                .buttonStyle(.borderless)
+                .disabled(focusedEntry == nil)
+                .popover(isPresented: $showFileInfoPopover, arrowEdge: .bottom) {
+                    fileInfoPopover
+                }
+
+                Button {
                     showPreferences = true
                 } label: {
                     Image(systemName: "gearshape")
@@ -208,9 +229,6 @@ struct MainView: View {
                 actionsCard
                 securityCard
                 externalDiskCard
-                if !selection.isEmpty {
-                    selectedSummaryCard
-                }
             }
             .padding(12)
         }
@@ -339,20 +357,44 @@ struct MainView: View {
         }
     }
 
-    private var selectedSummaryCard: some View {
-        card {
-            VStack(alignment: .leading, spacing: 8) {
-                sectionTitle("Selection")
-                infoRow(label: "Selected", value: "\(selection.count)")
-                infoRow(label: "Total", value: ByteCountFormatter.fileFormatter.string(fromByteCount: selectedSize))
-                if let focusedEntry {
-                    Text(focusedEntry.displayName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(AegiroPalette.textSecondary)
-                        .lineLimit(1)
-                }
+    private var fileInfoPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("File Info")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            if let focusedEntry {
+                infoRow(label: "Name", value: focusedEntry.displayName)
+                infoRow(label: "Size", value: focusedEntry.formattedSize)
+                infoRow(label: "Type", value: focusedEntry.kindDescription)
+                infoRow(label: "Modified", value: focusedEntry.modified.formatted(date: .abbreviated, time: .shortened))
+                infoRow(label: "Path", value: focusedEntry.logicalPath)
+            } else if selection.count > 1 {
+                infoRow(label: "Selected", value: "\(selection.count) files")
+                infoRow(label: "Total Size", value: ByteCountFormatter.fileFormatter.string(fromByteCount: selectedSize))
+                Text("Select one file to view full metadata.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+            } else {
+                Text("Select a file to view details.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
             }
         }
+        .padding(14)
+        .frame(width: 360)
+        .background(AegiroPalette.backgroundPanel)
+    }
+
+    private var quickLookKeyboardShortcut: some View {
+        Button(action: quickLookCurrentSelection) {
+            EmptyView()
+        }
+        .keyboardShortcut(KeyEquivalent(" "), modifiers: [])
+        .disabled(model.locked || selection.isEmpty)
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 
     private var contentArea: some View {
@@ -501,44 +543,52 @@ struct MainView: View {
     }
 
     private var listView: some View {
-        Table(filteredEntries, selection: $selection) {
-            TableColumn("Name") { entry in
-                HStack(spacing: 10) {
-                    Image(systemName: entry.systemIcon)
-                        .foregroundStyle(AegiroPalette.accentIndigo)
-                    Text(entry.displayName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(AegiroPalette.textPrimary)
-                        .lineLimit(1)
+        ZStack(alignment: .topLeading) {
+            ScrollView {
+                VStack(spacing: 0) {
+                    listHeader
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredEntries) { entry in
+                            listRow(entry)
+                                .background(
+                                    GeometryReader { proxy in
+                                        Color.clear.preference(
+                                            key: ListItemFramePreferenceKey.self,
+                                            value: [entry.id: proxy.frame(in: .named("list-selection-space"))]
+                                        )
+                                    }
+                                )
+                        }
+                    }
                 }
-                .contextMenu { rowMenu(entry: entry) }
-            }
-            .width(min: 260, ideal: 360)
-
-            TableColumn("Size") { entry in
-                Text(entry.formattedSize)
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(12)
             }
 
-            TableColumn("Type") { entry in
-                Text(entry.kindDescription)
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.textSecondary)
-                    .lineLimit(1)
-            }
-
-            TableColumn("Modified") { entry in
-                Text(entry.modified.formatted(date: .abbreviated, time: .omitted))
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.textSecondary)
+            if let listSelectionRect {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(AegiroPalette.accentIndigo.opacity(0.10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(AegiroPalette.accentIndigo.opacity(0.9), style: StrokeStyle(lineWidth: 1, dash: [5]))
+                    )
+                    .frame(width: listSelectionRect.width, height: listSelectionRect.height)
+                    .offset(x: listSelectionRect.minX, y: listSelectionRect.minY)
+                    .allowsHitTesting(false)
             }
         }
-        .tableStyle(.inset(alternatesRowBackgrounds: true))
-        .scrollContentBackground(.hidden)
-        .background(AegiroPalette.backgroundMain)
-        .padding(12)
+        .coordinateSpace(name: "list-selection-space")
+        .onPreferenceChange(ListItemFramePreferenceKey.self) { value in
+            listItemFrames = value
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 3, coordinateSpace: .named("list-selection-space"))
+                .onChanged(handleListDragChanged)
+                .onEnded { _ in
+                    listDragStart = nil
+                    listSelectionRect = nil
+                    listSelectionBase = []
+                }
+        )
     }
 
     private var gridView: some View {
@@ -624,6 +674,73 @@ struct MainView: View {
                     gridSelectionBase = []
                 }
         )
+    }
+
+    private var listHeader: some View {
+        HStack(spacing: 10) {
+            Text("Name")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Size")
+                .frame(width: 90, alignment: .trailing)
+            Text("Type")
+                .frame(width: 140, alignment: .leading)
+            Text("Modified")
+                .frame(width: 120, alignment: .leading)
+        }
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(AegiroPalette.textSecondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AegiroPalette.backgroundCard)
+        .overlay(
+            Rectangle()
+                .fill(AegiroPalette.borderSubtle)
+                .frame(height: 1),
+            alignment: .bottom
+        )
+    }
+
+    private func listRow(_ entry: VaultIndexEntry) -> some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: entry.systemIcon)
+                    .foregroundStyle(AegiroPalette.accentIndigo)
+                Text(entry.displayName)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(entry.formattedSize)
+                .frame(width: 90, alignment: .trailing)
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            Text(entry.kindDescription)
+                .lineLimit(1)
+                .frame(width: 140, alignment: .leading)
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            Text(entry.modified.formatted(date: .abbreviated, time: .omitted))
+                .frame(width: 120, alignment: .leading)
+                .foregroundStyle(AegiroPalette.textSecondary)
+        }
+        .font(.system(size: 13, weight: .medium))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            selection.contains(entry.id) ? AegiroPalette.selection : AegiroPalette.backgroundMain
+        )
+        .overlay(
+            Rectangle()
+                .fill(AegiroPalette.borderSubtle.opacity(0.35))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+        .contentShape(Rectangle())
+        .contextMenu { rowMenu(entry: entry) }
+        .onTapGesture {
+            handleListClick(on: entry)
+        }
     }
 
     private func rowMenu(entry: VaultIndexEntry) -> some View {
@@ -801,6 +918,11 @@ struct MainView: View {
         updateSelectionForClick(on: entry.id, modifiers: modifiers)
     }
 
+    private func handleListClick(on entry: VaultIndexEntry) {
+        let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
+        updateSelectionForClick(on: entry.id, modifiers: modifiers)
+    }
+
     private func updateSelectionForClick(on entryID: VaultIndexEntry.ID, modifiers: NSEvent.ModifierFlags) {
         let visibleIDs = filteredEntries.map(\.id)
         let hasCommand = modifiers.contains(.command)
@@ -828,8 +950,13 @@ struct MainView: View {
             return
         }
 
-        selection = [entryID]
-        selectionAnchor = entryID
+        if selection.count == 1 && selection.contains(entryID) {
+            selection.removeAll()
+            selectionAnchor = nil
+        } else {
+            selection = [entryID]
+            selectionAnchor = entryID
+        }
     }
 
     private func selectionRange(from startID: VaultIndexEntry.ID, to endID: VaultIndexEntry.ID, orderedIDs: [VaultIndexEntry.ID]) -> Set<VaultIndexEntry.ID> {
@@ -868,6 +995,32 @@ struct MainView: View {
         }
     }
 
+    private func handleListDragChanged(_ value: DragGesture.Value) {
+        if listDragStart == nil {
+            listDragStart = value.startLocation
+            listSelectionBase = selection
+        }
+        guard let listDragStart else { return }
+
+        let rect = normalizedRect(from: listDragStart, to: value.location)
+        listSelectionRect = rect
+
+        let intersectingIDs = Set(listItemFrames.compactMap { id, frame in
+            frame.intersects(rect) ? id : nil
+        })
+
+        let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
+        if modifiers.contains(.command) || modifiers.contains(.shift) {
+            selection = listSelectionBase.union(intersectingIDs)
+        } else {
+            selection = intersectingIDs
+        }
+
+        if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { selection.contains($0) }) {
+            selectionAnchor = lastVisibleSelected
+        }
+    }
+
     private func normalizedRect(from start: CGPoint, to end: CGPoint) -> CGRect {
         CGRect(
             x: min(start.x, end.x),
@@ -875,6 +1028,15 @@ struct MainView: View {
             width: abs(end.x - start.x),
             height: abs(end.y - start.y)
         )
+    }
+
+    private func quickLookCurrentSelection() {
+        guard !model.locked else {
+            model.status = "Unlock to preview files"
+            return
+        }
+        guard !selection.isEmpty else { return }
+        model.quickLookSelection(filters: Array(selection))
     }
 
     private func unlockIfPossible() {
@@ -996,6 +1158,14 @@ struct MainView: View {
 }
 
 private struct GridItemFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [VaultIndexEntry.ID: CGRect] = [:]
+
+    static func reduce(value: inout [VaultIndexEntry.ID: CGRect], nextValue: () -> [VaultIndexEntry.ID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+private struct ListItemFramePreferenceKey: PreferenceKey {
     static var defaultValue: [VaultIndexEntry.ID: CGRect] = [:]
 
     static func reduce(value: inout [VaultIndexEntry.ID: CGRect], nextValue: () -> [VaultIndexEntry.ID: CGRect]) {
