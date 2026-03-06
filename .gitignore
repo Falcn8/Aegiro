@@ -30,3 +30,6 @@ xcuserdata/
 *.tar
 # Do not ignore dist artifacts
 # dist/
+
+# Local app bundle from dev packaging script
+dist/AegiroApp.app/

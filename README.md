@@ -99,6 +99,17 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 
 > REAL_CRYPTO uses SwiftPM `systemLibrary` targets (`Sources/Argon2C`, `Sources/OQSWrapper`, `Sources/OpenSSLShim`) and links against system libraries.
 
+### macOS app build (dev)
+
+```bash
+bash scripts/build-app-dev.sh
+open dist/AegiroApp.app
+```
+
+- If a signing identity exists, the script signs with it automatically.
+- If none exists, the script uses ad-hoc signing and prints Touch ID limitations.
+- You can force identity selection: `bash scripts/build-app-dev.sh --identity "<identity name>"`.
+
 ---
 
 ## CLI examples
@@ -265,6 +276,13 @@ Aegiro/
 
 - Shred limitations on APFS  
   - On SSD/APFS, secure deletion is best-effort. Consider full-disk encryption + vault workflows.
+
+- `security find-identity -v -p codesigning` shows `0 valid identities found`
+  - Unlocking the keychain does not create certificates; it only unlocks existing ones.
+  - For local development (no paid membership required): open Xcode, add your Apple ID, then create an `Apple Development` certificate in `Xcode > Settings > Accounts > Manage Certificates`.
+  - Or create a local self-signed `Code Signing` certificate in Keychain Access.
+  - Then rebuild/sign the app: `bash scripts/build-app-dev.sh --identity "<identity name>"`.
+  - If you stay ad-hoc signed, the app runs but Touch ID secure keychain storage is expected to be unavailable.
 
 ---
 
