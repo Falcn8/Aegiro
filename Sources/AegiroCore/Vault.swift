@@ -10,6 +10,16 @@ public struct VaultOpenContext {
     public var fileNonceSeed: SymmetricKey
 }
 
+private let vaultFlagTouchID: UInt32 = 1 << 0
+private let vaultFlagPQCUnlockV1: UInt32 = 1 << 1
+private let vaultAAD = Data("AEGIRO-V1".utf8)
+
+private struct PQAccessBundleV1: Codable {
+    let version: UInt8
+    let kemCiphertext: Data
+    let kemSecretWrap: Data
+}
+
 public final class AegiroVault {
     public let url: URL
     public var header: VaultHeader
@@ -40,7 +50,8 @@ public final class AegiroVault {
         let argon = Argon2Params(mMiB: 256, t: 3, p: 1)
         let pq = PQPublicKeys(kyber_pk: kemPk, dilithium_pk: sigPk)
         var header = VaultHeader(alg: algs, argon2: argon, pq: pq)
-        if touchID { header.flags |= 0b1 }
+        if touchID { header.flags |= vaultFlagTouchID }
+        header.flags |= vaultFlagPQCUnlockV1
 
         #if REAL_CRYPTO
         let kdf = Argon2idKDF()
@@ -51,11 +62,13 @@ public final class AegiroVault {
         let pdk = SymmetricKey(data: pdkRaw)
 
         let fileSeed = SymmetricKey(size: .bits256)
+        let accessKey = SymmetricKey(size: .bits256)
         let dek = SymmetricKey(size: .bits256)
-        let aad = Data("AEGIRO-V1".utf8)
+        let aad = vaultAAD
 
         let pdkNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
-        let pdkWrap = try AEAD.encrypt(key: pdk, nonce: pdkNonce, plaintext: dek.withUnsafeBytes{ raw in Data(bytes: raw.baseAddress!, count: raw.count) }, aad: aad)
+        let accessRaw = accessKey.withUnsafeBytes { Data($0) }
+        let pdkWrap = try AEAD.encrypt(key: pdk, nonce: pdkNonce, plaintext: accessRaw, aad: aad)
 
         // sdkWrap will carry the Dilithium signing secret key wrapped under DEK
         let sigSkWrapNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
@@ -63,7 +76,14 @@ public final class AegiroVault {
                                          nonce: sigSkWrapNonce,
                                          plaintext: sigSk,
                                          aad: aad)
-        let (ss, ct) = try kem.encap(kemPk)
+        let (ss, kemCt) = try kem.encap(kemPk)
+        let kemSkWrapNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let kemSkWrap = try AEAD.encrypt(key: accessKey,
+                                         nonce: kemSkWrapNonce,
+                                         plaintext: kemSk,
+                                         aad: aad)
+        let accessBundle = PQAccessBundleV1(version: 1, kemCiphertext: kemCt, kemSecretWrap: kemSkWrap)
+        let accessBundleBlob = try JSONEncoder().encode(accessBundle)
         let pqKey = SymmetricKey(data: ss)
         let pqNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
         let pqWrap = try AEAD.encrypt(key: pqKey, nonce: pqNonce, plaintext: dek.withUnsafeBytes{ raw in Data(bytes: raw.baseAddress!, count: raw.count) }, aad: aad)
@@ -97,9 +117,9 @@ public final class AegiroVault {
         let handle = try FileHandle(forWritingTo: url)
         try handle.write(contentsOf: finalHeader)
         try handle.write(contentsOf: pdkWrap)
-        let ctLen = withUnsafeBytes(of: UInt32(ct.count).littleEndian, { raw in Data(bytes: raw.baseAddress!, count: raw.count) })
+        let ctLen = withUnsafeBytes(of: UInt32(accessBundleBlob.count).littleEndian, { raw in Data(bytes: raw.baseAddress!, count: raw.count) })
         try handle.write(contentsOf: ctLen)
-        try handle.write(contentsOf: ct)
+        try handle.write(contentsOf: accessBundleBlob)
         try handle.write(contentsOf: pqWrap)
         // signer wrap len (u32) + blob (in addition to header offsets)
         let signerLen = withUnsafeBytes(of: UInt32(sigSkWrap.count).littleEndian) { Data($0) }
@@ -187,7 +207,7 @@ public enum Importer {
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try Exporter.deriveDEK(data: data, passphrase: passphrase)
-        let aad = Data("AEGIRO-V1".utf8)
+        let aad = vaultAAD
         let items = try directImportItems(files: files, vaultURL: vaultURL, sidecarURL: sidecar, head: head)
         let imported = try mergeImportedPlainItems(vaultURL: vaultURL, data: data, head: head, layout: layout, dek: dek, aad: aad, items: items)
         try? FileManager.default.removeItem(at: sidecar)
@@ -218,6 +238,8 @@ public enum Importer {
 struct VaultLayout {
     let headerLen: Int
     let pdkWrapRange: Range<Int>
+    let pqCtRange: Range<Int>
+    let pqWrapRange: Range<Int>
     let signerWrapLenPos: Int
     let signerWrapRange: Range<Int>
     let idxLenPos: Int
@@ -236,8 +258,11 @@ func computeLayout(_ data: Data, afterHeader hdrLen: Int) -> VaultLayout {
     cursor += 60
     // pq ct len + ct
     let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-    cursor += 4 + Int(ctLen)
+    cursor += 4
+    let pqCtRange = cursor..<(cursor + Int(ctLen))
+    cursor += Int(ctLen)
     // pq wrap (12+32+16)
+    let pqWrapRange = cursor..<(cursor + 60)
     cursor += 60
     // signer wrap len + blob
     let signerLenPos = cursor
@@ -266,6 +291,8 @@ func computeLayout(_ data: Data, afterHeader hdrLen: Int) -> VaultLayout {
     let chunkStart = cursor
     return VaultLayout(headerLen: hdrLen,
                        pdkWrapRange: pdkRange,
+                       pqCtRange: pqCtRange,
+                       pqWrapRange: pqWrapRange,
                        signerWrapLenPos: signerLenPos,
                        signerWrapRange: signerRange,
                        idxLenPos: idxLenPos,
@@ -382,13 +409,8 @@ private func mergeImportedPlainItems(vaultURL: URL,
     let manBlob = try JSONEncoder().encode(manifest)
 
     // Reconstruct vault file in-memory (header + wraps + idx + manifest + chunk map + chunk area).
-    var cursor = layout.headerLen
-    cursor += 60 // pdk wrap
-    let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-    let ctStart = cursor + 4
-    let ct = data.subdata(in: ctStart..<(ctStart + Int(ctLen)))
-    cursor = ctStart + Int(ctLen)
-    let pqWrap = data.subdata(in: cursor..<(cursor+60))
+    let pqCt = data.subdata(in: layout.pqCtRange)
+    let pqWrap = data.subdata(in: layout.pqWrapRange)
 
     let signerLen = data.subdata(in: layout.signerWrapLenPos..<(layout.signerWrapLenPos+4))
     let signerBlob = data.subdata(in: layout.signerWrapRange)
@@ -401,8 +423,8 @@ private func mergeImportedPlainItems(vaultURL: URL,
     let finalHeader = try head.serialize()
     out.append(finalHeader)
     out.append(pdkBlob)
-    out.append(withUnsafeBytes(of: ctLen.littleEndian) { Data($0) })
-    out.append(ct)
+    out.append(withUnsafeBytes(of: UInt32(pqCt.count).littleEndian) { Data($0) })
+    out.append(pqCt)
     out.append(pqWrap)
     out.append(signerLen)
     out.append(signerBlob)
@@ -419,22 +441,68 @@ private func mergeImportedPlainItems(vaultURL: URL,
     return items.count
 }
 
+private func derivePassphraseKey(passphrase: String, salt: Data) throws -> SymmetricKey {
+    #if REAL_CRYPTO
+    let kdf = Argon2idKDF()
+    #else
+    let kdf = StubKDF()
+    #endif
+    let raw = try kdf.deriveKey(passphrase: passphrase, salt: salt, outLen: 32)
+    return SymmetricKey(data: raw)
+}
+
+private func unlockDEK(data: Data, head: VaultHeader, layout: VaultLayout, passphrase: String) throws -> SymmetricKey {
+    let pdk = try derivePassphraseKey(passphrase: passphrase, salt: head.kdf_salt)
+    let pdkWrap = data.subdata(in: layout.pdkWrapRange)
+    let pdkPlain = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: vaultAAD)
+
+    // Legacy vaults: DEK was wrapped directly under passphrase-derived key.
+    if (head.flags & vaultFlagPQCUnlockV1) == 0 {
+        return SymmetricKey(data: pdkPlain)
+    }
+
+    guard pdkPlain.count == 32 else {
+        throw AEGError.integrity("Invalid PQC access key length: \(pdkPlain.count)")
+    }
+    let accessKey = SymmetricKey(data: pdkPlain)
+
+    let accessBlob = data.subdata(in: layout.pqCtRange)
+    let accessBundle: PQAccessBundleV1
+    do {
+        accessBundle = try JSONDecoder().decode(PQAccessBundleV1.self, from: accessBlob)
+    } catch {
+        throw AEGError.integrity("PQC access bundle decode failed: \(error)")
+    }
+    guard accessBundle.version == 1 else {
+        throw AEGError.unsupported("Unsupported PQC access bundle version: \(accessBundle.version)")
+    }
+
+    let kemSk = try AEAD.decrypt(key: accessKey,
+                                 nonce: try AES.GCM.Nonce(data: accessBundle.kemSecretWrap.prefix(12)),
+                                 combined: accessBundle.kemSecretWrap,
+                                 aad: vaultAAD)
+    #if REAL_CRYPTO
+    let kem = Kyber512()
+    #else
+    let kem = StubKEM()
+    #endif
+    let ss = try kem.decap(accessBundle.kemCiphertext, sk: kemSk)
+    let pqKey = SymmetricKey(data: ss)
+    let pqWrap = data.subdata(in: layout.pqWrapRange)
+    let dekRaw = try AEAD.decrypt(key: pqKey,
+                                  nonce: try AES.GCM.Nonce(data: pqWrap.prefix(12)),
+                                  combined: pqWrap,
+                                  aad: vaultAAD)
+    return SymmetricKey(data: dekRaw)
+}
+
 public enum Locker {
     public static func unlockInfo(vaultURL: URL, passphrase: String) throws -> Int {
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
-        let pdkWrap = data.subdata(in: layout.pdkWrapRange)
-        #if REAL_CRYPTO
-        let kdf = Argon2idKDF()
-        #else
-        let kdf = StubKDF()
-        #endif
-        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
-        let pdk = SymmetricKey(data: pdkRaw)
-        let aad = Data("AEGIRO-V1".utf8)
-        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
-        let dek = SymmetricKey(data: dekRaw)
+        let dek = try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
+        let aad = vaultAAD
         let idxBlob = data.subdata(in: layout.idxRange)
         let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
         return index.entries.count
@@ -445,7 +513,7 @@ public enum Locker {
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try Exporter.deriveDEK(data: data, passphrase: passphrase)
-        let aad = Data("AEGIRO-V1".utf8)
+        let aad = vaultAAD
 
         // Read sidecar meta
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
@@ -491,17 +559,8 @@ public enum Locker {
 public enum Exporter {
     static func deriveDEK(data: Data, passphrase: String) throws -> SymmetricKey {
         let (head, hdrLen) = try parseHeaderAndOffset(data)
-        let pdkWrap = data.subdata(in: hdrLen..<(hdrLen+60))
-        #if REAL_CRYPTO
-        let kdf = Argon2idKDF()
-        #else
-        let kdf = StubKDF()
-        #endif
-        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
-        let pdk = SymmetricKey(data: pdkRaw)
-        let aad = Data("AEGIRO-V1".utf8)
-        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
-        return SymmetricKey(data: dekRaw)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        return try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
     }
 
     public static func list(vaultURL: URL, passphrase: String) throws -> [VaultIndexEntry] {
@@ -509,7 +568,7 @@ public enum Exporter {
         let (_, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try deriveDEK(data: data, passphrase: passphrase)
-        let aad = Data("AEGIRO-V1".utf8)
+        let aad = vaultAAD
         let idxBlob = data.subdata(in: layout.idxRange)
         let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
         return index.entries
@@ -520,7 +579,7 @@ public enum Exporter {
         let (_, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try deriveDEK(data: data, passphrase: passphrase)
-        let aad = Data("AEGIRO-V1".utf8)
+        let aad = vaultAAD
         let idxBlob = data.subdata(in: layout.idxRange)
         let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
         let cmData = data.subdata(in: layout.chunkMapRange)
@@ -596,18 +655,8 @@ public enum VaultStatus {
         var entriesCount: Int? = nil
         var locked = true
         if let pass = passphrase, !pass.isEmpty {
-            // derive PDK and unwrap DEK, decrypt index
-            let pdkWrap = data.subdata(in: layout.pdkWrapRange)
-            #if REAL_CRYPTO
-            let kdf = Argon2idKDF()
-            #else
-            let kdf = StubKDF()
-            #endif
-            let pdkRaw = try kdf.deriveKey(passphrase: pass, salt: head.kdf_salt, outLen: 32)
-            let pdk = SymmetricKey(data: pdkRaw)
-            let aad = Data("AEGIRO-V1".utf8)
-            if let dekRaw = try? AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad) {
-                let dek = SymmetricKey(data: dekRaw)
+            if let dek = try? unlockDEK(data: data, head: head, layout: layout, passphrase: pass) {
+                let aad = vaultAAD
                 let idxBlob = data.subdata(in: layout.idxRange)
                 if let index = try? IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad) {
                     entriesCount = index.entries.count
@@ -615,7 +664,7 @@ public enum VaultStatus {
                 }
             }
         }
-        let touchIDEnabled = (head.flags & 0b1) != 0
+        let touchIDEnabled = (head.flags & vaultFlagTouchID) != 0
         return VaultStatusInfo(
             locked: locked,
             entries: entriesCount,
@@ -635,9 +684,9 @@ public enum VaultSettings {
 
         var updated = head
         if enabled {
-            updated.flags |= 0b1
+            updated.flags |= vaultFlagTouchID
         } else {
-            updated.flags &= ~UInt32(0b1)
+            updated.flags &= ~vaultFlagTouchID
         }
 
         let newHeader = try updated.serialize()
@@ -689,7 +738,7 @@ public enum Doctor {
         if !manifestOK && fix, let pass = passphrase {
             // Try to re-sign
             let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
-            let aad = Data("AEGIRO-V1".utf8)
+            let aad = vaultAAD
             let idxBlob = data.subdata(in: layout.idxRange)
             let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
             let cmData = data.subdata(in: layout.chunkMapRange)
@@ -719,7 +768,7 @@ public enum Doctor {
         var entryCount: Int? = nil
         if let pass = passphrase {
             let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
-            let aad = Data("AEGIRO-V1".utf8)
+            let aad = vaultAAD
             let idxBlob = data.subdata(in: layout.idxRange)
             if let index = try? IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad) {
                 entryCount = index.entries.count
@@ -745,7 +794,7 @@ public enum Doctor {
         let (_, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let wrap = data.subdata(in: layout.signerWrapRange)
-        let aad = Data("AEGIRO-V1".utf8)
+        let aad = vaultAAD
         return try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: wrap.prefix(12)), combined: wrap, aad: aad)
     }
 }
@@ -756,18 +805,8 @@ public enum Editor {
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
 
-        // Derive DEK
-        #if REAL_CRYPTO
-        let kdf = Argon2idKDF()
-        #else
-        let kdf = StubKDF()
-        #endif
-        let pdkWrap = data.subdata(in: layout.pdkWrapRange)
-        let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: head.kdf_salt, outLen: 32)
-        let pdk = SymmetricKey(data: pdkRaw)
-        let aad = Data("AEGIRO-V1".utf8)
-        let dekRaw = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: aad)
-        let dek = SymmetricKey(data: dekRaw)
+        let dek = try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
+        let aad = vaultAAD
 
         // Decrypt index, apply updates
         let idxBlob = data.subdata(in: layout.idxRange)
