@@ -1548,6 +1548,7 @@ private struct DiskEncryptSheet: View {
             APFSVolumeOptionsPanel(
                 selectedDiskIdentifier: $diskIdentifier,
                 options: model.apfsVolumeOptions,
+                nonAPFSVolumes: model.mountedNonAPFSVolumes,
                 isLoading: model.apfsVolumeOptionsLoading,
                 errorMessage: model.apfsVolumeOptionsError
             ) {
@@ -1688,6 +1689,7 @@ private struct DiskUnlockSheet: View {
             APFSVolumeOptionsPanel(
                 selectedDiskIdentifier: $diskIdentifier,
                 options: model.apfsVolumeOptions,
+                nonAPFSVolumes: model.mountedNonAPFSVolumes,
                 isLoading: model.apfsVolumeOptionsLoading,
                 errorMessage: model.apfsVolumeOptionsError
             ) {
@@ -1778,6 +1780,7 @@ private struct DiskUnlockSheet: View {
 private struct APFSVolumeOptionsPanel: View {
     @Binding var selectedDiskIdentifier: String
     let options: [APFSVolumeOption]
+    let nonAPFSVolumes: [MountedNonAPFSVolume]
     let isLoading: Bool
     let errorMessage: String?
     var refresh: () -> Void
@@ -1839,7 +1842,7 @@ private struct APFSVolumeOptionsPanel: View {
             }
 
             if visibleOptions.isEmpty {
-                Text("No mounted external APFS volumes found. You can still type a disk identifier manually or use Show All.")
+                Text(noAPFSMessage)
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             } else {
@@ -1897,6 +1900,27 @@ private struct APFSVolumeOptionsPanel: View {
                 }
                 .frame(minHeight: 120, maxHeight: 180)
             }
+
+            if !nonAPFSVolumes.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Mounted But Not APFS (Not Eligible)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AegiroPalette.warningAmber)
+                    ForEach(nonAPFSVolumes, id: \.id) { volume in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(volume.mountPoint)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(AegiroPalette.textPrimary)
+                            Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundStyle(AegiroPalette.textMuted)
+                        }
+                    }
+                    Text("APFS disk encryption only works with APFS volumes.")
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textMuted)
+                }
+            }
         }
         .padding(12)
         .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -1904,6 +1928,13 @@ private struct APFSVolumeOptionsPanel: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
         )
+    }
+
+    private var noAPFSMessage: String {
+        if nonAPFSVolumes.isEmpty {
+            return "No mounted external APFS volumes found. You can still type a disk identifier manually or use Show All."
+        }
+        return "Mounted volumes were found, but none are APFS. Convert or reformat the target disk to APFS to encrypt it here."
     }
 
     private func optionMetaLine(for option: APFSVolumeOption) -> String {
