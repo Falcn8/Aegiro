@@ -12,6 +12,7 @@ struct MainView: View {
     @State private var showCreateVaultSheet = false
     @State private var showDiskEncryptSheet = false
     @State private var showDiskUnlockSheet = false
+    @State private var showDoctorSheet = false
 
     @State private var selectionMode = false
     @State private var searchText = ""
@@ -78,6 +79,10 @@ struct MainView: View {
                 showDiskUnlockSheet = false
             }
             .environmentObject(model)
+        }
+        .sheet(isPresented: $showDoctorSheet) {
+            DoctorSheet()
+                .environmentObject(model)
         }
         .onAppear {
             model.refreshStatus()
@@ -299,8 +304,7 @@ struct MainView: View {
                 .disabled(model.vaultURL == nil)
 
                 actionButton(title: "Run Doctor", icon: "stethoscope") {
-                    let path = model.vaultURL?.path ?? "<vault-path>"
-                    model.status = "Use CLI doctor: aegiro-cli doctor --vault \(path)"
+                    showDoctorSheet = true
                 }
                 .disabled(model.vaultURL == nil)
             }
@@ -1216,6 +1220,168 @@ private struct DiskUnlockSheet: View {
         )
         onDone()
         dismiss()
+    }
+}
+
+private struct DoctorSheet: View {
+    @EnvironmentObject var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var report: DoctorReport?
+    @State private var runMessage: String = ""
+    @State private var isRunning = false
+
+    private var canApplyFix: Bool {
+        let trimmed = model.passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && !model.locked
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Vault Doctor")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("Run integrity checks directly in the app.")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            if let report {
+                VStack(alignment: .leading, spacing: 8) {
+                    doctorRow("Header", ok: report.headerOK)
+                    doctorRow("Manifest", ok: report.manifestOK)
+                    doctorRow("Chunk Area", ok: report.chunkAreaOK)
+                    if let entries = report.entries {
+                        HStack {
+                            Text("Entries")
+                                .foregroundStyle(AegiroPalette.textSecondary)
+                            Spacer()
+                            Text("\(entries)")
+                                .foregroundStyle(AegiroPalette.textPrimary)
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                    }
+                    if report.fixed {
+                        Text("Fix applied: manifest was re-signed.")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AegiroPalette.securityGreen)
+                    }
+                }
+                .padding(12)
+                .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                )
+            }
+
+            if let report, !report.issues.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Issues")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                    ForEach(report.issues, id: \.self) { issue in
+                        Text("- \(issue)")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(AegiroPalette.textSecondary)
+                    }
+                }
+                .padding(12)
+                .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                )
+            }
+
+            if !canApplyFix {
+                Text("Unlock the vault with your passphrase to enable Apply Fix.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
+
+            if !runMessage.isEmpty {
+                Text(runMessage)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+            }
+
+            HStack {
+                Button("Run Check") {
+                    runDoctor(fix: false)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
+                .disabled(isRunning)
+
+                Button("Apply Fix") {
+                    runDoctor(fix: true)
+                }
+                .buttonStyle(.bordered)
+                .disabled(isRunning || !canApplyFix)
+
+                Spacer()
+
+                if isRunning {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(AegiroPalette.securityGreen)
+                }
+
+                Button("Close") {
+                    dismiss()
+                }
+            }
+        }
+        .padding(24)
+        .frame(width: 580)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            if report == nil {
+                runDoctor(fix: false)
+            }
+        }
+    }
+
+    private func doctorRow(_ label: String, ok: Bool) -> some View {
+        HStack {
+            Text(label)
+                .foregroundStyle(AegiroPalette.textSecondary)
+            Spacer()
+            Text(ok ? "OK" : "BAD")
+                .foregroundStyle(ok ? AegiroPalette.securityGreen : AegiroPalette.dangerRed)
+        }
+        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+    }
+
+    private func runDoctor(fix: Bool) {
+        guard let vaultURL = model.vaultURL else {
+            runMessage = "Open a vault first."
+            return
+        }
+
+        let trimmedPass = model.passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let passphrase = trimmedPass.isEmpty ? nil : trimmedPass
+
+        isRunning = true
+        runMessage = fix ? "Running doctor and applying fix..." : "Running doctor..."
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try Doctor.run(vaultURL: vaultURL, passphrase: passphrase, fix: fix)
+                DispatchQueue.main.async {
+                    report = result
+                    runMessage = fix && result.fixed ? "Doctor completed and applied fix." : "Doctor completed."
+                    isRunning = false
+                    model.refreshStatus()
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    runMessage = "Doctor failed: \(error)"
+                    isRunning = false
+                }
+            }
+        }
     }
 }
 
