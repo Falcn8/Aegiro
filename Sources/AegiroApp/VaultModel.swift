@@ -178,6 +178,29 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func importFiles(urls: [URL]) {
+        touchActivity()
+        guard let vaultURL else { return }
+        guard !locked else {
+            status = "Unlock to import files"
+            return
+        }
+
+        let readableFiles = urls.filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard !readableFiles.isEmpty else {
+            status = "No readable files were dropped"
+            return
+        }
+
+        do {
+            let (imported, _) = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: passphrase, files: readableFiles)
+            status = imported == 0 ? "No files imported" : "Imported \(imported) file(s) into encrypted vault"
+            refreshStatus()
+        } catch {
+            status = "Import failed: \(error)"
+        }
+    }
+
     func exportSelected(to dir: URL, filters: [String] = []) {
         touchActivity()
         guard let url = vaultURL else { return }

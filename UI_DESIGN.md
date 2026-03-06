@@ -1,107 +1,93 @@
-## AegiroVault App — Modern Simplified UI
+## Aegiro App UI System (2026 Redesign)
 
-This document describes the current AegiroVault macOS app UI and interaction model.
+This document describes the current visual and interaction model for the macOS app.
 
-## Design Intent
+## Design Goals
 
-- Keep the workflow obvious: add to sidecar, then lock to import.
-- Keep primary actions one-click: create vault, open vault, unlock, add files, lock/import, lock now, select files, export, and add Touch ID while unlocked.
-- Keep visuals modern and calm with icon-led sections and clear hierarchy.
-- Keep secondary controls available but not noisy.
+- Calm and trustworthy UI for sensitive data workflows.
+- Security state is always visible (locked/unlocked/integrity warning).
+- Local-first confidence with clear copy and minimal clutter.
+- Fast file operations with list/grid browsing, drag-and-drop import, and quick actions.
 
-## Visual System
+## Visual Identity
 
-- Palette (fixed):
-  - `#8ECAE6` (ice blue)
-  - `#219EBC` (teal blue)
-  - `#023047` (deep navy)
-  - `#FFB703` (sun yellow)
-  - `#FB8500` (orange)
-- Shared theme tokens live in `Sources/AegiroApp/AegiroTheme.swift`.
-- Cards use rounded corners, soft strokes, and light gradients.
-- SF Symbols are used for all major actions and status.
-- Lock-state background is explicit:
-  - Unlocked keeps the existing cool ice-blue feel
-  - Locked shifts shell gradients to orange
+- Primary accent: `#4F46E5` (indigo)
+- Security highlight: `#10B981` (emerald)
+- Warning: `#F59E0B` (amber)
+- Danger: `#EF4444` (red)
+- Main background: `#0F172A`
+- Panel background: `#111827`
+- Card background: `#1F2937`
+- Borders: `#374151`
 
-## Screen Model
+Theme tokens are centralized in `Sources/AegiroApp/AegiroTheme.swift`.
 
-1. First-run (`FirstRunView`)
-- Modern hero + single card layout.
-- Core actions:
-  - Create new vault (location + passphrase + Touch ID option)
-  - Open existing vault
-- Messaging emphasizes local-first privacy and simple onboarding.
+## Layout
+
+Main window uses a three-zone shell:
+
+1. Top bar
+- Vault identity and lock status at left.
+- Centered search field.
+- View toggle, sorting menu, selection mode, preferences on right.
+
+2. Body split
+- Left sidebar (260px): vault status, vault info, actions, security actions, external disk tools, selection summary.
+- Right content: locked/empty/no-vault states plus list/grid file browser.
+
+3. Bottom status bar
+- Locked/unlocked pill.
+- Files/selection counts.
+- Auto-lock countdown.
+- Active vault path.
+
+## Primary Screens
+
+1. First run (`FirstRunView`)
+- Centered hero card.
+- Create Vault and Open Existing actions.
+- Inline create form (name/location/passphrase/confirm/Touch ID).
+- Crypto reassurance copy: Argon2id, AES-256-GCM, and post-quantum cryptography.
 
 2. Main app (`MainView`)
-- Two-pane shell:
-  - Left: brand card, vault info card, workflow card, selected-file card, core action buttons
-  - Right: top bar, list/grid content, status bar
-- Vault info card surfaces key metadata:
-  - File count (updates immediately after unlock)
-  - Vault file size
-  - Last edited timestamp
-- Workflow card explicitly teaches:
-  - 1) Add files to sidecar
-  - 2) Import happens when locking
-  - 3) Lock vault to finalize
-- Unlocked-state actions include:
-  - Lock vault even when sidecar is empty
-  - Add Touch ID from the action panel
-- Top bar keeps only essentials visible:
-  - Search, list/grid toggle, sort controls, select files, quick look, export
-- Select files is a toggle mode:
-  - When enabled, files show circle selectors for multi-select
-  - When disabled, list/grid return to normal browsing
-- Selected file card adds direct actions:
-  - Quick Look selected file(s)
-  - Export selected file(s)
-  - File metadata for single-selection (name, kind, size, modified, path)
-- Content states are explicit:
-  - No vault selected
-  - Vault locked
-  - Empty vault
-  - File list/grid
+- Dark, card-based sidebar and high-contrast content area.
+- File list and grid modes.
+- Multi-select mode with inline checkboxes.
+- Context menu: Preview, Export, Copy Path, Reveal Export.
+- Drag-and-drop import to encrypt dropped files.
+- Unlock sheet and external disk encrypt/unlock sheets.
 
 3. Preferences (`PreferencesView`)
-- Simple settings card with icons.
-- Core controls:
-  - Default vault folder
-  - Auto-lock timeout presets + slider
-  - Touch ID toggle
+- Dark settings card.
+- Default vault folder selector.
+- Auto-lock presets + slider.
+- Touch ID toggle.
 
-## UX References
+4. Menu bar (`MenuBarView`)
+- Dynamic icon state (locked/unlocked).
+- Status summary and quick lock/unlock/import/export actions.
 
-This redesign follows interaction patterns commonly seen in major apps used by billions of users:
+## Behavior Standards
 
-- File-centric clarity (Finder/Files style)
-- Minimal command surfaces with overflow menus (Google Drive/Docs style)
-- Card-based setup and settings (Notion/Slack style)
-
-No brand assets or proprietary UI are copied; this is pattern-level inspiration only.
-
-## Important Actions (must remain easy)
-
-- Create vault
-- Open vault
-- Unlock vault
-- Add files to sidecar
-- Lock to import sidecar into encrypted vault
-- Lock vault when already unlocked
-- Add Touch ID while unlocked
-- Export selected files
-- Toggle selection mode and choose files inline before export
+- Security state is explicit in sidebar, status bar, and menu bar.
+- Locked state blocks file operations and shows clear unlock call-to-action.
+- Search filters by name, path, mime/type, and tags.
+- Drag-and-drop imports only when vault is unlocked.
+- Toast status feedback appears for key operations.
 
 ## Implementation Map
 
-- `Sources/AegiroApp/AegiroTheme.swift`: shared color tokens and hex color helper
-- `Sources/AegiroApp/FirstRunView.swift`: first-run create/open experience
-- `Sources/AegiroApp/MainView.swift`: main shell, workflow UI, list/grid, quick actions
-- `Sources/AegiroApp/PreferencesView.swift`: modern settings card
+- `Sources/AegiroApp/AegiroTheme.swift`: color tokens
+- `Sources/AegiroApp/FirstRunView.swift`: onboarding flow
+- `Sources/AegiroApp/MainView.swift`: app shell, file browser, overlays, sheets
+- `Sources/AegiroApp/PreferencesView.swift`: settings UI
+- `Sources/AegiroApp/MenuBarView.swift`: menu bar companion
+- `Sources/AegiroApp/VaultModel.swift`: dropped-file import helper
 
 ## Validation Checklist
 
-- Build passes via `BuildProject`.
-- First-run can create and open vaults.
-- Main view keeps sidecar workflow clear and visible.
-- Lock/Unlock, Import (sidecar), and Export remain functional.
+- App builds (`swift build --target AegiroApp`).
+- First run can create/open vaults.
+- Lock/unlock flow works with passphrase and Touch ID when enabled.
+- Import/export/quick look still function in redesigned shell.
+- Drag-and-drop import works for local files.
