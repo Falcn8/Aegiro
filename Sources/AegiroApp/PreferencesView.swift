@@ -9,122 +9,96 @@ struct PreferencesView: View {
     private let presets: [Int] = [1, 5, 10, 15, 30, 60]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
-
-            settingsCard
-
-            Spacer()
-
-            HStack {
-                Spacer()
-                Button("Close") { dismiss() }
-                Button("Save") {
-                    applyTTL()
-                    model.saveSettings()
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AegiroPalette.primaryBlue)
-            }
-        }
-        .padding(28)
-        .frame(width: 620, height: 460)
-        .background(
-            LinearGradient(
-                colors: [Color.white, AegiroPalette.iceBlue.opacity(0.2)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .onAppear {
-            ttlMinutes = max(1, min(60, Double(model.autoLockTTL) / 60.0))
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "gearshape.fill")
-                .font(.title3)
-                .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
-                .background(AegiroPalette.deepNavy, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Preferences")
-                    .font(.title2.weight(.bold))
-                Text("Simple controls for vault behavior")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var settingsCard: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("Default vault folder", systemImage: "folder")
-                    .font(.headline)
+            Text("Preferences")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            VStack(alignment: .leading, spacing: 16) {
+                sectionLabel("Default Vault Folder")
                 HStack(spacing: 10) {
                     Text(model.defaultVaultDir.path)
-                        .font(.callout.monospaced())
+                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                        .foregroundStyle(AegiroPalette.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
-                    Button("Choose…") { chooseDir() }
+                    Button("Choose...") { chooseDir() }
                         .buttonStyle(.bordered)
                 }
-                Text("Used when creating new vaults.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
 
-            Divider()
+                Divider()
 
-            VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("Auto-lock timeout", systemImage: "timer")
-                        .font(.headline)
+                    sectionLabel("Auto-lock Timeout")
                     Spacer()
                     Text("\(Int(ttlMinutes)) min")
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                        .foregroundStyle(AegiroPalette.textSecondary)
                 }
 
-                HStack {
+                HStack(spacing: 6) {
                     ForEach(presets, id: \.self) { minute in
                         Button("\(minute)") {
                             ttlMinutes = Double(minute)
                             applyTTL()
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(ttlMinutes == Double(minute) ? AegiroPalette.tealBlue : AegiroPalette.iceBlue)
+                        .tint(ttlMinutes == Double(minute) ? AegiroPalette.accentIndigo : AegiroPalette.backgroundPanel)
                     }
                 }
 
                 Slider(value: $ttlMinutes, in: 1...60, step: 1) { _ in
                     applyTTL()
                 }
+                .tint(AegiroPalette.accentIndigo)
+
+                Divider()
+
+                Toggle("Enable Touch ID", isOn: $model.allowTouchID)
+                    .disabled(!model.supportsBiometricUnlock)
+
+                if !model.supportsBiometricUnlock {
+                    Text("Touch ID is unavailable in the current vault configuration.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textMuted)
+                }
             }
+            .padding(16)
+            .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
 
-            Divider()
+            Spacer()
 
-            Toggle(isOn: $model.allowTouchID) {
-                Label("Enable Touch ID", systemImage: "touchid")
-            }
-            .disabled(!model.supportsBiometricUnlock)
-
-            if !model.supportsBiometricUnlock {
-                Text("Touch ID must be configured at vault creation time.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Close") {
+                    dismiss()
+                }
+                Button("Save") {
+                    applyTTL()
+                    model.saveSettings()
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
             }
         }
-        .padding(18)
-        .background(Color.white.opacity(0.9), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
-        )
+        .padding(24)
+        .frame(width: 620, height: 460)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            ttlMinutes = max(1, min(60, Double(model.autoLockTTL) / 60.0))
+        }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textPrimary)
     }
 
     private func chooseDir() {
@@ -143,4 +117,3 @@ struct PreferencesView: View {
         model.autoLockTTL = Int(clamped) * 60
     }
 }
-

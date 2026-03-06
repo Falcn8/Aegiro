@@ -56,9 +56,11 @@ struct AegiroAppMain: App {
             }
         }
         .windowStyle(.hiddenTitleBar)
-        MenuBarExtra("AegiroVault", systemImage: "lock.shield") {
+        MenuBarExtra {
             MenuBarView()
                 .environmentObject(model)
+        } label: {
+            Image(systemName: model.locked ? "lock.fill" : "checkmark.circle.fill")
         }
         Settings {
             PreferencesView()
@@ -66,17 +68,17 @@ struct AegiroAppMain: App {
         }
         .commands {
             CommandMenu("Vault") {
-                Button("Open Vault…") { model.openVaultWithPanel() }
+                Button("Open Vault...") { model.openVaultWithPanel() }
                     .keyboardShortcut("o", modifiers: [.command])
                 Button(model.locked ? "Unlock Vault" : "Lock Vault") {
                     if model.locked { NSApp.sendAction(Selector(("showUnlock:")), to: nil, from: nil) } else { model.lockNow() }
                 }
                 .keyboardShortcut("l", modifiers: [.command])
                 Divider()
-                Button("Import…") { model.importFiles() }
+                Button("Import...") { model.importFiles() }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
                     .disabled(model.locked)
-                Button("Export…") { model.exportSelectedWithPanel() }
+                Button("Export...") { model.exportSelectedWithPanel() }
                     .keyboardShortcut("e", modifiers: [.command, .shift])
                     .disabled(model.locked)
             }
