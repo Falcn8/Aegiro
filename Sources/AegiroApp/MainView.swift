@@ -10,6 +10,8 @@ struct MainView: View {
     @State private var unlockPass = ""
     @State private var showPreferences = false
     @State private var showCreateVaultSheet = false
+    @State private var showDiskEncryptSheet = false
+    @State private var showDiskUnlockSheet = false
     @State private var selectionMode = false
 
     @State private var searchText = ""
@@ -104,6 +106,18 @@ struct MainView: View {
             }
             .environmentObject(model)
         }
+        .sheet(isPresented: $showDiskEncryptSheet) {
+            DiskEncryptSheet {
+                showDiskEncryptSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showDiskUnlockSheet) {
+            DiskUnlockSheet {
+                showDiskUnlockSheet = false
+            }
+            .environmentObject(model)
+        }
         .onAppear {
             model.refreshStatus()
             model.startAutoLockTimer()
@@ -133,6 +147,7 @@ struct MainView: View {
                 brandCard
                 vaultInfoCard
                 workflowCard
+                externalDiskCard
                 if !model.locked && !selection.isEmpty {
                     selectedFileCard
                 }
@@ -236,6 +251,39 @@ struct MainView: View {
             Text(workflowHint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
+        )
+    }
+
+    private var externalDiskCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("External Disk")
+                .font(.headline)
+            Text("Encrypt APFS USB/external volumes with system disk encryption and a PQC recovery bundle.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button {
+                    showDiskEncryptSheet = true
+                } label: {
+                    Label("Encrypt", systemImage: "externaldrive.badge.plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.primaryBlue)
+
+                Button {
+                    showDiskUnlockSheet = true
+                } label: {
+                    Label("Unlock", systemImage: "lock.open")
+                }
+                .buttonStyle(.bordered)
+            }
+            .controlSize(.small)
         }
         .padding(14)
         .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -944,6 +992,231 @@ private struct CreateVaultSheet: View {
         let lowered = trimmed.lowercased()
         guard !lowered.hasSuffix(".agvt") && !lowered.hasSuffix(".aegirovault") else { return trimmed }
         return trimmed + ".agvt"
+    }
+}
+
+private struct DiskEncryptSheet: View {
+    @EnvironmentObject var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var diskIdentifier = ""
+    @State private var recoveryPassphrase = ""
+    @State private var recoveryPath = ""
+    @State private var dryRun = false
+    @State private var overwrite = false
+
+    var onDone: () -> Void
+
+    private var canSubmit: Bool {
+        !diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Encrypt External APFS Disk", systemImage: "externaldrive.badge.plus")
+                .font(.title3.weight(.bold))
+
+            Text("Works like FileVault on external APFS volumes. Aegiro stores a PQC recovery bundle for unlock.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("APFS volume identifier")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                TextField("disk9s1", text: $diskIdentifier)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recovery passphrase")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                SecureField("Required to decrypt PQC recovery bundle", text: $recoveryPassphrase)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recovery bundle file")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    TextField("/path/to/disk9s1.aegiro-diskkey.json", text: $recoveryPath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose…") { chooseRecoveryPath() }
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            Toggle("Dry run only (do not call diskutil)", isOn: $dryRun)
+            Toggle("Overwrite existing recovery bundle", isOn: $overwrite)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button(dryRun ? "Generate Bundle" : "Encrypt Disk") {
+                    startEncrypt()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.primaryBlue)
+                .disabled(!canSubmit)
+            }
+        }
+        .padding(24)
+        .frame(width: 560)
+        .background(
+            LinearGradient(
+                colors: [Color.white, AegiroPalette.iceBlue.opacity(0.2)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .onAppear {
+            if recoveryPath.isEmpty {
+                recoveryPath = defaultRecoveryPath(for: diskIdentifier)
+            }
+        }
+        .onChange(of: diskIdentifier) { newValue in
+            if recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                recoveryPath = defaultRecoveryPath(for: newValue)
+            }
+        }
+    }
+
+    private func chooseRecoveryPath() {
+        let panel = NSSavePanel()
+        panel.title = "Save PQC Recovery Bundle"
+        panel.nameFieldStringValue = (defaultRecoveryPath(for: diskIdentifier) as NSString).lastPathComponent
+        panel.allowedContentTypes = [UTType.json]
+        if panel.runModal() == .OK, let url = panel.url {
+            recoveryPath = url.path
+        }
+    }
+
+    private func defaultRecoveryPath(for diskID: String) -> String {
+        let trimmed = diskID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safe = trimmed.isEmpty ? "external-disk" : trimmed.replacingOccurrences(of: "/", with: "_")
+        let baseDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true)
+        return baseDir.appendingPathComponent("\(safe).aegiro-diskkey.json").path
+    }
+
+    private func startEncrypt() {
+        let disk = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !disk.isEmpty, !pass.isEmpty, !path.isEmpty else { return }
+        model.encryptExternalDisk(diskIdentifier: disk,
+                                  recoveryPassphrase: pass,
+                                  recoveryURL: URL(fileURLWithPath: NSString(string: path).expandingTildeInPath),
+                                  dryRun: dryRun,
+                                  overwrite: overwrite)
+        onDone()
+        dismiss()
+    }
+}
+
+private struct DiskUnlockSheet: View {
+    @EnvironmentObject var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var diskIdentifier = ""
+    @State private var recoveryPassphrase = ""
+    @State private var recoveryPath = ""
+    @State private var dryRun = false
+
+    var onDone: () -> Void
+
+    private var canSubmit: Bool {
+        !diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Unlock External APFS Disk", systemImage: "lock.open")
+                .font(.title3.weight(.bold))
+
+            Text("Use a PQC recovery bundle + recovery passphrase to recover and supply the APFS unlock passphrase.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("APFS volume identifier")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                TextField("disk9s1", text: $diskIdentifier)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recovery bundle file")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    TextField("/path/to/disk9s1.aegiro-diskkey.json", text: $recoveryPath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose…") { chooseRecoveryPath() }
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recovery passphrase")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                SecureField("Must match bundle passphrase", text: $recoveryPassphrase)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            Toggle("Dry run only (validate bundle, no diskutil unlock)", isOn: $dryRun)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button(dryRun ? "Validate Bundle" : "Unlock Disk") {
+                    startUnlock()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.primaryBlue)
+                .disabled(!canSubmit)
+            }
+        }
+        .padding(24)
+        .frame(width: 560)
+        .background(
+            LinearGradient(
+                colors: [Color.white, AegiroPalette.iceBlue.opacity(0.2)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+
+    private func chooseRecoveryPath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose PQC Recovery Bundle"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType.json]
+        if panel.runModal() == .OK, let url = panel.url {
+            recoveryPath = url.path
+        }
+    }
+
+    private func startUnlock() {
+        let disk = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !disk.isEmpty, !pass.isEmpty, !path.isEmpty else { return }
+        model.unlockExternalDisk(diskIdentifier: disk,
+                                 recoveryPassphrase: pass,
+                                 recoveryURL: URL(fileURLWithPath: NSString(string: path).expandingTildeInPath),
+                                 dryRun: dryRun)
+        onDone()
+        dismiss()
     }
 }
 
