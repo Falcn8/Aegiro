@@ -1,6 +1,7 @@
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Backup.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift
+/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ExternalDiskCrypto.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift

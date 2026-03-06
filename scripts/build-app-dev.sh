@@ -11,6 +11,7 @@ BUNDLE_ID="com.example.aegiro"
 IDENTITY=""
 FORCE_AD_HOC=0
 LAUNCH_AFTER_BUILD=0
+KILL_RUNNING=0
 BUILD_VERSION="$(date +%Y%m%d%H%M%S)"
 
 usage() {
@@ -22,6 +23,7 @@ Options:
   --identity "<name-or-sha1>"      Use this signing identity
   --bundle-id <id>                 Bundle identifier (default: com.example.aegiro)
   --launch                         Launch the built app as a new instance
+  --kill-running                   Kill existing AegiroApp processes before launch
   --ad-hoc                         Force ad-hoc signing
   --help                           Show this help
 EOF
@@ -43,6 +45,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --launch)
       LAUNCH_AFTER_BUILD=1
+      KILL_RUNNING=1
+      shift
+      ;;
+    --kill-running)
+      KILL_RUNNING=1
       shift
       ;;
     --ad-hoc)
@@ -69,6 +76,48 @@ fi
 detect_first_identity() {
   security find-identity -v -p codesigning 2>/dev/null \
     | awk -F'"' '/"[^"]+"/ { print $2; exit }'
+}
+
+list_running_instances() {
+  ps -axo pid=,command= \
+    | awk '$2 ~ /\/AegiroApp$/ { print }'
+}
+
+list_debugserver_instances() {
+  ps -axo pid=,command= \
+    | awk '$2 ~ /\/debugserver$/ && $0 ~ /DerivedData\/Aegiro/ && $0 ~ /AegiroApp/ { print }'
+}
+
+kill_running_instances() {
+  local lines pids remaining dbg_lines dbg_pids
+  lines="$(list_running_instances || true)"
+  dbg_lines="$(list_debugserver_instances || true)"
+  if [[ -n "$lines" ]]; then
+    echo "Stopping running AegiroApp processes:"
+    echo "$lines"
+    pids="$(echo "$lines" | awk '{ print $1 }' | xargs)"
+    if [[ -n "$pids" ]]; then
+      kill $pids || true
+      sleep 0.5
+      remaining="$(list_running_instances || true)"
+      if [[ -n "$remaining" ]]; then
+        echo "Force-stopping stubborn AegiroApp processes:"
+        echo "$remaining"
+        echo "$remaining" | awk '{ print $1 }' | xargs kill -9 || true
+        sleep 0.2
+      fi
+    fi
+  fi
+
+  if [[ -n "$dbg_lines" ]]; then
+    echo "Stopping Xcode debugserver sessions for Aegiro:"
+    echo "$dbg_lines"
+    dbg_pids="$(echo "$dbg_lines" | awk '{ print $1 }' | xargs)"
+    if [[ -n "$dbg_pids" ]]; then
+      kill $dbg_pids || true
+      sleep 0.2
+    fi
+  fi
 }
 
 echo "Building ${APP_NAME} (${CONFIG})..."
@@ -139,6 +188,9 @@ EOF
 fi
 
 if [[ "$LAUNCH_AFTER_BUILD" -eq 1 ]]; then
+  if [[ "$KILL_RUNNING" -eq 1 ]]; then
+    kill_running_instances
+  fi
   open -n "$APP_PATH"
 fi
 
