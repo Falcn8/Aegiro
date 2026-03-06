@@ -37,6 +37,7 @@ struct MainView: View {
     @State private var listSelectionBase: Set<VaultIndexEntry.ID> = []
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
+    @State private var isVerifyingVault = false
 
     private var filteredEntries: [VaultIndexEntry] {
         let searched = applySearch(to: model.entries)
@@ -360,7 +361,7 @@ struct MainView: View {
                 actionButton(title: "Verify Vault", icon: "checkmark.shield") {
                     verifyVaultState()
                 }
-                .disabled(model.vaultURL == nil)
+                .disabled(model.vaultURL == nil || isVerifyingVault)
 
                 actionButton(title: "Run Doctor", icon: "stethoscope") {
                     showDoctorSheet = true
@@ -972,12 +973,41 @@ struct MainView: View {
     }
 
     private func verifyVaultState() {
-        model.refreshStatus()
-        if model.locked {
-            model.status = "Vault status refreshed. Unlock to fully verify entries."
-            return
+        guard let vaultURL = model.vaultURL else { return }
+        guard !isVerifyingVault else { return }
+
+        isVerifyingVault = true
+        let trimmedPass = model.passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let passphrase = trimmedPass.isEmpty ? nil : trimmedPass
+        model.status = passphrase == nil
+            ? "Verifying vault structure..."
+            : "Verifying vault integrity..."
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let report = try Doctor.run(vaultURL: vaultURL, passphrase: passphrase, fix: false)
+                DispatchQueue.main.async {
+                    model.refreshStatus()
+                    let checksOK = report.headerOK && report.manifestOK && report.chunkAreaOK && report.issues.isEmpty
+                    if checksOK {
+                        if passphrase == nil {
+                            model.status = "Vault structure verified. Unlock with passphrase for deep chunk authentication."
+                        } else {
+                            model.status = "Vault integrity verified (manifest + chunk authentication)."
+                        }
+                    } else {
+                        let issue = report.issues.first ?? "One or more integrity checks failed."
+                        model.status = "Integrity warning: \(issue)"
+                    }
+                    isVerifyingVault = false
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    model.status = "Verify failed: \(error)"
+                    isVerifyingVault = false
+                }
+            }
         }
-        model.status = model.manifestOK ? "Vault integrity verified." : "Integrity warning: manifest verification failed."
     }
 
     private func requestDelete(fromContextEntry entry: VaultIndexEntry) {
