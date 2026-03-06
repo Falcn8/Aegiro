@@ -110,6 +110,7 @@ open -n dist/AegiroApp.app
 - If none exists, the script uses ad-hoc signing and prints Touch ID limitations.
 - You can force identity selection: `bash scripts/build-app-dev.sh --identity "<identity name>"`.
 - `--launch` opens the newly built app instance immediately.
+- `--kill-running` stops existing `AegiroApp` processes first (enabled automatically by `--launch`).
 
 ---
 
@@ -288,6 +289,7 @@ Aegiro/
 - `open dist/AegiroApp.app` shows an old app window
   - macOS may reactivate an already running instance with the same bundle identifier.
   - Use `open -n dist/AegiroApp.app` (or `bash scripts/build-app-dev.sh --launch`) to force a new instance of the freshly built app.
+  - If you previously launched from Xcode, stale `DerivedData` processes can remain; use `bash scripts/build-app-dev.sh --kill-running --launch`.
 
 ---
 
