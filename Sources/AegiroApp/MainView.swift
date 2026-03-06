@@ -1778,6 +1778,20 @@ private struct DiskUnlockSheet: View {
 }
 
 private struct APFSVolumeOptionsPanel: View {
+    private enum DisplayVolumeRow: Identifiable {
+        case apfs(APFSVolumeOption)
+        case nonAPFS(MountedNonAPFSVolume)
+
+        var id: String {
+            switch self {
+            case .apfs(let option):
+                return "apfs:\(option.identifier)"
+            case .nonAPFS(let volume):
+                return "nonapfs:\(volume.mountPoint)"
+            }
+        }
+    }
+
     @Binding var selectedDiskIdentifier: String
     let options: [APFSVolumeOption]
     let nonAPFSVolumes: [MountedNonAPFSVolume]
@@ -1801,10 +1815,16 @@ private struct APFSVolumeOptionsPanel: View {
         return mountedExternalOptions
     }
 
+    private var displayRows: [DisplayVolumeRow] {
+        var rows = visibleOptions.map(DisplayVolumeRow.apfs)
+        rows.append(contentsOf: nonAPFSVolumes.map(DisplayVolumeRow.nonAPFS))
+        return rows
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(showAllVolumes || mountedExternalOptions.isEmpty ? "Available APFS Volumes" : "Mounted External APFS Volumes")
+                Text(showAllVolumes || mountedExternalOptions.isEmpty ? "Available Volumes" : "Mounted External Volumes")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textSecondary)
                 Spacer()
@@ -1829,7 +1849,7 @@ private struct APFSVolumeOptionsPanel: View {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.small)
-                    Text("Scanning APFS volumes...")
+                    Text("Scanning volumes...")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(AegiroPalette.textSecondary)
                 }
@@ -1841,85 +1861,98 @@ private struct APFSVolumeOptionsPanel: View {
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
-            if visibleOptions.isEmpty {
+            if displayRows.isEmpty {
                 Text(noAPFSMessage)
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(visibleOptions, id: \.identifier) { option in
-                            let isSelected = option.identifier == selectedTrimmed
-                            Button {
-                                selectedDiskIdentifier = option.identifier
-                            } label: {
+                        ForEach(displayRows) { row in
+                            switch row {
+                            case .apfs(let option):
+                                let isSelected = option.identifier == selectedTrimmed
+                                Button {
+                                    selectedDiskIdentifier = option.identifier
+                                } label: {
+                                    HStack(alignment: .top, spacing: 10) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack(spacing: 6) {
+                                                Text(option.name)
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .foregroundStyle(AegiroPalette.textPrimary)
+                                                if let locationBadge = locationBadgeLabel(for: option) {
+                                                    badge(text: locationBadge, color: option.isInternalStore == false ? AegiroPalette.securityGreen : AegiroPalette.warningAmber)
+                                                }
+                                                if option.encrypted || option.fileVault {
+                                                    badge(text: "Encrypted", color: AegiroPalette.accentIndigo)
+                                                }
+                                                if option.locked {
+                                                    badge(text: "Locked", color: AegiroPalette.warningAmber)
+                                                }
+                                            }
+                                            Text(option.identifier)
+                                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                                .foregroundStyle(AegiroPalette.textSecondary)
+                                            Text(optionMetaLine(for: option))
+                                                .font(.system(size: 11, weight: .regular))
+                                                .foregroundStyle(AegiroPalette.textMuted)
+                                        }
+                                        Spacer(minLength: 8)
+                                        if isSelected {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundStyle(AegiroPalette.securityGreen)
+                                                .font(.system(size: 15, weight: .semibold))
+                                        }
+                                    }
+                                    .padding(10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(isSelected ? AegiroPalette.accentIndigo.opacity(0.18) : AegiroPalette.backgroundCard)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .stroke(isSelected ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            case .nonAPFS(let volume):
                                 HStack(alignment: .top, spacing: 10) {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack(spacing: 6) {
-                                            Text(option.name)
-                                                .font(.system(size: 13, weight: .semibold))
-                                                .foregroundStyle(AegiroPalette.textPrimary)
-                                            if let locationBadge = locationBadgeLabel(for: option) {
-                                                badge(text: locationBadge, color: option.isInternalStore == false ? AegiroPalette.securityGreen : AegiroPalette.warningAmber)
-                                            }
-                                            if option.encrypted || option.fileVault {
-                                                badge(text: "Encrypted", color: AegiroPalette.accentIndigo)
-                                            }
-                                            if option.locked {
-                                                badge(text: "Locked", color: AegiroPalette.warningAmber)
-                                            }
+                                            Text(volume.mountPoint)
+                                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                                .foregroundStyle(AegiroPalette.textMuted)
+                                            badge(text: "Not APFS", color: AegiroPalette.textMuted)
                                         }
-                                        Text(option.identifier)
-                                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                            .foregroundStyle(AegiroPalette.textSecondary)
-                                        Text(optionMetaLine(for: option))
+                                        Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
                                             .font(.system(size: 11, weight: .regular))
                                             .foregroundStyle(AegiroPalette.textMuted)
                                     }
                                     Spacer(minLength: 8)
-                                    if isSelected {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(AegiroPalette.securityGreen)
-                                            .font(.system(size: 15, weight: .semibold))
-                                    }
                                 }
                                 .padding(10)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(isSelected ? AegiroPalette.accentIndigo.opacity(0.18) : AegiroPalette.backgroundCard)
+                                        .fill(AegiroPalette.backgroundCard.opacity(0.65))
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .stroke(isSelected ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+                                        .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
                                 )
+                                .opacity(0.72)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
                 .frame(minHeight: 120, maxHeight: 180)
             }
-
             if !nonAPFSVolumes.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Mounted But Not APFS (Not Eligible)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AegiroPalette.warningAmber)
-                    ForEach(nonAPFSVolumes, id: \.id) { volume in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(volume.mountPoint)
-                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(AegiroPalette.textPrimary)
-                            Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
-                                .font(.system(size: 10, weight: .regular))
-                                .foregroundStyle(AegiroPalette.textMuted)
-                        }
-                    }
-                    Text("APFS disk encryption only works with APFS volumes.")
-                        .font(.system(size: 10, weight: .regular))
-                        .foregroundStyle(AegiroPalette.textMuted)
-                }
+                Text("Gray rows are mounted but not APFS, so they cannot be selected for APFS encryption.")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
             }
         }
         .padding(12)
@@ -1934,7 +1967,7 @@ private struct APFSVolumeOptionsPanel: View {
         if nonAPFSVolumes.isEmpty {
             return "No mounted external APFS volumes found. You can still type a disk identifier manually or use Show All."
         }
-        return "Mounted volumes were found, but none are APFS. Convert or reformat the target disk to APFS to encrypt it here."
+        return "Mounted volumes were found, but none are APFS. Non-APFS rows are shown in gray and are not selectable."
     }
 
     private func optionMetaLine(for option: APFSVolumeOption) -> String {
