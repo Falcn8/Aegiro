@@ -65,7 +65,7 @@ Main window uses a three-zone shell:
 - Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet and external disk encrypt/unlock sheets.
-- External disk sheets show detected APFS volume options with refresh, metadata badges (internal/external, encrypted, locked), and one-click identifier autofill.
+- External disk sheets default to mounted external APFS volumes (`/Volumes/...`) with refresh, metadata badges (internal/external, encrypted, locked), one-click identifier autofill, and a "Show All" fallback.
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.
