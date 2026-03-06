@@ -66,7 +66,7 @@ Main window uses a three-zone shell:
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet and external disk encrypt/unlock sheets.
 - External disk sheets default to mounted external APFS volumes (`/Volumes/...`) with refresh, metadata badges (internal/external, encrypted, locked), one-click identifier autofill, and a "Show All" fallback.
-- Sheets also list mounted non-APFS volumes (for example, audio CDs) as not eligible so users can understand why they are not selectable.
+- Sheets include mounted non-APFS volumes inline in the same list as gray, disabled rows so users can see them but cannot select them.
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.
