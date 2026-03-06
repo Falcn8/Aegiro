@@ -24,6 +24,9 @@ final class VaultModel: ObservableObject {
     @Published var supportsBiometricUnlock: Bool = false
     @Published var biometricKeychainAvailable: Bool = true
     @Published var biometricKeychainIssue: String?
+    @Published var apfsVolumeOptions: [APFSVolumeOption] = []
+    @Published var apfsVolumeOptionsLoading: Bool = false
+    @Published var apfsVolumeOptionsError: String?
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var lastActivity: Date = .now
@@ -318,6 +321,30 @@ final class VaultModel: ObservableObject {
             NSWorkspace.shared.activateFileViewerSelecting([p])
         } else {
             status = "Original file not found; use Export or Preview instead"
+        }
+    }
+
+    func refreshAPFSVolumeOptions() {
+        if apfsVolumeOptionsLoading {
+            return
+        }
+        apfsVolumeOptionsLoading = true
+        apfsVolumeOptionsError = nil
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result { try ExternalDiskCrypto.listAPFSVolumes() }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.apfsVolumeOptionsLoading = false
+                switch result {
+                case .success(let options):
+                    self.apfsVolumeOptions = options
+                    self.apfsVolumeOptionsError = nil
+                case .failure(let error):
+                    self.apfsVolumeOptions = []
+                    self.apfsVolumeOptionsError = String(describing: error)
+                }
+            }
         }
     }
 
