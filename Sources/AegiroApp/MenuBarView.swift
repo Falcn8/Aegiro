@@ -1,39 +1,74 @@
-
 import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var model: VaultModel
     @State private var unlockPass = ""
     @State private var showUnlock = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Circle().frame(width: 8, height: 8).foregroundStyle(model.locked ? .red : .green)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Aegiro Vault")
+                .font(.system(size: 14, weight: .semibold))
+
+            HStack(spacing: 8) {
+                Image(systemName: model.locked ? "lock.fill" : "circle.fill")
+                    .foregroundStyle(model.locked ? AegiroPalette.warningAmber : AegiroPalette.securityGreen)
                 Text(model.locked ? "Locked" : "Unlocked")
+                    .font(.system(size: 12, weight: .medium))
                 Spacer()
-                Text(model.vaultURL?.lastPathComponent ?? "No vault")
+                Text("Files: \(model.vaultFileCount ?? 0)")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
             }
+
             Divider()
+
             if model.locked {
-                Button("Unlock…") { showUnlock = true }
-            } else {
-                Button("Lock Now") { model.lockNow() }
-                if !model.allowTouchID {
-                    Button("Add Touch ID") { model.addTouchIDForUnlockedVault() }
+                Button("Unlock Vault") {
+                    showUnlock = true
                 }
-                Button("Import…") { model.importFiles() }
-                Button("Export…") { model.exportSelectedWithPanel() }
-                Button("Preferences…") { NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) }
+            } else {
+                Button("Lock Vault") {
+                    model.lockNow()
+                }
+                Button("Add Files") {
+                    model.importFiles()
+                }
+                Button("Export") {
+                    model.exportSelectedWithPanel()
+                }
             }
+
+            Divider()
+
+            Button("Open App") {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            Button("Preferences") {
+                NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+            }
+            Button("Quit") {
+                NSApp.terminate(nil)
+            }
+
             if !model.status.isEmpty {
                 Divider()
-                Text(model.status).font(.footnote).foregroundStyle(.secondary)
+                Text(model.status)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
             }
-        }.padding(8).frame(width: 260)
+        }
+        .padding(10)
+        .frame(width: 270)
         .sheet(isPresented: $showUnlock) {
             VStack(spacing: 12) {
-                Text("Unlock Vault").font(.title3).bold()
+                Text("Unlock Vault")
+                    .font(.system(size: 20, weight: .semibold))
+
                 SecureField("Passphrase", text: $unlockPass)
+                    .textFieldStyle(.roundedBorder)
+
                 if model.allowTouchID && model.supportsBiometricUnlock {
                     Button {
                         model.unlockWithBiometrics()
@@ -43,9 +78,13 @@ struct MenuBarView: View {
                     }
                     .buttonStyle(.bordered)
                 }
+
                 HStack {
                     Spacer()
-                    Button("Cancel") { unlockPass = ""; showUnlock = false }
+                    Button("Cancel") {
+                        unlockPass = ""
+                        showUnlock = false
+                    }
                     Button("Unlock") {
                         let trimmed = unlockPass.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmed.isEmpty else { return }
@@ -53,10 +92,12 @@ struct MenuBarView: View {
                         unlockPass = ""
                         showUnlock = false
                     }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(unlockPass.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(unlockPass.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-            }.padding(16).frame(width: 320)
+            }
+            .padding(16)
+            .frame(width: 320)
         }
     }
 }

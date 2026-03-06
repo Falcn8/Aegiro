@@ -6,222 +6,151 @@ struct FirstRunView: View {
     @EnvironmentObject var model: VaultModel
     var onDone: () -> Void
 
-    @State private var path: String = defaultVaultURL().path
+    @State private var showCreateForm = false
+    @State private var vaultName = "MyVault"
+    @State private var parentPath: String = defaultVaultURL().deletingLastPathComponent().path
     @State private var passphrase = ""
-    @State private var showPassphrase = false
+    @State private var confirmPassphrase = ""
     @State private var touchIDEnabled = true
     @State private var errorText: String?
-    @State private var startMode: FirstRunMode = .openExisting
+
+    private var canCreate: Bool {
+        passphrase.count >= 8 && passphrase == confirmPassphrase
+    }
+
+    private var effectivePath: String {
+        let trimmedParent = parentPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = vaultName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeName = trimmedName.isEmpty ? "MyVault" : trimmedName
+        return URL(fileURLWithPath: trimmedParent, isDirectory: true)
+            .appendingPathComponent("\(safeName).agvt")
+            .path
+    }
 
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                LinearGradient(
-                    colors: [AegiroPalette.iceBlue.opacity(0.35), Color.white],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+        ZStack {
+            LinearGradient(
+                colors: [AegiroPalette.backgroundMain, AegiroPalette.backgroundPanel],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 22) {
-                        heroHeader
-                        contentCard
-                        footer
-                    }
-                    .padding(.horizontal, 40)
-                    .padding(.vertical, 28)
-                    .frame(maxWidth: 900)
-                    .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .top)
+            VStack(spacing: 24) {
+                VStack(spacing: 10) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 46, weight: .medium))
+                        .foregroundStyle(AegiroPalette.accentIndigo)
+
+                    Text("Aegiro")
+                        .font(.system(size: 36, weight: .semibold))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+
+                    Text("Encrypted Local Vault")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+
+                    Text("Your files never leave your device.")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
                 }
+
+                HStack(spacing: 12) {
+                    Button("Create Vault") {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            showCreateForm = true
+                            errorText = nil
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.accentIndigo)
+
+                    Button("Open Existing") {
+                        openExisting()
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if showCreateForm {
+                    createForm
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                if let errorText {
+                    Text(errorText)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.dangerRed)
+                }
+
+                Text("Uses Argon2id, AES-256-GCM, and Post-Quantum Cryptography.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
             }
+            .padding(28)
+            .frame(width: 640)
+            .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+            .padding(32)
         }
         .onAppear {
             touchIDEnabled = model.supportsBiometricUnlock && model.allowTouchID
         }
     }
 
-    private var heroHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(AegiroPalette.primaryBlue, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                Text("Set Up Your Vault")
-                    .font(.system(size: 30, weight: .bold))
-            }
-            Text("Create a new vault or open one you already use.")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    private var createForm: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            formLabel("Vault Name")
+            TextField("MyVault", text: $vaultName)
+                .textFieldStyle(.roundedBorder)
 
-    private var contentCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Picker("Start with", selection: $startMode) {
-                Label("Open Existing", systemImage: "folder").tag(FirstRunMode.openExisting)
-                Label("Create New", systemImage: "plus.circle").tag(FirstRunMode.createNew)
-            }
-            .pickerStyle(.segmented)
-
-            if startMode == .openExisting {
-                openExistingContent
-            } else {
-                createVaultContent
-            }
-        }
-        .padding(24)
-        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(AegiroPalette.iceBlue.opacity(0.8), lineWidth: 1)
-        )
-    }
-
-    private var openExistingContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Open Existing Vault")
-                .font(.title3.weight(.semibold))
-
-            Text("Start from a vault you already use, then continue with import and export workflows.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            valueProp(icon: "lock.open", title: "Unlock with your passphrase")
-            valueProp(icon: "tray.and.arrow.down", title: "Import files directly into encrypted storage")
-            valueProp(icon: "touchid", title: "Touch ID works when a passphrase is saved on this Mac")
-
-            if let errorText {
-                Text(errorText)
-                    .font(.footnote)
-                    .foregroundStyle(AegiroPalette.orange)
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    openExisting()
-                } label: {
-                    Label("Open Vault", systemImage: "folder")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AegiroPalette.primaryBlue)
-
-                Button("Create New Vault") {
-                    startMode = .createNew
+            formLabel("Location")
+            HStack(spacing: 8) {
+                TextField("/Users/...", text: $parentPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") {
+                    chooseParentFolder()
                 }
                 .buttonStyle(.bordered)
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
 
-    private var createVaultContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Create New Vault")
-                .font(.title3.weight(.semibold))
+            formLabel("Passphrase")
+            SecureField("At least 8 characters", text: $passphrase)
+                .textFieldStyle(.roundedBorder)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Vault location")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 8) {
-                    TextField("/path/to/vault.agvt", text: $path)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Choose…") { choosePath() }
-                        .buttonStyle(.bordered)
-                }
-            }
+            formLabel("Confirm Passphrase")
+            SecureField("Repeat passphrase", text: $confirmPassphrase)
+                .textFieldStyle(.roundedBorder)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Passphrase")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 8) {
-                    Group {
-                        if showPassphrase {
-                            TextField("At least 8 characters", text: $passphrase)
-                        } else {
-                            SecureField("At least 8 characters", text: $passphrase)
-                        }
-                    }
-                    .textFieldStyle(.roundedBorder)
-                    Button {
-                        showPassphrase.toggle()
-                    } label: {
-                        Image(systemName: showPassphrase ? "eye.slash" : "eye")
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
-
-            Toggle(isOn: $touchIDEnabled) {
-                Label("Enable Touch ID", systemImage: "touchid")
-            }
-            .disabled(!model.supportsBiometricUnlock)
-
-            if let errorText {
-                Text(errorText)
-                    .font(.footnote)
-                    .foregroundStyle(AegiroPalette.orange)
-            }
+            Toggle("Enable Touch ID", isOn: $touchIDEnabled)
+                .disabled(!model.supportsBiometricUnlock)
 
             HStack {
-                Button("Open Existing Vault") {
-                    startMode = .openExisting
+                Button("Back") {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        showCreateForm = false
+                    }
                 }
                 .buttonStyle(.bordered)
 
                 Spacer()
 
                 Button("Create Vault") {
-                    create()
+                    createVault()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(AegiroPalette.primaryBlue)
+                .tint(AegiroPalette.accentIndigo)
                 .disabled(!canCreate)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var footer: some View {
-        HStack {
-            Label("Data stays local on this Mac", systemImage: "checkmark.shield")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Link("Privacy & Security", destination: URL(string: "https://aegiro.app/privacy")!)
-                .font(.footnote)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func choosePath() {
-        let panel = NSSavePanel()
-        panel.title = "Create Vault (AegiroVault)"
-        panel.nameFieldStringValue = (path as NSString).lastPathComponent
-        panel.allowedContentTypes = [
-            UTType(filenameExtension: "agvt") ?? .data,
-            UTType(filenameExtension: "aegirovault") ?? .data
-        ]
-        if panel.runModal() == .OK, let url = panel.url {
-            path = ensuredVaultPath(from: url.path)
-        }
-    }
-
-    private func create() {
-        path = ensuredVaultPath(from: path)
-        model.allowTouchID = touchIDEnabled && model.supportsBiometricUnlock
-        model.saveSettings()
-        model.createVault(at: URL(fileURLWithPath: path), passphrase: passphrase, touchID: touchIDEnabled && model.supportsBiometricUnlock)
-        if model.vaultURL != nil {
-            onDone()
-        } else {
-            errorText = model.status
-        }
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
     }
 
     private func openExisting() {
@@ -233,30 +162,28 @@ struct FirstRunView: View {
         }
     }
 
-    private var canCreate: Bool {
-        isLocationValid && passphrase.count >= 8
+    private func chooseParentFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let url = panel.url {
+            parentPath = url.path
+        }
     }
 
-    private var isLocationValid: Bool {
-        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lowered = trimmed.lowercased()
-        return !trimmed.isEmpty && (lowered.hasSuffix(".agvt") || lowered.hasSuffix(".aegirovault"))
+    private func createVault() {
+        model.allowTouchID = touchIDEnabled && model.supportsBiometricUnlock
+        model.saveSettings()
+        model.createVault(
+            at: URL(fileURLWithPath: effectivePath),
+            passphrase: passphrase,
+            touchID: touchIDEnabled && model.supportsBiometricUnlock
+        )
+        if model.vaultURL != nil {
+            onDone()
+        } else {
+            errorText = model.status
+        }
     }
-
-    private func ensuredVaultPath(from source: String) -> String {
-        let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lowered = trimmed.lowercased()
-        guard !lowered.hasSuffix(".agvt") && !lowered.hasSuffix(".aegirovault") else { return trimmed }
-        return trimmed + ".agvt"
-    }
-
-    private func valueProp(icon: String, title: String) -> some View {
-        Label(title, systemImage: icon)
-            .font(.subheadline.weight(.semibold))
-    }
-}
-
-private enum FirstRunMode: Hashable {
-    case openExisting
-    case createNew
 }
