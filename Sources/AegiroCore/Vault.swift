@@ -66,18 +66,18 @@ public final class AegiroVault {
         let dek = SymmetricKey(size: .bits256)
         let aad = vaultAAD
 
-        let pdkNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let pdkNonce = AES.GCM.Nonce()
         let accessRaw = accessKey.withUnsafeBytes { Data($0) }
         let pdkWrap = try AEAD.encrypt(key: pdk, nonce: pdkNonce, plaintext: accessRaw, aad: aad)
 
         // sdkWrap will carry the Dilithium signing secret key wrapped under DEK
-        let sigSkWrapNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let sigSkWrapNonce = AES.GCM.Nonce()
         let sigSkWrap = try AEAD.encrypt(key: dek,
                                          nonce: sigSkWrapNonce,
                                          plaintext: sigSk,
                                          aad: aad)
         let (ss, kemCt) = try kem.encap(kemPk)
-        let kemSkWrapNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let kemSkWrapNonce = AES.GCM.Nonce()
         let kemSkWrap = try AEAD.encrypt(key: accessKey,
                                          nonce: kemSkWrapNonce,
                                          plaintext: kemSk,
@@ -85,7 +85,7 @@ public final class AegiroVault {
         let accessBundle = PQAccessBundleV1(version: 1, kemCiphertext: kemCt, kemSecretWrap: kemSkWrap)
         let accessBundleBlob = try JSONEncoder().encode(accessBundle)
         let pqKey = SymmetricKey(data: ss)
-        let pqNonce = try AES.GCM.Nonce(data: Data((0..<12).map{ _ in UInt8.random(in: 0...255)}))
+        let pqNonce = AES.GCM.Nonce()
         let pqWrap = try AEAD.encrypt(key: pqKey, nonce: pqNonce, plaintext: dek.withUnsafeBytes{ raw in Data(bytes: raw.baseAddress!, count: raw.count) }, aad: aad)
 
         // Prepare index and manifest blobs with lengths for reliable parsing
