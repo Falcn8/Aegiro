@@ -816,68 +816,171 @@ public enum Doctor {
             return DoctorReport(headerOK: false, manifestOK: false, chunkAreaOK: false, entries: nil, issues: ["Header parse failed: \(error)"], fixed: false)
         }
         let layout = computeLayout(data, afterHeader: hdrLen)
+        let aad = vaultAAD
 
-        // Manifest verify
+        // Manifest parse and signature/hash checks
         let manBlob = data.subdata(in: layout.manRange)
-        let manifest = try JSONDecoder().decode(Manifest.self, from: manBlob)
+        var manifest: Manifest
+        do {
+            manifest = try JSONDecoder().decode(Manifest.self, from: manBlob)
+        } catch {
+            return DoctorReport(
+                headerOK: true,
+                manifestOK: false,
+                chunkAreaOK: false,
+                entries: nil,
+                issues: ["Manifest decode failed: \(error)"],
+                fixed: false
+            )
+        }
         #if REAL_CRYPTO
         let sig = Dilithium2()
         #else
         let sig = StubSig()
         #endif
-        var manifestOK = ManifestBuilder.verify(manifest, signer: sig)
-        if !manifestOK && fix, let pass = passphrase {
-            // Try to re-sign
+        let cmData = data.subdata(in: layout.chunkMapRange)
+        let chunkMapHash = Data(SHA256.hash(data: cmData))
+        var manifestSignatureOK = ManifestBuilder.verify(manifest, signer: sig)
+        var manifestSignerMatchesHeader = (manifest.signerPK == head.pq_pubkeys.dilithium_pk)
+        var manifestChunkMapHashMatches = (manifest.chunkMapHash == chunkMapHash)
+
+        if (!manifestSignatureOK || !manifestSignerMatchesHeader || !manifestChunkMapHashMatches), fix,
+           let pass = passphrase, !pass.isEmpty {
             let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
-            let aad = vaultAAD
             let idxBlob = data.subdata(in: layout.idxRange)
             let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
-            let cmData = data.subdata(in: layout.chunkMapRange)
-            // Build new manifest
-            let newManifest = try ManifestBuilder.build(index: index, chunkMap: cmData, signer: sig, sk: try unwrapSignerSK(data: data, dek: dek), pk: head.pq_pubkeys.dilithium_pk)
+            let newManifest = try ManifestBuilder.build(
+                index: index,
+                chunkMap: cmData,
+                signer: sig,
+                sk: try unwrapSignerSK(data: data, dek: dek),
+                pk: head.pq_pubkeys.dilithium_pk
+            )
             let newManBlob = try JSONEncoder().encode(newManifest)
             var d = data
             let newLenLE = withUnsafeBytes(of: UInt32(newManBlob.count).littleEndian) { Data($0) }
-            d.replaceSubrange(layout.manLenPos..<(layout.manLenPos+4), with: newLenLE)
+            d.replaceSubrange(layout.manLenPos..<(layout.manLenPos + 4), with: newLenLE)
             d.replaceSubrange(layout.manRange, with: newManBlob)
             try d.write(to: vaultURL, options: .atomic)
-            manifestOK = true
+
+            manifest = newManifest
+            manifestSignatureOK = ManifestBuilder.verify(manifest, signer: sig)
+            manifestSignerMatchesHeader = (manifest.signerPK == head.pq_pubkeys.dilithium_pk)
+            manifestChunkMapHashMatches = (manifest.chunkMapHash == chunkMapHash)
             fixed = true
         }
 
-        // Chunk area check vs chunk map
-        let cmData = data.subdata(in: layout.chunkMapRange)
-        let chunks = (try? JSONDecoder().decode([ChunkInfo].self, from: cmData)) ?? []
-        let chunkSum = chunks.reduce(0) { $0 + $1.length }
-        let areaBytes = data.count - layout.chunkAreaStart
-        var chunkAreaOK = (chunkSum == areaBytes)
-        if !chunkAreaOK {
-            issues.append("Chunk area length \(areaBytes) != sum of chunks \(chunkSum)")
+        var manifestOK = manifestSignatureOK && manifestSignerMatchesHeader && manifestChunkMapHashMatches
+        if !manifestSignatureOK {
+            issues.append("Manifest signature invalid.")
+        }
+        if !manifestSignerMatchesHeader {
+            issues.append("Manifest signer key does not match header key.")
+        }
+        if !manifestChunkMapHashMatches {
+            issues.append("Manifest chunk map hash does not match chunk map bytes.")
         }
 
-        // Entry checks if passphrase provided
+        // Chunk map parse and area consistency checks.
+        let chunks: [ChunkInfo]
+        do {
+            chunks = try JSONDecoder().decode([ChunkInfo].self, from: cmData)
+        } catch {
+            chunks = []
+            issues.append("Chunk map decode failed: \(error)")
+        }
+
+        let areaBytes = data.count - layout.chunkAreaStart
+        var chunkAreaOK = true
+        var cursor = 0
+        for c in chunks.sorted(by: { $0.relOffset < $1.relOffset }) {
+            guard let relRange = chunkRelativeRange(c, areaBytes: areaBytes) else {
+                chunkAreaOK = false
+                issues.append("Chunk range invalid for \(c.name) at offset \(c.relOffset) length \(c.length).")
+                continue
+            }
+            if relRange.lowerBound != cursor {
+                chunkAreaOK = false
+                issues.append("Chunk map gap/overlap near \(c.name) at offset \(c.relOffset).")
+            }
+            cursor = max(cursor, relRange.upperBound)
+        }
+        if cursor != areaBytes {
+            chunkAreaOK = false
+            issues.append("Chunk area length \(areaBytes) does not match chunk map coverage \(cursor).")
+        }
+
+        // Entry and chunk authentication checks when passphrase is available.
         var entryCount: Int? = nil
-        if let pass = passphrase {
+        if let pass = passphrase, !pass.isEmpty {
             let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
-            let aad = vaultAAD
             let idxBlob = data.subdata(in: layout.idxRange)
-            if let index = try? IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad) {
-                entryCount = index.entries.count
-                // Check each entry has chunk coverage
-                for e in index.entries {
-                    let cs = chunks.filter { $0.name == e.logicalPath }
-                    if cs.isEmpty { issues.append("No chunks for \(e.logicalPath)") }
-                    // Approximate ciphertext size check (plaintext + 28 per chunk)
-                    let cipherSum = cs.reduce(0) { $0 + $1.length }
-                    let expectedMin = Int(e.size) + cs.count * 28
-                    if cipherSum < expectedMin {
-                        issues.append("Ciphertext too small for \(e.logicalPath): \(cipherSum) < \(expectedMin)")
-                    }
+
+            let idxPlain = try decryptIndexBlob(idxBlob, key: dek, aad: aad)
+            let index = try JSONDecoder().decode(VaultIndex.self, from: idxPlain)
+            entryCount = index.entries.count
+
+            let idxHash = Data(SHA256.hash(data: idxPlain))
+            if idxHash != manifest.indexRootHash {
+                manifestOK = false
+                issues.append("Manifest index hash does not match decrypted index.")
+            }
+
+            var plainBytesByName: [String: UInt64] = [:]
+            for c in chunks {
+                guard let relRange = chunkRelativeRange(c, areaBytes: areaBytes) else { continue }
+                let start = layout.chunkAreaStart + relRange.lowerBound
+                let end = layout.chunkAreaStart + relRange.upperBound
+                let combined = data.subdata(in: start..<end)
+                do {
+                    let box = try AES.GCM.SealedBox(combined: combined)
+                    let plain = try AES.GCM.open(box, using: dek, authenticating: aad)
+                    plainBytesByName[c.name, default: 0] += UInt64(plain.count)
+                } catch {
+                    chunkAreaOK = false
+                    issues.append("Chunk authentication failed for \(c.name) at offset \(c.relOffset).")
                 }
+            }
+
+            let chunkCounts = chunks.reduce(into: [String: Int]()) { partial, chunk in
+                partial[chunk.name, default: 0] += 1
+            }
+
+            for e in index.entries {
+                let actualCount = chunkCounts[e.logicalPath, default: 0]
+                if actualCount == 0 {
+                    issues.append("No chunks for \(e.logicalPath).")
+                }
+                if e.chunkCount != actualCount {
+                    issues.append("Chunk count mismatch for \(e.logicalPath): index \(e.chunkCount), map \(actualCount).")
+                }
+                let plainBytes = plainBytesByName[e.logicalPath, default: 0]
+                if plainBytes != e.size {
+                    chunkAreaOK = false
+                    issues.append("Plaintext size mismatch for \(e.logicalPath): index \(e.size), decrypted \(plainBytes).")
+                }
+            }
+
+            let entryNames = Set(index.entries.map(\.logicalPath))
+            for name in Set(chunks.map(\.name)) where !entryNames.contains(name) {
+                issues.append("Chunk map contains unknown entry: \(name).")
             }
         }
 
         return DoctorReport(headerOK: true, manifestOK: manifestOK, chunkAreaOK: chunkAreaOK, entries: entryCount, issues: issues, fixed: fixed)
+    }
+
+    private static func decryptIndexBlob(_ blob: Data, key: SymmetricKey, aad: Data) throws -> Data {
+        let box = try AES.GCM.SealedBox(combined: blob)
+        return try AES.GCM.open(box, using: key, authenticating: aad)
+    }
+
+    private static func chunkRelativeRange(_ chunk: ChunkInfo, areaBytes: Int) -> Range<Int>? {
+        guard chunk.relOffset <= UInt64(Int.max), chunk.length >= 0 else { return nil }
+        let start = Int(chunk.relOffset)
+        let end = start + chunk.length
+        guard start >= 0, end >= start, end <= areaBytes else { return nil }
+        return start..<end
     }
 
     static func unwrapSignerSK(data: Data, dek: SymmetricKey) throws -> Data {
