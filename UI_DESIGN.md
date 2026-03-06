@@ -83,6 +83,7 @@ Main window uses a three-zone shell:
 - Search filters by name, path, mime/type, and tags.
 - Drag-and-drop imports only when vault is unlocked.
 - Toast status feedback appears for key operations.
+- If keychain entitlements are missing in a dev build, Touch ID controls are disabled with explicit guidance text.
 
 ## Implementation Map
 

@@ -96,7 +96,7 @@ struct FirstRunView: View {
             .padding(32)
         }
         .onAppear {
-            touchIDEnabled = model.supportsBiometricUnlock && model.allowTouchID
+            touchIDEnabled = model.supportsBiometricUnlock && model.biometricKeychainAvailable && model.allowTouchID
         }
     }
 
@@ -125,7 +125,13 @@ struct FirstRunView: View {
                 .textFieldStyle(.roundedBorder)
 
             Toggle("Enable Touch ID", isOn: $touchIDEnabled)
-                .disabled(!model.supportsBiometricUnlock)
+                .disabled(!model.supportsBiometricUnlock || !model.biometricKeychainAvailable)
+
+            if let issue = model.biometricKeychainIssue {
+                Text(issue)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
 
             HStack {
                 Button("Back") {
@@ -173,12 +179,12 @@ struct FirstRunView: View {
     }
 
     private func createVault() {
-        model.allowTouchID = touchIDEnabled && model.supportsBiometricUnlock
+        model.allowTouchID = touchIDEnabled && model.supportsBiometricUnlock && model.biometricKeychainAvailable
         model.saveSettings()
         model.createVault(
             at: URL(fileURLWithPath: effectivePath),
             passphrase: passphrase,
-            touchID: touchIDEnabled && model.supportsBiometricUnlock
+            touchID: touchIDEnabled && model.supportsBiometricUnlock && model.biometricKeychainAvailable
         )
         if model.vaultURL != nil {
             onDone()
