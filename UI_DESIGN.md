@@ -29,10 +29,10 @@ Main window uses a three-zone shell:
 1. Top bar
 - Vault identity and lock status at left.
 - Centered search field.
-- View toggle, sorting menu, preferences on right.
+- View toggle, sorting menu, file info button, preferences on right.
 
 2. Body split
-- Left sidebar (260px): vault status, vault info, actions, security actions, external disk tools, selection summary.
+- Left sidebar (260px): vault status, vault info, actions, security actions, external disk tools.
 - Right content: locked/empty/no-vault states plus list/grid file browser.
 
 3. Bottom status bar
@@ -54,9 +54,12 @@ Main window uses a three-zone shell:
 - File list and grid modes.
 - Finder-style selection behavior:
   - Single click selects one file.
+  - Clicking the same selected item again deselects it.
   - Command-click toggles multi-selection.
   - Shift-click selects ranges.
-  - Grid view supports drag-to-select rectangle.
+  - List and grid views support drag-to-select rectangle.
+- Space bar opens Quick Look for the current selection.
+- File details are shown from a top-bar Info popover.
 - Context menu: Preview, Export, Copy Path, Reveal Export.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet and external disk encrypt/unlock sheets.
