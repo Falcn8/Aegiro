@@ -46,13 +46,13 @@ struct MainView: View {
     var body: some View {
         VStack(spacing: 0) {
             topBar
-            divider
+            horizontalDivider
             HStack(spacing: 0) {
                 sidebar
-                divider
+                verticalDivider
                 contentArea
             }
-            divider
+            horizontalDivider
             statusBar
         }
         .frame(minWidth: 1080, minHeight: 720)
@@ -110,11 +110,18 @@ struct MainView: View {
         }
     }
 
-    private var divider: some View {
+    private var horizontalDivider: some View {
         Rectangle()
             .fill(AegiroPalette.borderSubtle)
             .frame(maxWidth: .infinity)
             .frame(height: 1)
+    }
+
+    private var verticalDivider: some View {
+        Rectangle()
+            .fill(AegiroPalette.borderSubtle)
+            .frame(width: 1)
+            .frame(maxHeight: .infinity)
     }
 
     private var topBar: some View {
