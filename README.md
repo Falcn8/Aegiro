@@ -103,12 +103,13 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 
 ```bash
 bash scripts/build-app-dev.sh
-open dist/AegiroApp.app
+open -n dist/AegiroApp.app
 ```
 
 - If a signing identity exists, the script signs with it automatically.
 - If none exists, the script uses ad-hoc signing and prints Touch ID limitations.
 - You can force identity selection: `bash scripts/build-app-dev.sh --identity "<identity name>"`.
+- `--launch` opens the newly built app instance immediately.
 
 ---
 
@@ -279,10 +280,14 @@ Aegiro/
 
 - `security find-identity -v -p codesigning` shows `0 valid identities found`
   - Unlocking the keychain does not create certificates; it only unlocks existing ones.
-  - For local development (no paid membership required): open Xcode, add your Apple ID, then create an `Apple Development` certificate in `Xcode > Settings > Accounts > Manage Certificates`.
+  - For local development (no paid membership required): open Xcode, add your Apple ID, then create an `Apple Development` certificate in `Xcode > Settings > Accounts > Manage Certificates` (Xcode labels it `Apple Development`, not `Code Signing`).
   - Or create a local self-signed `Code Signing` certificate in Keychain Access.
   - Then rebuild/sign the app: `bash scripts/build-app-dev.sh --identity "<identity name>"`.
   - If you stay ad-hoc signed, the app runs but Touch ID secure keychain storage is expected to be unavailable.
+
+- `open dist/AegiroApp.app` shows an old app window
+  - macOS may reactivate an already running instance with the same bundle identifier.
+  - Use `open -n dist/AegiroApp.app` (or `bash scripts/build-app-dev.sh --launch`) to force a new instance of the freshly built app.
 
 ---
 

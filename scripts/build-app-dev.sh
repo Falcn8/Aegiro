@@ -10,6 +10,8 @@ APP_PATH="$ROOT_DIR/dist/${APP_NAME}.app"
 BUNDLE_ID="com.example.aegiro"
 IDENTITY=""
 FORCE_AD_HOC=0
+LAUNCH_AFTER_BUILD=0
+BUILD_VERSION="$(date +%Y%m%d%H%M%S)"
 
 usage() {
   cat <<'EOF'
@@ -19,6 +21,7 @@ Options:
   --configuration <debug|release>  Build configuration (default: debug)
   --identity "<name-or-sha1>"      Use this signing identity
   --bundle-id <id>                 Bundle identifier (default: com.example.aegiro)
+  --launch                         Launch the built app as a new instance
   --ad-hoc                         Force ad-hoc signing
   --help                           Show this help
 EOF
@@ -37,6 +40,10 @@ while [[ $# -gt 0 ]]; do
     --bundle-id)
       BUNDLE_ID="${2:-}"
       shift 2
+      ;;
+    --launch)
+      LAUNCH_AFTER_BUILD=1
+      shift
       ;;
     --ad-hoc)
       FORCE_AD_HOC=1
@@ -86,7 +93,7 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
   <key>CFBundleExecutable</key><string>${APP_NAME}</string>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleVersion</key><string>${BUILD_VERSION}</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
@@ -117,6 +124,7 @@ fi
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 echo "Built app: $APP_PATH"
+echo "Build version: $BUILD_VERSION"
 
 if [[ "$SIGN_ID" == "-" ]]; then
   cat <<'EOF'
@@ -130,4 +138,8 @@ To enable Touch ID storage:
 EOF
 fi
 
-echo "Run: open \"$APP_PATH\""
+if [[ "$LAUNCH_AFTER_BUILD" -eq 1 ]]; then
+  open -n "$APP_PATH"
+fi
+
+echo "Run: open -n \"$APP_PATH\""
