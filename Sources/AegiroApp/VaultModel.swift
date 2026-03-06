@@ -262,6 +262,84 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func encryptExternalDisk(diskIdentifier: String,
+                             recoveryPassphrase: String,
+                             recoveryURL: URL,
+                             dryRun: Bool,
+                             overwrite: Bool) {
+        let disk = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !disk.isEmpty else {
+            status = "Enter an APFS disk identifier (for example, disk9s1)"
+            return
+        }
+        guard !pass.isEmpty else {
+            status = "Enter a recovery passphrase"
+            return
+        }
+
+        status = dryRun ? "Generating PQC recovery bundle for \(disk)..." : "Starting encryption for \(disk)..."
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let result = try ExternalDiskCrypto.encryptAPFSVolume(diskIdentifier: disk,
+                                                                      recoveryPassphrase: pass,
+                                                                      recoveryURL: recoveryURL,
+                                                                      dryRun: dryRun,
+                                                                      overwrite: overwrite)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if result.dryRun {
+                        self.status = "Dry run complete. Bundle: \(result.recoveryURL.path)"
+                    } else {
+                        self.status = "Disk encryption started for \(result.diskIdentifier). Bundle: \(result.recoveryURL.path)"
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "Disk encrypt failed: \(error)"
+                }
+            }
+        }
+    }
+
+    func unlockExternalDisk(diskIdentifier: String,
+                            recoveryPassphrase: String,
+                            recoveryURL: URL,
+                            dryRun: Bool) {
+        let disk = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !disk.isEmpty else {
+            status = "Enter an APFS disk identifier (for example, disk9s1)"
+            return
+        }
+        guard !pass.isEmpty else {
+            status = "Enter the recovery passphrase"
+            return
+        }
+
+        status = dryRun ? "Validating PQC bundle for \(disk)..." : "Unlocking \(disk)..."
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try ExternalDiskCrypto.unlockAPFSVolume(diskIdentifier: disk,
+                                                        recoveryPassphrase: pass,
+                                                        recoveryURL: recoveryURL,
+                                                        dryRun: dryRun)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if dryRun {
+                        self.status = "Dry run complete. PQC decapsulation succeeded for \(disk)."
+                    } else {
+                        self.status = "Unlock command sent for \(disk)."
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "Disk unlock failed: \(error)"
+                }
+            }
+        }
+    }
+
     func startAutoLockTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
