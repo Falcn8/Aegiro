@@ -156,6 +156,9 @@ struct CLI {
             print("Manifest: \(_m)")
             print("Chunk area: \(_c)")
             if let n = rep.entries { print("Entries: \(n)") }
+            if pass == nil || pass?.isEmpty == true {
+                print("Note: passphrase not provided; deep chunk authentication and index hash checks were skipped.")
+            }
             if !rep.issues.isEmpty {
                 print("Issues:")
                 for i in rep.issues { print("- \(i)") }
@@ -351,7 +354,7 @@ Usage:
   list --vault <path> --passphrase "<pass>"
   export --vault <path> --passphrase "<pass>" [--out <dir>] [filters...]
   preview --vault <path> --passphrase "<pass>" <filter>
-  doctor --vault <path> [--passphrase "<pass>"] [--fix]
+  doctor --vault <path> [--passphrase "<pass>"] [--fix]  (deep checks require passphrase)
   backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]
   scan <paths...>
   shred <paths...>

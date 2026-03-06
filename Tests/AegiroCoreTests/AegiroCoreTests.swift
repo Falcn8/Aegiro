@@ -101,6 +101,37 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertThrowsError(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass"))
     }
 
+    func testDoctorDetectsChunkTamperWithPassphrase() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let fileURL = tmp.appendingPathComponent("note.txt")
+        try Data("tamper-test-data".utf8).write(to: fileURL)
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [fileURL])
+        XCTAssertEqual(imported.imported, 1)
+
+        var data = try Data(contentsOf: vaultURL)
+        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let chunkMap = data.subdata(in: layout.chunkMapRange)
+        let chunks = try JSONDecoder().decode([ChunkInfo].self, from: chunkMap)
+        XCTAssertFalse(chunks.isEmpty)
+
+        let first = try XCTUnwrap(chunks.first)
+        let tamperIndex = layout.chunkAreaStart + Int(first.relOffset) + min(5, max(first.length - 1, 0))
+        XCTAssertLessThan(tamperIndex, data.count)
+        data[tamperIndex] = data[tamperIndex] ^ 0x01
+        try data.write(to: vaultURL, options: .atomic)
+
+        let report = try Doctor.run(vaultURL: vaultURL, passphrase: "test-pass", fix: false)
+        XCTAssertFalse(report.chunkAreaOK)
+        XCTAssertTrue(report.issues.contains { $0.contains("Chunk authentication failed") })
+    }
+
     func testExternalDiskRecoveryBundleRoundTripDryRun() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
