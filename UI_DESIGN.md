@@ -60,7 +60,7 @@ Main window uses a three-zone shell:
   - List and grid views support drag-to-select rectangle.
 - Space bar opens Quick Look for the current selection.
 - File details are shown from a top-bar Info popover.
-- Context menu: Preview, Export, Copy Path, Reveal Export.
+- Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet and external disk encrypt/unlock sheets.
 
