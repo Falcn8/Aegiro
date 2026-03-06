@@ -18,6 +18,7 @@ struct MainView: View {
     @State private var searchText = ""
     @State private var selection: Set<VaultIndexEntry.ID> = []
     @State private var selectionAnchor: VaultIndexEntry.ID?
+    @State private var selectionCursor: VaultIndexEntry.ID?
     @State private var viewMode: ContentViewMode = .list
     @State private var sortOption: SortOption = .modified
     @State private var sortAscending = false
@@ -66,6 +67,7 @@ struct MainView: View {
             horizontalDivider
             statusBar
             quickLookKeyboardShortcut
+            selectionNavigationShortcuts
         }
         .frame(minWidth: 1080, minHeight: 720)
         .background(AegiroPalette.backgroundMain.ignoresSafeArea())
@@ -116,11 +118,15 @@ struct MainView: View {
             if let selectionAnchor, !validIDs.contains(selectionAnchor) {
                 self.selectionAnchor = nil
             }
+            if let selectionCursor, !validIDs.contains(selectionCursor) {
+                self.selectionCursor = nil
+            }
         }
         .onReceive(model.$locked) { isLocked in
             if isLocked {
                 selection.removeAll()
                 selectionAnchor = nil
+                selectionCursor = nil
                 return
             }
             guard showUnlockSheet else { return }
@@ -131,11 +137,16 @@ struct MainView: View {
         .onChange(of: selection) { newSelection in
             if newSelection.isEmpty {
                 selectionAnchor = nil
+                selectionCursor = nil
                 showFileInfoPopover = false
                 return
             }
-            if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { newSelection.contains($0) }) {
-                selectionAnchor = lastVisibleSelected
+            let visibleIDs = filteredEntries.map(\.id)
+            if selectionAnchor == nil || !(selectionAnchor.map(newSelection.contains) ?? false) {
+                selectionAnchor = visibleIDs.first(where: { newSelection.contains($0) })
+            }
+            if selectionCursor == nil || !(selectionCursor.map(newSelection.contains) ?? false) {
+                selectionCursor = visibleIDs.last(where: { newSelection.contains($0) })
             }
             if focusedEntry == nil {
                 showFileInfoPopover = false
@@ -404,6 +415,26 @@ struct MainView: View {
         }
         .keyboardShortcut(KeyEquivalent(" "), modifiers: [])
         .disabled(model.locked || selection.isEmpty)
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
+    }
+
+    private var selectionNavigationShortcuts: some View {
+        Group {
+            Button(action: { navigateSelection(direction: .up, extending: false) }) { EmptyView() }
+                .keyboardShortcut(.upArrow, modifiers: [])
+                .disabled(model.locked || filteredEntries.isEmpty)
+            Button(action: { navigateSelection(direction: .down, extending: false) }) { EmptyView() }
+                .keyboardShortcut(.downArrow, modifiers: [])
+                .disabled(model.locked || filteredEntries.isEmpty)
+            Button(action: { navigateSelection(direction: .up, extending: true) }) { EmptyView() }
+                .keyboardShortcut(.upArrow, modifiers: [.shift])
+                .disabled(model.locked || filteredEntries.isEmpty)
+            Button(action: { navigateSelection(direction: .down, extending: true) }) { EmptyView() }
+                .keyboardShortcut(.downArrow, modifiers: [.shift])
+                .disabled(model.locked || filteredEntries.isEmpty)
+        }
         .frame(width: 0, height: 0)
         .opacity(0)
         .accessibilityHidden(true)
@@ -976,7 +1007,7 @@ struct MainView: View {
         let hasShift = modifiers.contains(.shift)
 
         if hasShift {
-            let anchor = selectionAnchor ?? visibleIDs.first(where: { selection.contains($0) }) ?? entryID
+            let anchor = selectionAnchor ?? selectionCursor ?? visibleIDs.first(where: { selection.contains($0) }) ?? entryID
             let range = selectionRange(from: anchor, to: entryID, orderedIDs: visibleIDs)
             if hasCommand {
                 selection.formUnion(range)
@@ -984,6 +1015,7 @@ struct MainView: View {
                 selection = range
             }
             selectionAnchor = anchor
+            selectionCursor = entryID
             return
         }
 
@@ -993,16 +1025,24 @@ struct MainView: View {
             } else {
                 selection.insert(entryID)
             }
-            selectionAnchor = entryID
+            if selection.isEmpty {
+                selectionAnchor = nil
+                selectionCursor = nil
+            } else {
+                selectionAnchor = entryID
+                selectionCursor = entryID
+            }
             return
         }
 
         if selection.count == 1 && selection.contains(entryID) {
             selection.removeAll()
             selectionAnchor = nil
+            selectionCursor = nil
         } else {
             selection = [entryID]
             selectionAnchor = entryID
+            selectionCursor = entryID
         }
     }
 
@@ -1035,10 +1075,19 @@ struct MainView: View {
             selection = gridSelectionBase.union(intersectingIDs)
         } else {
             selection = intersectingIDs
+            selectionAnchor = filteredEntries.map(\.id).first(where: { intersectingIDs.contains($0) })
         }
 
         if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { selection.contains($0) }) {
-            selectionAnchor = lastVisibleSelected
+            selectionCursor = lastVisibleSelected
+            if selectionAnchor == nil {
+                selectionAnchor = lastVisibleSelected
+            }
+        } else if selection.isEmpty {
+            selectionCursor = nil
+            if !modifiers.contains(.command) && !modifiers.contains(.shift) {
+                selectionAnchor = nil
+            }
         }
     }
 
@@ -1061,10 +1110,19 @@ struct MainView: View {
             selection = listSelectionBase.union(intersectingIDs)
         } else {
             selection = intersectingIDs
+            selectionAnchor = filteredEntries.map(\.id).first(where: { intersectingIDs.contains($0) })
         }
 
         if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { selection.contains($0) }) {
-            selectionAnchor = lastVisibleSelected
+            selectionCursor = lastVisibleSelected
+            if selectionAnchor == nil {
+                selectionAnchor = lastVisibleSelected
+            }
+        } else if selection.isEmpty {
+            selectionCursor = nil
+            if !modifiers.contains(.command) && !modifiers.contains(.shift) {
+                selectionAnchor = nil
+            }
         }
     }
 
@@ -1084,6 +1142,82 @@ struct MainView: View {
         }
         guard !selection.isEmpty else { return }
         model.quickLookSelection(filters: Array(selection))
+    }
+
+    private func navigateSelection(direction: SelectionDirection, extending: Bool) {
+        guard !model.locked else { return }
+        let orderedIDs = filteredEntries.map(\.id)
+        guard !orderedIDs.isEmpty else { return }
+
+        let fallbackStart = (direction == .up) ? orderedIDs.last : orderedIDs.first
+        let currentID = selectionCursor
+            ?? selectionAnchor
+            ?? orderedIDs.last(where: { selection.contains($0) })
+            ?? fallbackStart
+
+        guard let currentID else { return }
+
+        let targetID: VaultIndexEntry.ID
+        if viewMode == .grid {
+            targetID = nextGridNavigationID(from: currentID, direction: direction, orderedIDs: orderedIDs)
+                ?? nextListNavigationID(from: currentID, direction: direction, orderedIDs: orderedIDs)
+                ?? currentID
+        } else {
+            targetID = nextListNavigationID(from: currentID, direction: direction, orderedIDs: orderedIDs) ?? currentID
+        }
+
+        if extending {
+            let anchor = selectionAnchor ?? currentID
+            selectionAnchor = anchor
+            selection = selectionRange(from: anchor, to: targetID, orderedIDs: orderedIDs)
+        } else {
+            selection = [targetID]
+            selectionAnchor = targetID
+        }
+        selectionCursor = targetID
+    }
+
+    private func nextListNavigationID(from currentID: VaultIndexEntry.ID, direction: SelectionDirection, orderedIDs: [VaultIndexEntry.ID]) -> VaultIndexEntry.ID? {
+        guard let currentIndex = orderedIDs.firstIndex(of: currentID) else {
+            return direction == .up ? orderedIDs.last : orderedIDs.first
+        }
+
+        switch direction {
+        case .up:
+            return orderedIDs[max(0, currentIndex - 1)]
+        case .down:
+            return orderedIDs[min(orderedIDs.count - 1, currentIndex + 1)]
+        }
+    }
+
+    private func nextGridNavigationID(from currentID: VaultIndexEntry.ID, direction: SelectionDirection, orderedIDs: [VaultIndexEntry.ID]) -> VaultIndexEntry.ID? {
+        guard let currentFrame = gridItemFrames[currentID] else { return nil }
+        let currentCenter = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
+
+        let candidates = orderedIDs.compactMap { id -> (id: VaultIndexEntry.ID, frame: CGRect)? in
+            guard id != currentID, let frame = gridItemFrames[id] else { return nil }
+            return (id, frame)
+        }
+
+        let directionalCandidates: [(id: VaultIndexEntry.ID, frame: CGRect)]
+        switch direction {
+        case .up:
+            directionalCandidates = candidates.filter { $0.frame.midY < currentCenter.y - 1 }
+        case .down:
+            directionalCandidates = candidates.filter { $0.frame.midY > currentCenter.y + 1 }
+        }
+        guard !directionalCandidates.isEmpty else { return nil }
+
+        let sorted = directionalCandidates.sorted { lhs, rhs in
+            let lhsVertical = abs(lhs.frame.midY - currentCenter.y)
+            let rhsVertical = abs(rhs.frame.midY - currentCenter.y)
+            if lhsVertical != rhsVertical { return lhsVertical < rhsVertical }
+            let lhsHorizontal = abs(lhs.frame.midX - currentCenter.x)
+            let rhsHorizontal = abs(rhs.frame.midX - currentCenter.x)
+            if lhsHorizontal != rhsHorizontal { return lhsHorizontal < rhsHorizontal }
+            return lhs.id < rhs.id
+        }
+        return sorted.first?.id
     }
 
     private func unlockIfPossible() {
@@ -1218,6 +1352,11 @@ private struct ListItemFramePreferenceKey: PreferenceKey {
     static func reduce(value: inout [VaultIndexEntry.ID: CGRect], nextValue: () -> [VaultIndexEntry.ID: CGRect]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
+}
+
+private enum SelectionDirection {
+    case up
+    case down
 }
 
 private struct CreateVaultSheet: View {
