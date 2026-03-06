@@ -60,11 +60,11 @@ public enum ExternalDiskCrypto {
 
         let diskPassphrase = randomDiskPassphrase()
         let wrappedDiskPassphrase = try AEAD.encrypt(key: sharedKey,
-                                                     nonce: try randomNonce(),
+                                                     nonce: randomNonce(),
                                                      plaintext: Data(diskPassphrase.utf8),
                                                      aad: aad)
         let wrappedKEMSecret = try AEAD.encrypt(key: recoveryKey,
-                                                nonce: try randomNonce(),
+                                                nonce: randomNonce(),
                                                 plaintext: kemSk,
                                                 aad: aad)
 
@@ -196,8 +196,8 @@ public enum ExternalDiskCrypto {
         Data((0..<count).map { _ in UInt8.random(in: 0...255) })
     }
 
-    private static func randomNonce() throws -> AES.GCM.Nonce {
-        try AES.GCM.Nonce(data: randomBytes(12))
+    private static func randomNonce() -> AES.GCM.Nonce {
+        AES.GCM.Nonce()
     }
 
     private static func bundleAAD(for diskIdentifier: String) -> Data {
