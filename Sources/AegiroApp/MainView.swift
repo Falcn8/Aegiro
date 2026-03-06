@@ -1781,18 +1781,37 @@ private struct APFSVolumeOptionsPanel: View {
     let isLoading: Bool
     let errorMessage: String?
     var refresh: () -> Void
+    @State private var showAllVolumes = false
 
     private var selectedTrimmed: String {
         selectedDiskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var mountedExternalOptions: [APFSVolumeOption] {
+        mountedExternalAPFSVolumes(from: options)
+    }
+
+    private var visibleOptions: [APFSVolumeOption] {
+        if showAllVolumes || mountedExternalOptions.isEmpty {
+            return options
+        }
+        return mountedExternalOptions
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Available APFS Volumes")
+                Text(showAllVolumes || mountedExternalOptions.isEmpty ? "Available APFS Volumes" : "Mounted External APFS Volumes")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textSecondary)
                 Spacer()
+                if !mountedExternalOptions.isEmpty && mountedExternalOptions.count != options.count {
+                    Button(showAllVolumes ? "Show Mounted External" : "Show All") {
+                        showAllVolumes.toggle()
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 11, weight: .semibold))
+                }
                 Button {
                     refresh()
                 } label: {
@@ -1819,14 +1838,14 @@ private struct APFSVolumeOptionsPanel: View {
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
-            if options.isEmpty {
-                Text("No APFS volumes detected. You can still type a disk identifier manually.")
+            if visibleOptions.isEmpty {
+                Text("No mounted external APFS volumes found. You can still type a disk identifier manually or use Show All.")
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(options, id: \.identifier) { option in
+                        ForEach(visibleOptions, id: \.identifier) { option in
                             let isSelected = option.identifier == selectedTrimmed
                             Button {
                                 selectedDiskIdentifier = option.identifier
@@ -1888,7 +1907,13 @@ private struct APFSVolumeOptionsPanel: View {
     }
 
     private func optionMetaLine(for option: APFSVolumeOption) -> String {
-        var parts: [String] = ["Container \(option.containerIdentifier)"]
+        var parts: [String] = []
+        if let mountPoint = option.mountPoint, !mountPoint.isEmpty {
+            parts.append("Mounted at \(mountPoint)")
+        } else {
+            parts.append("Not mounted")
+        }
+        parts.append("Container \(option.containerIdentifier)")
         if !option.roles.isEmpty {
             parts.append("Role \(option.roles.joined(separator: ", "))")
         }
@@ -1920,6 +1945,17 @@ private struct APFSVolumeOptionsPanel: View {
 }
 
 private func preferredAPFSVolumeIdentifier(from options: [APFSVolumeOption]) -> String? {
+    let mountedExternal = mountedExternalAPFSVolumes(from: options)
+    let bestMountedExternal = mountedExternal.first {
+        !$0.roles.contains(where: systemAPFSRoles.contains)
+    }
+    if let bestMountedExternal {
+        return bestMountedExternal.identifier
+    }
+    if let fallbackMountedExternal = mountedExternal.first {
+        return fallbackMountedExternal.identifier
+    }
+
     let bestExternal = options.first {
         $0.isInternalStore == false && !$0.roles.contains(where: systemAPFSRoles.contains)
     }
@@ -1931,6 +1967,17 @@ private func preferredAPFSVolumeIdentifier(from options: [APFSVolumeOption]) -> 
         return fallbackExternal.identifier
     }
     return options.first?.identifier
+}
+
+private func mountedExternalAPFSVolumes(from options: [APFSVolumeOption]) -> [APFSVolumeOption] {
+    options.filter(isMountedExternalAPFSVolume)
+}
+
+private func isMountedExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
+    guard let mountPoint = option.mountPoint else {
+        return false
+    }
+    return mountPoint == "/Volumes" || mountPoint.hasPrefix("/Volumes/")
 }
 
 private let systemAPFSRoles: Set<String> = [

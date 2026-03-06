@@ -17,6 +17,7 @@ public struct APFSVolumeOption: Hashable, Identifiable, Sendable {
     public var id: String { identifier }
     public let identifier: String
     public let name: String
+    public let mountPoint: String?
     public let containerIdentifier: String
     public let physicalStoreIdentifier: String?
     public let roles: [String]
@@ -27,6 +28,7 @@ public struct APFSVolumeOption: Hashable, Identifiable, Sendable {
 
     public init(identifier: String,
                 name: String,
+                mountPoint: String?,
                 containerIdentifier: String,
                 physicalStoreIdentifier: String?,
                 roles: [String],
@@ -36,6 +38,7 @@ public struct APFSVolumeOption: Hashable, Identifiable, Sendable {
                 isInternalStore: Bool?) {
         self.identifier = identifier
         self.name = name
+        self.mountPoint = mountPoint
         self.containerIdentifier = containerIdentifier
         self.physicalStoreIdentifier = physicalStoreIdentifier
         self.roles = roles
@@ -140,7 +143,8 @@ public enum ExternalDiskCrypto {
         guard let plistData = output.stdout.data(using: .utf8) else {
             throw AEGError.io("Unable to decode diskutil APFS list output")
         }
-        return try parseAPFSVolumeOptions(from: plistData)
+        let mountPoints = (try? mountedAPFSVolumeMap()) ?? [:]
+        return try parseAPFSVolumeOptions(from: plistData, mountPoints: mountPoints)
     }
 
     static func recoverDiskPassphrase(diskIdentifier: String,
@@ -229,7 +233,8 @@ public enum ExternalDiskCrypto {
         return (stdout, stderr)
     }
 
-    private static func parseAPFSVolumeOptions(from plistData: Data) throws -> [APFSVolumeOption] {
+    private static func parseAPFSVolumeOptions(from plistData: Data,
+                                               mountPoints: [String: String]) throws -> [APFSVolumeOption] {
         let decoder = PropertyListDecoder()
         let root = try decoder.decode(APFSListPlist.self, from: plistData)
 
@@ -244,7 +249,7 @@ public enum ExternalDiskCrypto {
             if let physicalStore {
                 if let cached = internalStoreCache[physicalStore] {
                     isInternalStore = cached
-                } else if let detected = try isInternalPhysicalStore(physicalStore) {
+                } else if let detected = try? isInternalPhysicalStore(physicalStore) {
                     internalStoreCache[physicalStore] = detected
                     isInternalStore = detected
                 }
@@ -256,6 +261,7 @@ public enum ExternalDiskCrypto {
                 options.append(
                     APFSVolumeOption(identifier: volume.deviceIdentifier,
                                      name: displayName,
+                                     mountPoint: mountPoints[volume.deviceIdentifier],
                                      containerIdentifier: containerID,
                                      physicalStoreIdentifier: physicalStore,
                                      roles: volume.roles ?? [],
@@ -293,6 +299,63 @@ public enum ExternalDiskCrypto {
             internalRank = 2
         }
         return (internalRank, option.name.lowercased(), option.identifier)
+    }
+
+    private static func mountedAPFSVolumeMap() throws -> [String: String] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/sbin/mount")
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stdout = String(data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let stderr = String(data: stderrPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        if process.terminationStatus != 0 {
+            let details = stderr.isEmpty ? stdout : stderr
+            throw AEGError.io("mount failed (\(process.terminationStatus)): \(details)")
+        }
+        return parseMountedAPFSVolumeMap(from: stdout)
+    }
+
+    private static func parseMountedAPFSVolumeMap(from output: String) -> [String: String] {
+        var map: [String: String] = [:]
+
+        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
+            let text = String(line)
+            guard text.hasPrefix("/dev/disk"), let onRange = text.range(of: " on ") else {
+                continue
+            }
+
+            let devicePath = String(text[..<onRange.lowerBound])
+            let device = String(devicePath.dropFirst("/dev/".count))
+            guard let optionsStart = text.range(of: " (", range: onRange.upperBound..<text.endIndex),
+                  text.hasSuffix(")") else {
+                continue
+            }
+
+            let rawMountPoint = String(text[onRange.upperBound..<optionsStart.lowerBound])
+            let optionsRange = text.index(after: optionsStart.lowerBound)..<text.index(before: text.endIndex)
+            let options = String(text[optionsRange])
+            guard options.split(separator: ",").contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "apfs" }) else {
+                continue
+            }
+
+            map[device] = unescapeMountPath(rawMountPoint)
+        }
+
+        return map
+    }
+
+    private static func unescapeMountPath(_ rawPath: String) -> String {
+        rawPath
+            .replacingOccurrences(of: "\\040", with: " ")
+            .replacingOccurrences(of: "\\011", with: "\t")
+            .replacingOccurrences(of: "\\012", with: "\n")
+            .replacingOccurrences(of: "\\\\", with: "\\")
     }
 
     private static func randomDiskPassphrase() -> String {
