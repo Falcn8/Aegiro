@@ -13,6 +13,39 @@ public struct ExternalDiskEncryptResult {
     }
 }
 
+public struct APFSVolumeOption: Hashable, Identifiable, Sendable {
+    public var id: String { identifier }
+    public let identifier: String
+    public let name: String
+    public let containerIdentifier: String
+    public let physicalStoreIdentifier: String?
+    public let roles: [String]
+    public let encrypted: Bool
+    public let fileVault: Bool
+    public let locked: Bool
+    public let isInternalStore: Bool?
+
+    public init(identifier: String,
+                name: String,
+                containerIdentifier: String,
+                physicalStoreIdentifier: String?,
+                roles: [String],
+                encrypted: Bool,
+                fileVault: Bool,
+                locked: Bool,
+                isInternalStore: Bool?) {
+        self.identifier = identifier
+        self.name = name
+        self.containerIdentifier = containerIdentifier
+        self.physicalStoreIdentifier = physicalStoreIdentifier
+        self.roles = roles
+        self.encrypted = encrypted
+        self.fileVault = fileVault
+        self.locked = locked
+        self.isInternalStore = isInternalStore
+    }
+}
+
 private struct DiskRecoveryBundle: Codable {
     let version: UInt16
     let created_unix: UInt64
@@ -102,6 +135,14 @@ public enum ExternalDiskCrypto {
         }
     }
 
+    public static func listAPFSVolumes() throws -> [APFSVolumeOption] {
+        let output = try runDiskutil(arguments: ["apfs", "list", "-plist"], stdinLine: nil)
+        guard let plistData = output.stdout.data(using: .utf8) else {
+            throw AEGError.io("Unable to decode diskutil APFS list output")
+        }
+        return try parseAPFSVolumeOptions(from: plistData)
+    }
+
     static func recoverDiskPassphrase(diskIdentifier: String,
                                       recoveryPassphrase: String,
                                       recoveryURL: URL) throws -> String {
@@ -188,6 +229,72 @@ public enum ExternalDiskCrypto {
         return (stdout, stderr)
     }
 
+    private static func parseAPFSVolumeOptions(from plistData: Data) throws -> [APFSVolumeOption] {
+        let decoder = PropertyListDecoder()
+        let root = try decoder.decode(APFSListPlist.self, from: plistData)
+
+        var internalStoreCache: [String: Bool] = [:]
+        var options: [APFSVolumeOption] = []
+        options.reserveCapacity(root.containers.reduce(0) { $0 + ($1.volumes?.count ?? 0) })
+
+        for container in root.containers {
+            let containerID = container.containerReference ?? "unknown-container"
+            let physicalStore = container.designatedPhysicalStore
+            var isInternalStore: Bool?
+            if let physicalStore {
+                if let cached = internalStoreCache[physicalStore] {
+                    isInternalStore = cached
+                } else if let detected = try isInternalPhysicalStore(physicalStore) {
+                    internalStoreCache[physicalStore] = detected
+                    isInternalStore = detected
+                }
+            }
+
+            for volume in container.volumes ?? [] {
+                let name = volume.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let displayName = (name?.isEmpty ?? true) ? "Unnamed Volume" : (name ?? "Unnamed Volume")
+                options.append(
+                    APFSVolumeOption(identifier: volume.deviceIdentifier,
+                                     name: displayName,
+                                     containerIdentifier: containerID,
+                                     physicalStoreIdentifier: physicalStore,
+                                     roles: volume.roles ?? [],
+                                     encrypted: volume.encryption ?? false,
+                                     fileVault: volume.fileVault ?? false,
+                                     locked: volume.locked ?? false,
+                                     isInternalStore: isInternalStore)
+                )
+            }
+        }
+
+        options.sort {
+            volumeSortRank($0) < volumeSortRank($1)
+        }
+        return options
+    }
+
+    private static func isInternalPhysicalStore(_ diskIdentifier: String) throws -> Bool? {
+        let output = try runDiskutil(arguments: ["info", "-plist", diskIdentifier], stdinLine: nil)
+        guard let plistData = output.stdout.data(using: .utf8) else {
+            return nil
+        }
+        let decoder = PropertyListDecoder()
+        return try decoder.decode(DiskInfoPlist.self, from: plistData).isInternal
+    }
+
+    private static func volumeSortRank(_ option: APFSVolumeOption) -> (Int, String, String) {
+        let internalRank: Int
+        switch option.isInternalStore {
+        case .some(false):
+            internalRank = 0
+        case .none:
+            internalRank = 1
+        case .some(true):
+            internalRank = 2
+        }
+        return (internalRank, option.name.lowercased(), option.identifier)
+    }
+
     private static func randomDiskPassphrase() -> String {
         randomBytes(32).map { String(format: "%02x", $0) }.joined()
     }
@@ -202,5 +309,51 @@ public enum ExternalDiskCrypto {
 
     private static func bundleAAD(for diskIdentifier: String) -> Data {
         Data("\(bundleAADPrefix):\(diskIdentifier)".utf8)
+    }
+}
+
+private struct APFSListPlist: Decodable {
+    let containers: [APFSContainerPlist]
+
+    private enum CodingKeys: String, CodingKey {
+        case containers = "Containers"
+    }
+}
+
+private struct APFSContainerPlist: Decodable {
+    let containerReference: String?
+    let designatedPhysicalStore: String?
+    let volumes: [APFSVolumePlist]?
+
+    private enum CodingKeys: String, CodingKey {
+        case containerReference = "ContainerReference"
+        case designatedPhysicalStore = "DesignatedPhysicalStore"
+        case volumes = "Volumes"
+    }
+}
+
+private struct APFSVolumePlist: Decodable {
+    let deviceIdentifier: String
+    let name: String?
+    let roles: [String]?
+    let encryption: Bool?
+    let fileVault: Bool?
+    let locked: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceIdentifier = "DeviceIdentifier"
+        case name = "Name"
+        case roles = "Roles"
+        case encryption = "Encryption"
+        case fileVault = "FileVault"
+        case locked = "Locked"
+    }
+}
+
+private struct DiskInfoPlist: Decodable {
+    let isInternal: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case isInternal = "Internal"
     }
 }

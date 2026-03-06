@@ -1523,6 +1523,7 @@ private struct DiskEncryptSheet: View {
     @State private var diskIdentifier = ""
     @State private var recoveryPassphrase = ""
     @State private var recoveryPath = ""
+    @State private var lastSuggestedRecoveryPath = ""
     @State private var dryRun = false
     @State private var overwrite = false
 
@@ -1544,7 +1545,16 @@ private struct DiskEncryptSheet: View {
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
-            formLabel("APFS Volume Identifier")
+            APFSVolumeOptionsPanel(
+                selectedDiskIdentifier: $diskIdentifier,
+                options: model.apfsVolumeOptions,
+                isLoading: model.apfsVolumeOptionsLoading,
+                errorMessage: model.apfsVolumeOptionsError
+            ) {
+                model.refreshAPFSVolumeOptions()
+            }
+
+            formLabel("Selected APFS Volume Identifier")
             TextField("disk9s1", text: $diskIdentifier)
                 .textFieldStyle(.roundedBorder)
 
@@ -1575,17 +1585,20 @@ private struct DiskEncryptSheet: View {
             }
         }
         .padding(24)
-        .frame(width: 560)
+        .frame(width: 640)
         .background(AegiroPalette.backgroundPanel)
         .onAppear {
-            if recoveryPath.isEmpty {
-                recoveryPath = defaultRecoveryPath(for: diskIdentifier)
+            model.refreshAPFSVolumeOptions()
+            applyAutoDiskSelectionIfNeeded()
+            if recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                syncRecoveryPathWithDisk(diskIdentifier)
             }
         }
+        .onChange(of: model.apfsVolumeOptions) { _ in
+            applyAutoDiskSelectionIfNeeded()
+        }
         .onChange(of: diskIdentifier) { newValue in
-            if recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                recoveryPath = defaultRecoveryPath(for: newValue)
-            }
+            syncRecoveryPathWithDisk(newValue)
         }
     }
 
@@ -1610,6 +1623,22 @@ private struct DiskEncryptSheet: View {
         let safe = trimmed.isEmpty ? "external-disk" : trimmed.replacingOccurrences(of: "/", with: "_")
         let baseDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true)
         return baseDir.appendingPathComponent("\(safe).aegiro-diskkey.json").path
+    }
+
+    private func syncRecoveryPathWithDisk(_ diskID: String) {
+        let suggested = defaultRecoveryPath(for: diskID)
+        let trimmedCurrent = recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedCurrent.isEmpty || recoveryPath == lastSuggestedRecoveryPath {
+            recoveryPath = suggested
+        }
+        lastSuggestedRecoveryPath = suggested
+    }
+
+    private func applyAutoDiskSelectionIfNeeded() {
+        let trimmed = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty else { return }
+        guard let preferred = preferredAPFSVolumeIdentifier(from: model.apfsVolumeOptions) else { return }
+        diskIdentifier = preferred
     }
 
     private func startEncrypt() {
@@ -1656,7 +1685,16 @@ private struct DiskUnlockSheet: View {
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
-            formLabel("APFS Volume Identifier")
+            APFSVolumeOptionsPanel(
+                selectedDiskIdentifier: $diskIdentifier,
+                options: model.apfsVolumeOptions,
+                isLoading: model.apfsVolumeOptionsLoading,
+                errorMessage: model.apfsVolumeOptionsError
+            ) {
+                model.refreshAPFSVolumeOptions()
+            }
+
+            formLabel("Selected APFS Volume Identifier")
             TextField("disk9s1", text: $diskIdentifier)
                 .textFieldStyle(.roundedBorder)
 
@@ -1686,8 +1724,15 @@ private struct DiskUnlockSheet: View {
             }
         }
         .padding(24)
-        .frame(width: 560)
+        .frame(width: 640)
         .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            model.refreshAPFSVolumeOptions()
+            applyAutoDiskSelectionIfNeeded()
+        }
+        .onChange(of: model.apfsVolumeOptions) { _ in
+            applyAutoDiskSelectionIfNeeded()
+        }
     }
 
     private func formLabel(_ text: String) -> some View {
@@ -1721,7 +1766,183 @@ private struct DiskUnlockSheet: View {
         onDone()
         dismiss()
     }
+
+    private func applyAutoDiskSelectionIfNeeded() {
+        let trimmed = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty else { return }
+        guard let preferred = preferredAPFSVolumeIdentifier(from: model.apfsVolumeOptions) else { return }
+        diskIdentifier = preferred
+    }
 }
+
+private struct APFSVolumeOptionsPanel: View {
+    @Binding var selectedDiskIdentifier: String
+    let options: [APFSVolumeOption]
+    let isLoading: Bool
+    let errorMessage: String?
+    var refresh: () -> Void
+
+    private var selectedTrimmed: String {
+        selectedDiskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Available APFS Volumes")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+                Spacer()
+                Button {
+                    refresh()
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.bordered)
+                .disabled(isLoading)
+            }
+
+            if isLoading {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Scanning APFS volumes...")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                }
+            }
+
+            if let errorMessage, !errorMessage.isEmpty {
+                Text("Could not load APFS options: \(errorMessage)")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
+
+            if options.isEmpty {
+                Text("No APFS volumes detected. You can still type a disk identifier manually.")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(options, id: \.identifier) { option in
+                            let isSelected = option.identifier == selectedTrimmed
+                            Button {
+                                selectedDiskIdentifier = option.identifier
+                            } label: {
+                                HStack(alignment: .top, spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 6) {
+                                            Text(option.name)
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundStyle(AegiroPalette.textPrimary)
+                                            if let locationBadge = locationBadgeLabel(for: option) {
+                                                badge(text: locationBadge, color: option.isInternalStore == false ? AegiroPalette.securityGreen : AegiroPalette.warningAmber)
+                                            }
+                                            if option.encrypted || option.fileVault {
+                                                badge(text: "Encrypted", color: AegiroPalette.accentIndigo)
+                                            }
+                                            if option.locked {
+                                                badge(text: "Locked", color: AegiroPalette.warningAmber)
+                                            }
+                                        }
+                                        Text(option.identifier)
+                                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                            .foregroundStyle(AegiroPalette.textSecondary)
+                                        Text(optionMetaLine(for: option))
+                                            .font(.system(size: 11, weight: .regular))
+                                            .foregroundStyle(AegiroPalette.textMuted)
+                                    }
+                                    Spacer(minLength: 8)
+                                    if isSelected {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(AegiroPalette.securityGreen)
+                                            .font(.system(size: 15, weight: .semibold))
+                                    }
+                                }
+                                .padding(10)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(isSelected ? AegiroPalette.accentIndigo.opacity(0.18) : AegiroPalette.backgroundCard)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .stroke(isSelected ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .frame(minHeight: 120, maxHeight: 180)
+            }
+        }
+        .padding(12)
+        .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+        )
+    }
+
+    private func optionMetaLine(for option: APFSVolumeOption) -> String {
+        var parts: [String] = ["Container \(option.containerIdentifier)"]
+        if !option.roles.isEmpty {
+            parts.append("Role \(option.roles.joined(separator: ", "))")
+        }
+        if let physicalStore = option.physicalStoreIdentifier, !physicalStore.isEmpty {
+            parts.append("Store \(physicalStore)")
+        }
+        return parts.joined(separator: " • ")
+    }
+
+    private func locationBadgeLabel(for option: APFSVolumeOption) -> String? {
+        switch option.isInternalStore {
+        case .some(true):
+            return "Internal"
+        case .some(false):
+            return "External"
+        case .none:
+            return nil
+        }
+    }
+
+    private func badge(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.2), in: Capsule())
+            .foregroundStyle(color)
+    }
+}
+
+private func preferredAPFSVolumeIdentifier(from options: [APFSVolumeOption]) -> String? {
+    let bestExternal = options.first {
+        $0.isInternalStore == false && !$0.roles.contains(where: systemAPFSRoles.contains)
+    }
+    if let bestExternal {
+        return bestExternal.identifier
+    }
+    let fallbackExternal = options.first { $0.isInternalStore == false }
+    if let fallbackExternal {
+        return fallbackExternal.identifier
+    }
+    return options.first?.identifier
+}
+
+private let systemAPFSRoles: Set<String> = [
+    "System",
+    "Data",
+    "Preboot",
+    "Recovery",
+    "VM",
+    "Update",
+    "Hardware",
+    "xART"
+]
 
 private struct DoctorSheet: View {
     @EnvironmentObject var model: VaultModel
