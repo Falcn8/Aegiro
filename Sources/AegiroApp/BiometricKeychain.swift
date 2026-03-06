@@ -12,6 +12,11 @@ enum BiometricKeychainError: Error {
 enum BiometricKeychain {
     private static let service = "app.aegiro.vaultpass"
 
+    static func supportsBiometricKeychainStorage() -> Bool {
+        // Try both data-protection and legacy keychain paths because debug/local builds can vary.
+        return canStoreProbe(dataProtection: true) || canStoreProbe(dataProtection: nil)
+    }
+
     static func save(passphrase: String, for vaultURL: URL) throws {
         let primaryAccount = canonicalAccount(for: vaultURL)
         let accounts = accountCandidates(for: vaultURL)
@@ -115,6 +120,44 @@ enum BiometricKeychain {
             addQuery[kSecUseDataProtectionKeychain as String] = dataProtection
         }
         return SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    private static func canStoreProbe(dataProtection: Bool?) -> Bool {
+        guard let access = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            .biometryCurrentSet,
+            nil
+        ) else {
+            return false
+        }
+
+        let account = "probe.\(UUID().uuidString)"
+        let data = Data("probe".utf8)
+
+        var addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service + ".probe",
+            kSecAttrAccount as String: account,
+            kSecValueData as String: data,
+            kSecAttrAccessControl as String: access
+        ]
+        if let dataProtection {
+            addQuery[kSecUseDataProtectionKeychain as String] = dataProtection
+        }
+
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        var deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service + ".probe",
+            kSecAttrAccount as String: account
+        ]
+        if let dataProtection {
+            deleteQuery[kSecUseDataProtectionKeychain as String] = dataProtection
+        }
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        return status == errSecSuccess || status == errSecDuplicateItem
     }
 
     private static func queryPassphrase(

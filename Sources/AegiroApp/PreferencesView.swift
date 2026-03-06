@@ -56,9 +56,13 @@ struct PreferencesView: View {
                 Divider()
 
                 Toggle("Enable Touch ID", isOn: $model.allowTouchID)
-                    .disabled(!model.supportsBiometricUnlock)
+                    .disabled(!model.supportsBiometricUnlock || !model.biometricKeychainAvailable)
 
-                if !model.supportsBiometricUnlock {
+                if let issue = model.biometricKeychainIssue {
+                    Text(issue)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.warningAmber)
+                } else if !model.supportsBiometricUnlock {
                     Text("Touch ID is unavailable in the current vault configuration.")
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(AegiroPalette.textMuted)

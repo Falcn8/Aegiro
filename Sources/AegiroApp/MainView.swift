@@ -349,7 +349,13 @@ struct MainView: View {
                 actionButton(title: "Add Touch ID", icon: "touchid") {
                     model.addTouchIDForUnlockedVault()
                 }
-                .disabled(model.vaultURL == nil || model.locked || model.allowTouchID)
+                .disabled(model.vaultURL == nil || model.locked || model.allowTouchID || !model.biometricKeychainAvailable)
+
+                if let issue = model.biometricKeychainIssue {
+                    Text(issue)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.warningAmber)
+                }
 
                 actionButton(title: "Verify Vault", icon: "checkmark.shield") {
                     verifyVaultState()
@@ -855,13 +861,19 @@ struct MainView: View {
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(unlockIfPossible)
 
-            if model.allowTouchID && model.supportsBiometricUnlock {
+            if model.allowTouchID && model.supportsBiometricUnlock && model.biometricKeychainAvailable {
                 Button {
                     model.unlockWithBiometrics()
                 } label: {
                     Label("Use Touch ID", systemImage: "touchid")
                 }
                 .buttonStyle(.bordered)
+            }
+
+            if let issue = model.biometricKeychainIssue {
+                Text(issue)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             HStack {
@@ -1413,7 +1425,13 @@ private struct CreateVaultSheet: View {
                 .textFieldStyle(.roundedBorder)
 
             Toggle("Enable Touch ID", isOn: $allowTouchID)
-                .disabled(!model.supportsBiometricUnlock)
+                .disabled(!model.supportsBiometricUnlock || !model.biometricKeychainAvailable)
+
+            if let issue = model.biometricKeychainIssue {
+                Text(issue)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
 
             if passphrase != confirmPassphrase && !confirmPassphrase.isEmpty {
                 Text("Passphrases do not match.")
@@ -1459,7 +1477,7 @@ private struct CreateVaultSheet: View {
         model.createVault(
             at: URL(fileURLWithPath: effectivePath),
             passphrase: passphrase,
-            touchID: allowTouchID && model.supportsBiometricUnlock
+            touchID: allowTouchID && model.supportsBiometricUnlock && model.biometricKeychainAvailable
         )
         if model.vaultURL != nil {
             onDone()
