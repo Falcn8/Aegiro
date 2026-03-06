@@ -29,7 +29,7 @@ Main window uses a three-zone shell:
 1. Top bar
 - Vault identity and lock status at left.
 - Centered search field.
-- View toggle, sorting menu, selection mode, preferences on right.
+- View toggle, sorting menu, preferences on right.
 
 2. Body split
 - Left sidebar (260px): vault status, vault info, actions, security actions, external disk tools, selection summary.
@@ -52,7 +52,11 @@ Main window uses a three-zone shell:
 2. Main app (`MainView`)
 - Dark, card-based sidebar and high-contrast content area.
 - File list and grid modes.
-- Multi-select mode with inline checkboxes.
+- Finder-style selection behavior:
+  - Single click selects one file.
+  - Command-click toggles multi-selection.
+  - Shift-click selects ranges.
+  - Grid view supports drag-to-select rectangle.
 - Context menu: Preview, Export, Copy Path, Reveal Export.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet and external disk encrypt/unlock sheets.
