@@ -25,6 +25,7 @@ final class VaultModel: ObservableObject {
     @Published var biometricKeychainAvailable: Bool = true
     @Published var biometricKeychainIssue: String?
     @Published var apfsVolumeOptions: [APFSVolumeOption] = []
+    @Published var mountedNonAPFSVolumes: [MountedNonAPFSVolume] = []
     @Published var apfsVolumeOptionsLoading: Bool = false
     @Published var apfsVolumeOptionsError: String?
     @Published var autoLockRemaining: TimeInterval = 0
@@ -332,16 +333,23 @@ final class VaultModel: ObservableObject {
         apfsVolumeOptionsError = nil
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = Result { try ExternalDiskCrypto.listAPFSVolumes() }
+            let result = Result {
+                (
+                    try ExternalDiskCrypto.listAPFSVolumes(),
+                    try ExternalDiskCrypto.listMountedNonAPFSVolumes()
+                )
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.apfsVolumeOptionsLoading = false
                 switch result {
-                case .success(let options):
+                case .success(let (options, nonAPFS)):
                     self.apfsVolumeOptions = options
+                    self.mountedNonAPFSVolumes = nonAPFS
                     self.apfsVolumeOptionsError = nil
                 case .failure(let error):
                     self.apfsVolumeOptions = []
+                    self.mountedNonAPFSVolumes = []
                     self.apfsVolumeOptionsError = String(describing: error)
                 }
             }
