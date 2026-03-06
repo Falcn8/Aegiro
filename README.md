@@ -32,7 +32,7 @@ bash scripts/build-real.sh
 ## What’s here
 
 - **AegiroCore** (Swift library): Vault header/index/manifest per spec, chunked AES-256-GCM I/O, nonce scheme, wrappers for KDF & PQC, secure preview temp policy, shredder, privacy monitor, “secure lock” scriptables, zero-telemetry guard.
-- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`.
+- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`, `disk-encrypt`, `disk-unlock`.
 - **AegiroApp** (SwiftUI stubs): First-run flow, main UI, menubar helper, Settings — wired to core APIs (dev-mode). XPC/LaunchAgent stubs included.
 - **Entitlements & Hardened Runtime**: prefilled.
 - **Tests**: Acceptance checks (some are integration stubs pending REAL_CRYPTO).
@@ -79,7 +79,7 @@ aegiro --help
 Checksum for the current archive:
 
 ```
-a5afa879900c10c07a28043ef7779b102d51e346f4c5273070b58d623a17787a  dist/aegiro-cli-macos-arm64.tar.gz
+5ae6bc72d08bc2bbef67d9e897d5846abdd66487c054d055aafb5349e800dbab  dist/aegiro-cli-macos-arm64.tar.gz
 ```
 
 ### REAL_CRYPTO build (Argon2id + liboqs)
@@ -137,6 +137,10 @@ The script produces `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` a
 # Status (JSON)
 .build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --json
 
+# External APFS volume encryption + unlock (PQC recovery bundle)
+.build/release/aegiro-cli disk-encrypt --disk disk9s1 --passphrase "<recovery-pass>" --recovery ~/Backups/disk9s1.aegiro-diskkey.json
+.build/release/aegiro-cli disk-unlock --disk disk9s1 --recovery ~/Backups/disk9s1.aegiro-diskkey.json --passphrase "<recovery-pass>"
+
 Example text output:
 
 ```text
@@ -169,6 +173,16 @@ Example JSON output:
 # Doctor (check, optional fix)
 .build/release/aegiro-cli doctor --vault ~/AegiroVaults/alpha.agvt [--passphrase "<pass>"] [--fix]
 ```
+
+---
+
+## External Disk Encryption
+
+- `disk-encrypt` targets APFS volumes (`diskutil apfs encryptVolume`) and creates a PQC recovery bundle JSON.
+- `disk-unlock` recovers the APFS unlock passphrase from that bundle and unlocks with `diskutil apfs unlockVolume`.
+- Recovery bundle flow: passphrase KDF unwraps Kyber secret key; Kyber decapsulation derives shared secret; shared secret unwraps the APFS passphrase.
+- Use `--dry-run` to generate/validate bundle logic without changing disk state.
+- Requires ownership/admin permissions for the target disk as enforced by `diskutil`.
 
 ---
 
@@ -263,4 +277,5 @@ Aegiro/
 - Integrity: Index is AEAD-encrypted; manifest signs SHA256(index JSON) + SHA256(chunk map). `verify` validates integrity without passphrase.
 - Zero telemetry: No network access required. Keep the CLI offline; signing and KDF are all local.
 - Backups: Keep your passphrase safe. The backup includes only encrypted data + metadata; losing the passphrase means losing access.
+- External disks: `disk-encrypt` relies on APFS/FileVault volume encryption and stores unlock material in a PQC recovery bundle.
 - Compatibility note: legacy vaults (created before this PQ unlock flow) still use direct PDK->DEK unwrap until migrated.
