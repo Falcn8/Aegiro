@@ -589,6 +589,33 @@ final class VaultModel: ObservableObject {
         autoLockDeadline = (autoLockDeadline ?? Date()).addingTimeInterval(seconds)
         updateAutoLockRemaining()
     }
+
+    func normalizeUnlockFlagsIfNeeded() -> Bool {
+        touchActivity()
+        guard let vaultURL else {
+            status = "Open a vault first"
+            return false
+        }
+        let trimmedPass = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPass.isEmpty else {
+            status = "Unlock with your passphrase to normalize vault flags"
+            return false
+        }
+
+        do {
+            let changed = try VaultSettings.normalizeUnlockFlags(vaultURL: vaultURL, passphrase: trimmedPass)
+            if changed {
+                status = "Normalized vault unlock flags"
+            } else {
+                status = "Vault flags already correct"
+            }
+            refreshStatus()
+            return changed
+        } catch {
+            status = "Flag normalization failed: \(error)"
+            return false
+        }
+    }
 }
 
 func defaultVaultURL() -> URL {

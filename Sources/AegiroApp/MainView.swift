@@ -1823,7 +1823,21 @@ private struct DoctorSheet: View {
                 let result = try Doctor.run(vaultURL: vaultURL, passphrase: passphrase, fix: fix)
                 DispatchQueue.main.async {
                     report = result
-                    runMessage = fix && result.fixed ? "Doctor completed and applied fix." : "Doctor completed."
+                    if fix {
+                        let flagsChanged = model.normalizeUnlockFlagsIfNeeded()
+                        switch (result.fixed, flagsChanged) {
+                        case (true, true):
+                            runMessage = "Doctor completed. Applied manifest fix and normalized unlock flags."
+                        case (true, false):
+                            runMessage = "Doctor completed. Applied manifest fix."
+                        case (false, true):
+                            runMessage = "Doctor completed. Normalized unlock flags."
+                        case (false, false):
+                            runMessage = "Doctor completed. No fixes were needed."
+                        }
+                    } else {
+                        runMessage = "Doctor completed."
+                    }
                     isRunning = false
                     model.refreshStatus()
                 }

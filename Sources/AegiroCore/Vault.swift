@@ -496,6 +496,64 @@ private func unlockDEK(data: Data, head: VaultHeader, layout: VaultLayout, passp
     return SymmetricKey(data: dekRaw)
 }
 
+private enum UnlockMode {
+    case legacy
+    case pqcV1
+}
+
+private func inferUnlockMode(data: Data, head: VaultHeader, layout: VaultLayout, passphrase: String) throws -> UnlockMode {
+    let pdk = try derivePassphraseKey(passphrase: passphrase, salt: head.kdf_salt)
+    let pdkWrap = data.subdata(in: layout.pdkWrapRange)
+    let pdkPlain = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: vaultAAD)
+
+    let idxBlob = data.subdata(in: layout.idxRange)
+
+    let legacyDEK = SymmetricKey(data: pdkPlain)
+    let legacyValid = (try? IndexCrypto.decryptIndex(idxBlob, key: legacyDEK, aad: vaultAAD)) != nil
+
+    var pqcValid = false
+    if pdkPlain.count == 32 {
+        let accessKey = SymmetricKey(data: pdkPlain)
+        let accessBlob = data.subdata(in: layout.pqCtRange)
+        if let accessBundle = try? JSONDecoder().decode(PQAccessBundleV1.self, from: accessBlob),
+           accessBundle.version == 1,
+           let kemSk = try? AEAD.decrypt(key: accessKey,
+                                         nonce: try AES.GCM.Nonce(data: accessBundle.kemSecretWrap.prefix(12)),
+                                         combined: accessBundle.kemSecretWrap,
+                                         aad: vaultAAD) {
+            do {
+                #if REAL_CRYPTO
+                let kem = Kyber512()
+                #else
+                let kem = StubKEM()
+                #endif
+                let ss = try kem.decap(accessBundle.kemCiphertext, sk: kemSk)
+                let pqKey = SymmetricKey(data: ss)
+                let pqWrap = data.subdata(in: layout.pqWrapRange)
+                let dekRaw = try AEAD.decrypt(key: pqKey,
+                                              nonce: try AES.GCM.Nonce(data: pqWrap.prefix(12)),
+                                              combined: pqWrap,
+                                              aad: vaultAAD)
+                let pqDEK = SymmetricKey(data: dekRaw)
+                pqcValid = (try? IndexCrypto.decryptIndex(idxBlob, key: pqDEK, aad: vaultAAD)) != nil
+            } catch {
+                pqcValid = false
+            }
+        }
+    }
+
+    switch (legacyValid, pqcValid) {
+    case (true, false):
+        return .legacy
+    case (false, true):
+        return .pqcV1
+    case (true, true):
+        return (head.flags & vaultFlagPQCUnlockV1) != 0 ? .pqcV1 : .legacy
+    case (false, false):
+        throw AEGError.integrity("Could not infer unlock mode from passphrase and index data.")
+    }
+}
+
 public enum Locker {
     public static func unlockInfo(vaultURL: URL, passphrase: String) throws -> Int {
         let data = try Data(contentsOf: vaultURL)
@@ -701,6 +759,39 @@ public enum VaultSettings {
         var out = data
         out.replaceSubrange(0..<headerEnd, with: newHeader)
         try out.write(to: vaultURL, options: .atomic)
+    }
+
+    public static func normalizeUnlockFlags(vaultURL: URL, passphrase: String) throws -> Bool {
+        let data = try Data(contentsOf: vaultURL)
+        let (head, headerEnd) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: headerEnd)
+
+        let inferredMode = try inferUnlockMode(data: data, head: head, layout: layout, passphrase: passphrase)
+        let expectedPQCFlag = (inferredMode == .pqcV1)
+        let hasPQCFlag = (head.flags & vaultFlagPQCUnlockV1) != 0
+
+        guard expectedPQCFlag != hasPQCFlag else { return false }
+
+        var updated = head
+        if expectedPQCFlag {
+            updated.flags |= vaultFlagPQCUnlockV1
+        } else {
+            updated.flags &= ~vaultFlagPQCUnlockV1
+        }
+
+        let newHeader = try updated.serialize()
+        guard newHeader.count == headerEnd else {
+            throw NSError(
+                domain: "VaultSettings",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Vault header size changed; unlock flag update is not safe for this vault."]
+            )
+        }
+
+        var out = data
+        out.replaceSubrange(0..<headerEnd, with: newHeader)
+        try out.write(to: vaultURL, options: .atomic)
+        return true
     }
 }
 
