@@ -44,16 +44,19 @@ struct AegiroAppMain: App {
     @State private var showFirstRun = true
     var body: some Scene {
         WindowGroup {
-            if showFirstRun {
-                FirstRunView(onDone: {
-                    UserDefaults.standard.set(true, forKey: "onboardingCompleted")
-                    showFirstRun = false
-                })
-                .environmentObject(model)
-            } else {
-                MainView()
+            Group {
+                if showFirstRun {
+                    FirstRunView(onDone: {
+                        UserDefaults.standard.set(true, forKey: "onboardingCompleted")
+                        showFirstRun = false
+                    })
                     .environmentObject(model)
+                } else {
+                    MainView()
+                        .environmentObject(model)
+                }
             }
+            .preferredColorScheme(.dark)
         }
         .windowStyle(.hiddenTitleBar)
         MenuBarExtra {
