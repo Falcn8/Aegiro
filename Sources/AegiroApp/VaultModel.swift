@@ -22,6 +22,8 @@ final class VaultModel: ObservableObject {
     @Published var autoLockTTL: Int
     @Published var allowTouchID: Bool
     @Published var supportsBiometricUnlock: Bool = false
+    @Published var biometricKeychainAvailable: Bool = true
+    @Published var biometricKeychainIssue: String?
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var lastActivity: Date = .now
@@ -44,7 +46,9 @@ final class VaultModel: ObservableObject {
         } else {
             self.allowTouchID = true
         }
-        self.supportsBiometricUnlock = canEvaluateBiometrics()
+        self.biometricKeychainAvailable = BiometricKeychain.supportsBiometricKeychainStorage()
+        self.biometricKeychainIssue = self.biometricKeychainAvailable ? nil : "This build is missing secure keychain entitlements required for Touch ID storage."
+        self.supportsBiometricUnlock = canEvaluateBiometrics() && self.biometricKeychainAvailable
     }
 
     func createVault(at url: URL, passphrase: String, touchID: Bool) {
@@ -85,6 +89,7 @@ final class VaultModel: ObservableObject {
         touchActivity()
         guard let url = vaultURL else { return }
         do {
+            refreshBiometricBuildSupport()
             let info = try VaultStatus.get(vaultURL: url, passphrase: passphrase.isEmpty ? nil : passphrase)
             self.locked = info.locked
             self.vaultFileCount = info.entries
@@ -92,7 +97,7 @@ final class VaultModel: ObservableObject {
             self.vaultLastEdited = info.vaultLastModified
             self.sidecarPending = info.sidecarPending
             self.manifestOK = info.manifestOK
-            self.supportsBiometricUnlock = info.touchIDEnabled && canEvaluateBiometrics()
+            self.supportsBiometricUnlock = info.touchIDEnabled && canEvaluateBiometrics() && biometricKeychainAvailable
             if info.touchIDEnabled {
                 if !allowTouchID {
                     allowTouchID = true
@@ -443,6 +448,11 @@ final class VaultModel: ObservableObject {
     }
 
     func unlockWithBiometrics() {
+        refreshBiometricBuildSupport()
+        guard biometricKeychainAvailable else {
+            status = biometricKeychainIssue ?? "Touch ID unavailable in this build."
+            return
+        }
         guard supportsBiometricUnlock, allowTouchID else {
             status = "Touch ID is not enabled for this vault"
             return
@@ -484,6 +494,11 @@ final class VaultModel: ObservableObject {
 
     func addTouchIDForUnlockedVault() {
         touchActivity()
+        refreshBiometricBuildSupport()
+        guard biometricKeychainAvailable else {
+            status = biometricKeychainIssue ?? "Touch ID unavailable in this build."
+            return
+        }
         guard let url = vaultURL else {
             status = "Open a vault first"
             return
@@ -540,6 +555,11 @@ final class VaultModel: ObservableObject {
 
     private func storePassphraseForBiometrics(_ passphrase: String) {
         guard supportsBiometricUnlock, allowTouchID, !passphrase.isEmpty, let url = vaultURL else { return }
+        refreshBiometricBuildSupport()
+        guard biometricKeychainAvailable else {
+            status = biometricKeychainIssue ?? "Touch ID unavailable in this build."
+            return
+        }
         guard canEvaluateBiometrics() else {
             status = "Touch ID unavailable on this Mac"
             return
@@ -548,6 +568,10 @@ final class VaultModel: ObservableObject {
             try BiometricKeychain.save(passphrase: passphrase, for: url)
         } catch {
             status = "Touch ID storage failed: \(message(for: error))"
+            if case BiometricKeychainError.unexpectedStatus(let code) = error, code == errSecMissingEntitlement {
+                biometricKeychainAvailable = false
+                biometricKeychainIssue = "This build is missing secure keychain entitlements required for Touch ID storage."
+            }
         }
     }
 
@@ -560,6 +584,12 @@ final class VaultModel: ObservableObject {
         let context = LAContext()
         var error: NSError?
         return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    }
+
+    private func refreshBiometricBuildSupport() {
+        let available = BiometricKeychain.supportsBiometricKeychainStorage()
+        biometricKeychainAvailable = available
+        biometricKeychainIssue = available ? nil : "This build is missing secure keychain entitlements required for Touch ID storage."
     }
 
     private func message(for error: Error) -> String {

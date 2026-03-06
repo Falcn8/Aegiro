@@ -69,7 +69,7 @@ struct MenuBarView: View {
                 SecureField("Passphrase", text: $unlockPass)
                     .textFieldStyle(.roundedBorder)
 
-                if model.allowTouchID && model.supportsBiometricUnlock {
+                if model.allowTouchID && model.supportsBiometricUnlock && model.biometricKeychainAvailable {
                     Button {
                         model.unlockWithBiometrics()
                         showUnlock = false
@@ -77,6 +77,13 @@ struct MenuBarView: View {
                         Label("Use Touch ID", systemImage: "touchid")
                     }
                     .buttonStyle(.bordered)
+                }
+
+                if let issue = model.biometricKeychainIssue {
+                    Text(issue)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
                 }
 
                 HStack {
