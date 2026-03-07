@@ -37,7 +37,6 @@ struct MainView: View {
     @State private var listSelectionBase: Set<VaultIndexEntry.ID> = []
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
-    @State private var isVerifyingVault = false
 
     private var filteredEntries: [VaultIndexEntry] {
         let searched = applySearch(to: model.entries)
@@ -352,18 +351,18 @@ struct MainView: View {
                 }
                 .disabled(model.vaultURL == nil || model.locked || model.allowTouchID || !model.biometricKeychainAvailable)
 
+                actionButton(title: "Remove Touch ID", icon: "touchid.slash") {
+                    model.removeTouchIDForVault()
+                }
+                .disabled(model.vaultURL == nil || !model.allowTouchID)
+
                 if let issue = model.biometricKeychainIssue {
                     Text(issue)
                         .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
 
-                actionButton(title: "Verify Vault", icon: "checkmark.shield") {
-                    verifyVaultState()
-                }
-                .disabled(model.vaultURL == nil || isVerifyingVault)
-
-                actionButton(title: "Run Doctor", icon: "stethoscope") {
+                actionButton(title: "Check Integrity", icon: "checkmark.shield") {
                     showDoctorSheet = true
                 }
                 .disabled(model.vaultURL == nil)
@@ -970,44 +969,6 @@ struct MainView: View {
             return "\"\(name)\" will be permanently removed from this vault."
         }
         return "These files will be permanently removed from this vault."
-    }
-
-    private func verifyVaultState() {
-        guard let vaultURL = model.vaultURL else { return }
-        guard !isVerifyingVault else { return }
-
-        isVerifyingVault = true
-        let trimmedPass = model.passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        let passphrase = trimmedPass.isEmpty ? nil : trimmedPass
-        model.status = passphrase == nil
-            ? "Verifying vault structure..."
-            : "Verifying vault integrity..."
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let report = try Doctor.run(vaultURL: vaultURL, passphrase: passphrase, fix: false)
-                DispatchQueue.main.async {
-                    model.refreshStatus()
-                    let checksOK = report.headerOK && report.manifestOK && report.chunkAreaOK && report.issues.isEmpty
-                    if checksOK {
-                        if passphrase == nil {
-                            model.status = "Vault structure verified. Unlock with passphrase for deep chunk authentication."
-                        } else {
-                            model.status = "Vault integrity verified (manifest + chunk authentication)."
-                        }
-                    } else {
-                        let issue = report.issues.first ?? "One or more integrity checks failed."
-                        model.status = "Integrity warning: \(issue)"
-                    }
-                    isVerifyingVault = false
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    model.status = "Verify failed: \(error)"
-                    isVerifyingVault = false
-                }
-            }
-        }
     }
 
     private func requestDelete(fromContextEntry entry: VaultIndexEntry) {
