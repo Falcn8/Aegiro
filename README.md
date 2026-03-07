@@ -154,6 +154,11 @@ open -n dist/AegiroApp.app
 .build/release/aegiro-cli disk-encrypt --disk disk9s1 --passphrase "<recovery-pass>" --recovery ~/Backups/disk9s1.aegiro-diskkey.json
 .build/release/aegiro-cli disk-unlock --disk disk9s1 --recovery ~/Backups/disk9s1.aegiro-diskkey.json --passphrase "<recovery-pass>"
 
+# Portable encrypted container on any writable USB filesystem (exFAT/FAT/NTFS/APFS)
+.build/release/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<container-pass>"
+.build/release/aegiro-cli usb-container-mount --image /Volumes/MyUSB/aegiro-portable.sparsebundle --passphrase "<container-pass>"
+.build/release/aegiro-cli usb-container-unmount --target "/Volumes/AegiroUSB"
+
 Example text output:
 
 ```text
@@ -198,6 +203,14 @@ Example JSON output:
 - Requires ownership/admin permissions for the target disk as enforced by `diskutil`.
 
 Full step-by-step schematics, key material tables, and threat-model notes are in **[USB_ENCRYPTION_SCHEMATICS.md](USB_ENCRYPTION_SCHEMATICS.md)**.
+
+## Portable USB Container Encryption
+
+- `usb-container-create` creates an encrypted APFS sparsebundle using `hdiutil` (AES-256) at a path on your USB.
+- `usb-container-mount` mounts that encrypted container and returns its mount point/device.
+- `usb-container-unmount` detaches the mounted container by mount path or disk identifier.
+- This is the safe path for non-APFS USB formats (for example, exFAT): you keep the host filesystem and store an encrypted APFS container file on it.
+- Unlike `disk-encrypt`, this does not encrypt the physical USB block device in place.
 
 ---
 

@@ -159,4 +159,50 @@ final class AegiroCoreTests: XCTestCase {
                                                                      recoveryURL: recovery,
                                                                      dryRun: true))
     }
+
+    func testUSBContainerCreateDryRunDoesNotWriteImage() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let imageURL = tmp.appendingPathComponent("portable-vault.sparsebundle")
+        let result = try USBContainerCrypto.createEncryptedContainer(imageURL: imageURL,
+                                                                     size: "2g",
+                                                                     volumeName: "PortableVault",
+                                                                     passphrase: "test-pass",
+                                                                     dryRun: true)
+        XCTAssertTrue(result.dryRun)
+        XCTAssertEqual(result.imageURL, imageURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: imageURL.path))
+    }
+
+    func testUSBContainerAttachPlistParsing() throws {
+        let plist = """
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>system-entities</key>
+  <array>
+    <dict>
+      <key>dev-entry</key>
+      <string>/dev/disk42</string>
+    </dict>
+    <dict>
+      <key>dev-entry</key>
+      <string>/dev/disk42s1</string>
+      <key>mount-point</key>
+      <string>/Volumes/PortableVault</string>
+    </dict>
+  </array>
+</dict>
+</plist>
+"""
+        let imageURL = URL(fileURLWithPath: "/tmp/portable-vault.sparsebundle")
+        let result = try USBContainerCrypto.parseAttachResult(plistData: Data(plist.utf8), imageURL: imageURL)
+        XCTAssertEqual(result.imageURL, imageURL)
+        XCTAssertEqual(result.deviceIdentifier, "disk42s1")
+        XCTAssertEqual(result.mountPoint, "/Volumes/PortableVault")
+        XCTAssertFalse(result.dryRun)
+    }
 }

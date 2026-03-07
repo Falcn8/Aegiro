@@ -336,6 +336,93 @@ struct CLI {
             } else {
                 print("Unlock command sent for \(d).")
             }
+        case "usb-container-create":
+            var image: String?
+            var size: String?
+            var name = "Aegiro USB"
+            var pass: String = ""
+            var dryRun = false
+            var force = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--image": image = it.next()
+                case "--size": size = it.next()
+                case "--name": name = it.next() ?? name
+                case "--passphrase": pass = it.next() ?? ""
+                case "--dry-run": dryRun = true
+                case "--force": force = true
+                default: break
+                }
+            }
+            guard let i = image, let s = size, !pass.isEmpty else {
+                hint("Missing required options for usb-container-create.", tip: "Use: usb-container-create --image <path.sparsebundle> --size <size> --passphrase \"<pass>\" [--name \"<volume>\"] [--dry-run] [--force]")
+            }
+            let imageURL = URL(fileURLWithPath: NSString(string: i).expandingTildeInPath)
+            let result = try USBContainerCrypto.createEncryptedContainer(imageURL: imageURL,
+                                                                         size: s,
+                                                                         volumeName: name,
+                                                                         passphrase: pass,
+                                                                         overwrite: force,
+                                                                         dryRun: dryRun)
+            if result.dryRun {
+                print("Dry run: validated encrypted container create request.")
+            } else {
+                print("Created encrypted container image: \(result.imageURL.path)")
+            }
+        case "usb-container-mount":
+            var image: String?
+            var pass: String = ""
+            var dryRun = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--image": image = it.next()
+                case "--passphrase": pass = it.next() ?? ""
+                case "--dry-run": dryRun = true
+                default: break
+                }
+            }
+            guard let i = image, !pass.isEmpty else {
+                hint("Missing required options for usb-container-mount.", tip: "Use: usb-container-mount --image <path.sparsebundle> --passphrase \"<pass>\" [--dry-run]")
+            }
+            let result = try USBContainerCrypto.mountEncryptedContainer(imageURL: URL(fileURLWithPath: NSString(string: i).expandingTildeInPath),
+                                                                        passphrase: pass,
+                                                                        dryRun: dryRun)
+            if result.dryRun {
+                print("Dry run: validated encrypted container mount request.")
+            } else {
+                if let mountPoint = result.mountPoint {
+                    print("Mounted at: \(mountPoint)")
+                } else {
+                    print("Mounted image (mount point unavailable from hdiutil output).")
+                }
+                if let device = result.deviceIdentifier {
+                    print("Device: \(device)")
+                }
+            }
+        case "usb-container-unmount":
+            var target: String?
+            var force = false
+            var dryRun = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--target": target = it.next()
+                case "--force": force = true
+                case "--dry-run": dryRun = true
+                default: break
+                }
+            }
+            guard let t = target else {
+                hint("Missing required options for usb-container-unmount.", tip: "Use: usb-container-unmount --target <mount-point|diskX> [--force] [--dry-run]")
+            }
+            try USBContainerCrypto.unmountContainer(target: t, force: force, dryRun: dryRun)
+            if dryRun {
+                print("Dry run: validated unmount target \(t).")
+            } else {
+                print("Unmounted \(t).")
+            }
         default:
             hint("Unknown command: \(cmd)", tip: "Run --help to see available commands.")
         }
@@ -360,6 +447,9 @@ Usage:
   shred <paths...>
   disk-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
   disk-unlock --disk <diskXsY> --recovery <path.json> --passphrase "<recovery-pass>" [--dry-run]
+  usb-container-create --image <path.sparsebundle> --size <size> --passphrase "<pass>" [--name "<volume>"] [--dry-run] [--force]
+  usb-container-mount --image <path.sparsebundle> --passphrase "<pass>" [--dry-run]
+  usb-container-unmount --target <mount-point|diskX> [--force] [--dry-run]
   verify --vault <path>                    Verify manifest signature
   status --vault <path> [--passphrase "<pass>"] [--json]
 """)
