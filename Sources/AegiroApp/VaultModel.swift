@@ -564,26 +564,6 @@ final class VaultModel: ObservableObject {
         }
     }
 
-    func removeTouchIDForVault() {
-        touchActivity()
-        guard let url = vaultURL else {
-            status = "Open a vault first"
-            return
-        }
-
-        do {
-            try VaultSettings.setTouchIDEnabled(vaultURL: url, enabled: false)
-            allowTouchID = false
-            UserDefaults.standard.set(false, forKey: "allowTouchID")
-            supportsBiometricUnlock = false
-            removeBiometricPassphrase()
-            status = "Touch ID removed for this vault"
-            refreshStatus()
-        } catch {
-            status = "Touch ID removal failed: \(error)"
-        }
-    }
-
     private func touchActivity() {
         lastActivity = .now
         resetAutoLockDeadline()

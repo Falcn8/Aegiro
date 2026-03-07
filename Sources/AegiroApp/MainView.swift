@@ -351,11 +351,6 @@ struct MainView: View {
                 }
                 .disabled(model.vaultURL == nil || model.locked || model.allowTouchID || !model.biometricKeychainAvailable)
 
-                actionButton(title: "Remove Touch ID", icon: "touchid.slash") {
-                    model.removeTouchIDForVault()
-                }
-                .disabled(model.vaultURL == nil || !model.allowTouchID)
-
                 if let issue = model.biometricKeychainIssue {
                     Text(issue)
                         .font(.system(size: 11, weight: .regular))
