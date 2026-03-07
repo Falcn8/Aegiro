@@ -340,7 +340,9 @@ struct CLI {
             var image: String?
             var size: String?
             var name = "Aegiro USB"
-            var pass: String = ""
+            var recoveryPass: String = ""
+            var recovery: String?
+            var containerPass: String?
             var dryRun = false
             var force = false
             var it = args.dropFirst().makeIterator()
@@ -349,48 +351,75 @@ struct CLI {
                 case "--image": image = it.next()
                 case "--size": size = it.next()
                 case "--name": name = it.next() ?? name
-                case "--passphrase": pass = it.next() ?? ""
+                case "--passphrase": recoveryPass = it.next() ?? ""
+                case "--recovery": recovery = it.next()
+                case "--container-passphrase": containerPass = it.next()
                 case "--dry-run": dryRun = true
                 case "--force": force = true
                 default: break
                 }
             }
-            guard let i = image, let s = size, !pass.isEmpty else {
-                hint("Missing required options for usb-container-create.", tip: "Use: usb-container-create --image <path.sparsebundle> --size <size> --passphrase \"<pass>\" [--name \"<volume>\"] [--dry-run] [--force]")
+            guard let i = image, let s = size, !recoveryPass.isEmpty else {
+                hint("Missing required options for usb-container-create.", tip: "Use: usb-container-create --image <path.sparsebundle> --size <size> --passphrase \"<recovery-pass>\" [--recovery <path.json>] [--name \"<volume>\"] [--container-passphrase \"<pass>\"] [--dry-run] [--force]")
             }
             let imageURL = URL(fileURLWithPath: NSString(string: i).expandingTildeInPath)
+            let recoveryURL: URL
+            if let r = recovery {
+                recoveryURL = URL(fileURLWithPath: NSString(string: r).expandingTildeInPath)
+            } else {
+                recoveryURL = defaultUSBContainerRecoveryURL(imageURL: imageURL)
+            }
             let result = try USBContainerCrypto.createEncryptedContainer(imageURL: imageURL,
                                                                          size: s,
                                                                          volumeName: name,
-                                                                         passphrase: pass,
+                                                                         recoveryPassphrase: recoveryPass,
+                                                                         recoveryURL: recoveryURL,
                                                                          overwrite: force,
+                                                                         containerPassphrase: containerPass,
                                                                          dryRun: dryRun)
             if result.dryRun {
-                print("Dry run: validated encrypted container create request.")
+                print("Dry run: validated encrypted USB container request and PQC recovery bundle creation.")
             } else {
                 print("Created encrypted container image: \(result.imageURL.path)")
             }
+            print("PQC recovery bundle: \(result.recoveryURL.path)")
         case "usb-container-mount":
             var image: String?
-            var pass: String = ""
+            var recoveryPass: String = ""
+            var recovery: String?
+            var containerPass: String?
             var dryRun = false
             var it = args.dropFirst().makeIterator()
             while let a = it.next() {
                 switch a {
                 case "--image": image = it.next()
-                case "--passphrase": pass = it.next() ?? ""
+                case "--passphrase": recoveryPass = it.next() ?? ""
+                case "--recovery": recovery = it.next()
+                case "--container-passphrase": containerPass = it.next()
                 case "--dry-run": dryRun = true
                 default: break
                 }
             }
-            guard let i = image, !pass.isEmpty else {
-                hint("Missing required options for usb-container-mount.", tip: "Use: usb-container-mount --image <path.sparsebundle> --passphrase \"<pass>\" [--dry-run]")
+            guard let i = image else {
+                hint("Missing required options for usb-container-mount.", tip: "Use: usb-container-mount --image <path.sparsebundle> --passphrase \"<recovery-pass>\" [--recovery <path.json>] [--container-passphrase \"<pass>\"] [--dry-run]")
             }
-            let result = try USBContainerCrypto.mountEncryptedContainer(imageURL: URL(fileURLWithPath: NSString(string: i).expandingTildeInPath),
-                                                                        passphrase: pass,
+            if (containerPass?.isEmpty ?? true) && recoveryPass.isEmpty {
+                hint("Missing passphrase for usb-container-mount.", tip: "Use --passphrase for PQC recovery bundle unlock, or --container-passphrase for direct legacy mount.")
+            }
+            let imageURL = URL(fileURLWithPath: NSString(string: i).expandingTildeInPath)
+            let recoveryURL: URL
+            if let r = recovery {
+                recoveryURL = URL(fileURLWithPath: NSString(string: r).expandingTildeInPath)
+            } else {
+                recoveryURL = defaultUSBContainerRecoveryURL(imageURL: imageURL)
+            }
+            let result = try USBContainerCrypto.mountEncryptedContainer(imageURL: imageURL,
+                                                                        recoveryPassphrase: recoveryPass,
+                                                                        recoveryURL: recoveryURL,
+                                                                        containerPassphraseOverride: containerPass,
                                                                         dryRun: dryRun)
             if result.dryRun {
-                print("Dry run: validated encrypted container mount request.")
+                print("Dry run: validated encrypted USB container mount request.")
             } else {
                 if let mountPoint = result.mountPoint {
                     print("Mounted at: \(mountPoint)")
@@ -447,8 +476,8 @@ Usage:
   shred <paths...>
   disk-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
   disk-unlock --disk <diskXsY> --recovery <path.json> --passphrase "<recovery-pass>" [--dry-run]
-  usb-container-create --image <path.sparsebundle> --size <size> --passphrase "<pass>" [--name "<volume>"] [--dry-run] [--force]
-  usb-container-mount --image <path.sparsebundle> --passphrase "<pass>" [--dry-run]
+  usb-container-create --image <path.sparsebundle> --size <size> --passphrase "<recovery-pass>" [--recovery <path.json>] [--name "<volume>"] [--container-passphrase "<pass>"] [--dry-run] [--force]
+  usb-container-mount --image <path.sparsebundle> --passphrase "<recovery-pass>" [--recovery <path.json>] [--container-passphrase "<pass>"] [--dry-run]
   usb-container-unmount --target <mount-point|diskX> [--force] [--dry-run]
   verify --vault <path>                    Verify manifest signature
   status --vault <path> [--passphrase "<pass>"] [--json]
@@ -478,6 +507,13 @@ Usage:
         let safeID = diskIdentifier.replacingOccurrences(of: "/", with: "_")
         return URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
             .appendingPathComponent("\(safeID).aegiro-diskkey.json")
+    }
+
+    static func defaultUSBContainerRecoveryURL(imageURL: URL) -> URL {
+        let base = imageURL.deletingPathExtension().lastPathComponent
+        return imageURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("\(base).aegiro-usbkey.json")
     }
 }
 

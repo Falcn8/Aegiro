@@ -166,14 +166,46 @@ final class AegiroCoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let imageURL = tmp.appendingPathComponent("portable-vault.sparsebundle")
+        let recoveryURL = tmp.appendingPathComponent("portable-vault.aegiro-usbkey.json")
         let result = try USBContainerCrypto.createEncryptedContainer(imageURL: imageURL,
                                                                      size: "2g",
                                                                      volumeName: "PortableVault",
-                                                                     passphrase: "test-pass",
+                                                                     recoveryPassphrase: "test-pass",
+                                                                     recoveryURL: recoveryURL,
                                                                      dryRun: true)
         XCTAssertTrue(result.dryRun)
         XCTAssertEqual(result.imageURL, imageURL)
+        XCTAssertEqual(result.recoveryURL, recoveryURL)
         XCTAssertFalse(FileManager.default.fileExists(atPath: imageURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: recoveryURL.path))
+    }
+
+    func testUSBContainerRecoveryBundleRoundTrip() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let imageURL = tmp.appendingPathComponent("portable-vault.sparsebundle")
+        let recoveryURL = tmp.appendingPathComponent("portable-vault.aegiro-usbkey.json")
+        _ = try USBContainerCrypto.createEncryptedContainer(imageURL: imageURL,
+                                                            size: "16m",
+                                                            volumeName: "PortableVault",
+                                                            recoveryPassphrase: "bundle-pass",
+                                                            recoveryURL: recoveryURL,
+                                                            dryRun: false)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recoveryURL.path))
+
+        let recovered = try USBContainerCrypto.recoverContainerPassphrase(imageURL: imageURL,
+                                                                          recoveryPassphrase: "bundle-pass",
+                                                                          recoveryURL: recoveryURL)
+        XCTAssertFalse(recovered.isEmpty)
+        XCTAssertThrowsError(try USBContainerCrypto.recoverContainerPassphrase(imageURL: imageURL,
+                                                                                recoveryPassphrase: "wrong-pass",
+                                                                                recoveryURL: recoveryURL))
+        XCTAssertThrowsError(try USBContainerCrypto.recoverContainerPassphrase(imageURL: tmp.appendingPathComponent("other.sparsebundle"),
+                                                                                recoveryPassphrase: "bundle-pass",
+                                                                                recoveryURL: recoveryURL))
     }
 
     func testUSBContainerAttachPlistParsing() throws {

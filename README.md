@@ -154,9 +154,9 @@ open -n dist/AegiroApp.app
 .build/release/aegiro-cli disk-encrypt --disk disk9s1 --passphrase "<recovery-pass>" --recovery ~/Backups/disk9s1.aegiro-diskkey.json
 .build/release/aegiro-cli disk-unlock --disk disk9s1 --recovery ~/Backups/disk9s1.aegiro-diskkey.json --passphrase "<recovery-pass>"
 
-# Portable encrypted container on any writable USB filesystem (exFAT/FAT/NTFS/APFS)
-.build/release/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<container-pass>"
-.build/release/aegiro-cli usb-container-mount --image /Volumes/MyUSB/aegiro-portable.sparsebundle --passphrase "<container-pass>"
+# Portable encrypted container on any writable USB filesystem (exFAT/FAT/NTFS/APFS), with PQC recovery bundle
+.build/release/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<recovery-pass>" --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json
+.build/release/aegiro-cli usb-container-mount --image /Volumes/MyUSB/aegiro-portable.sparsebundle --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json --passphrase "<recovery-pass>"
 .build/release/aegiro-cli usb-container-unmount --target "/Volumes/AegiroUSB"
 
 Example text output:
@@ -206,8 +206,8 @@ Full step-by-step schematics, key material tables, and threat-model notes are in
 
 ## Portable USB Container Encryption
 
-- `usb-container-create` creates an encrypted APFS sparsebundle using `hdiutil` (AES-256) at a path on your USB.
-- `usb-container-mount` mounts that encrypted container and returns its mount point/device.
+- `usb-container-create` creates an encrypted APFS sparsebundle using `hdiutil` (AES-256) at a path on your USB, and writes a PQC recovery bundle that protects the container passphrase with Kyber + Argon2id + AEAD.
+- `usb-container-mount` recovers the container passphrase from that PQC bundle and mounts the container, returning mount point/device.
 - `usb-container-unmount` detaches the mounted container by mount path or disk identifier.
 - This is the safe path for non-APFS USB formats (for example, exFAT): you keep the host filesystem and store an encrypted APFS container file on it.
 - Unlike `disk-encrypt`, this does not encrypt the physical USB block device in place.
