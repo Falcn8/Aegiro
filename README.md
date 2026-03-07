@@ -197,6 +197,8 @@ Example JSON output:
 - Use `--dry-run` to generate/validate bundle logic without changing disk state.
 - Requires ownership/admin permissions for the target disk as enforced by `diskutil`.
 
+Full step-by-step schematics, key material tables, and threat-model notes are in **[USB_ENCRYPTION_SCHEMATICS.md](USB_ENCRYPTION_SCHEMATICS.md)**.
+
 ---
 
 ## Spec conformance (highlights)
