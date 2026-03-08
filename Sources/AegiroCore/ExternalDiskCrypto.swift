@@ -89,6 +89,10 @@ public enum ExternalDiskCrypto {
             throw AEGError.io("Missing recovery passphrase")
         }
 
+        if let fsType = (try? diskInfo(diskIdentifier))?.filesystemType?.lowercased(), fsType != "apfs" {
+            throw AEGError.io("Disk \(diskIdentifier) is not APFS (filesystem: \(fsType)). Only APFS volumes support this encryption method. To use this volume, back up your data first, then reformat the drive as APFS — reformatting will erase all existing data.")
+        }
+
         if !overwrite && FileManager.default.fileExists(atPath: recoveryURL.path) {
             throw AEGError.io("Recovery bundle already exists at \(recoveryURL.path). Use --force to overwrite.")
         }
@@ -308,13 +312,14 @@ public enum ExternalDiskCrypto {
         return options
     }
 
-    private static func isInternalPhysicalStore(_ diskIdentifier: String) throws -> Bool? {
+    private static func diskInfo(_ diskIdentifier: String) throws -> DiskInfoPlist? {
         let output = try runDiskutil(arguments: ["info", "-plist", diskIdentifier], stdinLine: nil)
-        guard let plistData = output.stdout.data(using: .utf8) else {
-            return nil
-        }
-        let decoder = PropertyListDecoder()
-        return try decoder.decode(DiskInfoPlist.self, from: plistData).isInternal
+        guard let plistData = output.stdout.data(using: .utf8) else { return nil }
+        return try PropertyListDecoder().decode(DiskInfoPlist.self, from: plistData)
+    }
+
+    private static func isInternalPhysicalStore(_ diskIdentifier: String) throws -> Bool? {
+        try diskInfo(diskIdentifier)?.isInternal
     }
 
     private static func volumeSortRank(_ option: APFSVolumeOption) -> (Int, String, String) {
@@ -457,8 +462,10 @@ private struct APFSVolumePlist: Decodable {
 
 private struct DiskInfoPlist: Decodable {
     let isInternal: Bool?
+    let filesystemType: String?
 
     private enum CodingKeys: String, CodingKey {
         case isInternal = "Internal"
+        case filesystemType = "FilesystemType"
     }
 }
