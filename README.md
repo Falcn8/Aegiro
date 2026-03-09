@@ -212,6 +212,14 @@ Full step-by-step schematics, key material tables, and threat-model notes are in
 - This is the safe path for non-APFS USB formats (for example, exFAT): you keep the host filesystem and store an encrypted APFS container file on it.
 - Unlike `disk-encrypt`, this does not encrypt the physical USB block device in place.
 
+## Non-APFS USB User-Data Encryption (App UI)
+
+- App sidebar now includes **Encrypt USB Data** for mounted non-APFS volumes.
+- It encrypts user files into a `.agvt` vault file on the same USB without reformatting the drive.
+- Known volume/system metadata paths are skipped by default (for example: `.Spotlight-V100`, `.fseventsd`, `.Trashes`, `.DS_Store`, `System Volume Information`).
+- Optional: delete original files after successful encryption.
+- This is file-level encryption workflow (not in-place block-device encryption).
+
 ---
 
 ## Spec conformance (highlights)

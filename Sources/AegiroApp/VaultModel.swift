@@ -434,6 +434,65 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func encryptNonAPFSUSBUserData(sourceRootURL: URL,
+                                   vaultURL: URL,
+                                   vaultPassphrase: String,
+                                   deleteOriginals: Bool,
+                                   dryRun: Bool) {
+        let sourceRoot = sourceRootURL.standardizedFileURL
+        let vault = vaultURL.standardizedFileURL
+        let pass = vaultPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard dryRun || !pass.isEmpty else {
+            status = "Enter a vault passphrase"
+            return
+        }
+
+        status = dryRun
+        ? "Scanning USB user data in \(sourceRoot.path)..."
+        : "Encrypting USB user data from \(sourceRoot.path)..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: sourceRoot,
+                                                                    vaultURL: vault,
+                                                                    passphrase: pass,
+                                                                    deleteOriginals: deleteOriginals,
+                                                                    dryRun: dryRun)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if result.dryRun {
+                        self.status = "Scan complete: \(result.scannedFileCount) user file(s), \(result.skippedPathCount) skipped system path(s)."
+                        return
+                    }
+
+                    var message = "Encrypted \(result.encryptedFileCount) user file(s) into \(result.vaultURL.path)."
+                    if deleteOriginals {
+                        message += " Deleted \(result.deletedOriginalCount) original file(s)."
+                        if !result.deletionErrors.isEmpty {
+                            message += " \(result.deletionErrors.count) file(s) could not be deleted."
+                        }
+                    }
+                    if result.createdVault {
+                        message += " Created vault."
+                    }
+                    self.status = message
+
+                    if self.vaultURL == nil || self.vaultURL?.standardizedFileURL.path == result.vaultURL.path {
+                        self.vaultURL = result.vaultURL
+                        self.passphrase = pass
+                        self.locked = false
+                        self.refreshStatus()
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "USB user-data encryption failed: \(error)"
+                }
+            }
+        }
+    }
+
     func startAutoLockTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in

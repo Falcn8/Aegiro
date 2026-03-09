@@ -237,4 +237,97 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(result.mountPoint, "/Volumes/PortableVault")
         XCTAssertFalse(result.dryRun)
     }
+
+    func testUSBUserDataScanSkipsSystemMetadata() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let root = tmp.appendingPathComponent("usb", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let userDir = root.appendingPathComponent("Documents", isDirectory: true)
+        try FileManager.default.createDirectory(at: userDir, withIntermediateDirectories: true)
+        let userFile = userDir.appendingPathComponent("hello.txt")
+        try Data("hello".utf8).write(to: userFile)
+
+        let spotlightDir = root.appendingPathComponent(".Spotlight-V100", isDirectory: true)
+        try FileManager.default.createDirectory(at: spotlightDir, withIntermediateDirectories: true)
+        try Data("index".utf8).write(to: spotlightDir.appendingPathComponent("store.db"))
+
+        let systemInfoDir = root.appendingPathComponent("System Volume Information", isDirectory: true)
+        try FileManager.default.createDirectory(at: systemInfoDir, withIntermediateDirectories: true)
+        try Data("system".utf8).write(to: systemInfoDir.appendingPathComponent("volume.txt"))
+
+        try Data("metadata".utf8).write(to: root.appendingPathComponent(".DS_Store"))
+
+        let scan = try USBUserDataCrypto.scanUserFiles(sourceRootURL: root)
+        XCTAssertEqual(scan.scannedFileCount, 1)
+        XCTAssertEqual(scan.files.first?.path, userFile.path)
+        XCTAssertTrue(scan.skippedPaths.contains(where: { $0.contains(".Spotlight-V100") }))
+        XCTAssertTrue(scan.skippedPaths.contains(where: { $0.contains("System Volume Information") }))
+    }
+
+    func testUSBUserDataEncryptDryRunDoesNotModifySource() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let root = tmp.appendingPathComponent("usb", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let userFile = root.appendingPathComponent("hello.txt")
+        try Data("hello".utf8).write(to: userFile)
+
+        let vaultURL = root.appendingPathComponent("userdata.agvt")
+        let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: root,
+                                                            vaultURL: vaultURL,
+                                                            passphrase: "",
+                                                            deleteOriginals: true,
+                                                            dryRun: true)
+        XCTAssertTrue(result.dryRun)
+        XCTAssertEqual(result.scannedFileCount, 1)
+        XCTAssertEqual(result.encryptedFileCount, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: userFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: vaultURL.path))
+    }
+
+    func testUSBUserDataEncryptDeletesOriginalsAfterSuccess() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let root = tmp.appendingPathComponent("usb", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let userFile = root.appendingPathComponent("hello.txt")
+        let payload = Data("secret-user-data".utf8)
+        try payload.write(to: userFile)
+
+        // System metadata should stay untouched because it is excluded.
+        let dsStore = root.appendingPathComponent(".DS_Store")
+        try Data("metadata".utf8).write(to: dsStore)
+
+        let vaultURL = root.appendingPathComponent("userdata.agvt")
+        let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: root,
+                                                            vaultURL: vaultURL,
+                                                            passphrase: "test-pass",
+                                                            deleteOriginals: true,
+                                                            dryRun: false)
+        XCTAssertFalse(result.dryRun)
+        XCTAssertEqual(result.scannedFileCount, 1)
+        XCTAssertEqual(result.encryptedFileCount, 1)
+        XCTAssertEqual(result.deletedOriginalCount, 1)
+        XCTAssertTrue(result.deletionErrors.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: userFile.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dsStore.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: vaultURL.path))
+
+        let listed = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        XCTAssertEqual(listed.count, 1)
+
+        let outDir = tmp.appendingPathComponent("out", isDirectory: true)
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        XCTAssertEqual(exported.count, 1)
+        let restored = outDir.appendingPathComponent("hello.txt")
+        XCTAssertEqual(try Data(contentsOf: restored), payload)
+    }
 }

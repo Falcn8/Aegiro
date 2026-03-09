@@ -68,6 +68,7 @@ Main window uses a three-zone shell:
 - Security card keeps one integrity entry point (`Check Integrity`) that opens the doctor sheet, plus Touch ID enable action.
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
 - Sheets include mounted non-APFS volumes inline in the same list as gray, disabled rows so users can see them but cannot select them.
+- Added "Encrypt USB Data" sheet for mounted non-APFS volumes: encrypts only user files into a `.agvt` vault file on the USB, skips known filesystem metadata, and can optionally delete originals after successful import.
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.

@@ -12,6 +12,7 @@ struct MainView: View {
     @State private var showCreateVaultSheet = false
     @State private var showDiskEncryptSheet = false
     @State private var showDiskUnlockSheet = false
+    @State private var showUSBUserDataEncryptSheet = false
     @State private var showDoctorSheet = false
     @State private var showFileInfoPopover = false
 
@@ -91,6 +92,12 @@ struct MainView: View {
         .sheet(isPresented: $showDiskUnlockSheet) {
             DiskUnlockSheet {
                 showDiskUnlockSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showUSBUserDataEncryptSheet) {
+            USBUserDataEncryptSheet {
+                showUSBUserDataEncryptSheet = false
             }
             .environmentObject(model)
         }
@@ -369,6 +376,10 @@ struct MainView: View {
         card {
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("External Disk")
+
+                actionButton(title: "Encrypt USB Data", icon: "folder.badge.lock") {
+                    showUSBUserDataEncryptSheet = true
+                }
 
                 actionButton(title: "Encrypt Disk", icon: "externaldrive.badge.plus") {
                     showDiskEncryptSheet = true
@@ -1730,6 +1741,250 @@ private struct DiskUnlockSheet: View {
         guard trimmed.isEmpty else { return }
         guard let preferred = preferredAPFSVolumeIdentifier(from: model.apfsVolumeOptions) else { return }
         diskIdentifier = preferred
+    }
+}
+
+private struct USBUserDataEncryptSheet: View {
+    @EnvironmentObject var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedMountPoint = ""
+    @State private var sourcePath = ""
+    @State private var vaultPath = ""
+    @State private var passphrase = ""
+    @State private var confirmPassphrase = ""
+    @State private var lastSuggestedSourcePath = ""
+    @State private var lastSuggestedVaultPath = ""
+    @State private var deleteOriginals = false
+    @State private var dryRun = false
+
+    var onDone: () -> Void
+
+    private var volumes: [MountedNonAPFSVolume] {
+        model.mountedNonAPFSVolumes
+    }
+
+    private var canSubmit: Bool {
+        let pathsReady = !selectedMountPoint.isEmpty
+        && !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        if dryRun {
+            return pathsReady
+        }
+        return pathsReady
+        && passphrase.count >= 8
+        && passphrase == confirmPassphrase
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Encrypt USB User Data")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("For non-APFS USB drives: encrypt user files into an Aegiro vault file without changing the USB format.")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            formLabel("Mounted Non-APFS Volume")
+            if volumes.isEmpty {
+                Text("No mounted non-APFS USB volumes found.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            } else {
+                Picker("Mounted Non-APFS Volume", selection: $selectedMountPoint) {
+                    Text("Select mounted volume").tag("")
+                    ForEach(volumes, id: \.mountPoint) { volume in
+                        Text("\(volume.mountPoint) (\(volume.filesystemType.uppercased()))").tag(volume.mountPoint)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            formLabel("Source Folder to Encrypt")
+            HStack(spacing: 8) {
+                TextField("/Volumes/MyUSB", text: $sourcePath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseSourceFolder() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Vault File on USB")
+            HStack(spacing: 8) {
+                TextField("/Volumes/MyUSB/MyUSB-userdata.agvt", text: $vaultPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseVaultPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Vault Passphrase")
+            SecureField(dryRun ? "Optional for scan-only" : "At least 8 characters", text: $passphrase)
+                .textFieldStyle(.roundedBorder)
+
+            formLabel("Confirm Passphrase")
+            SecureField(dryRun ? "Optional for scan-only" : "Repeat passphrase", text: $confirmPassphrase)
+                .textFieldStyle(.roundedBorder)
+
+            Toggle("Dry run only (scan user files without encrypting)", isOn: $dryRun)
+            Toggle("Delete original files after successful encryption", isOn: $deleteOriginals)
+                .disabled(dryRun)
+
+            Text("System USB metadata is skipped automatically (.Spotlight-V100, .fseventsd, .Trashes, .DS_Store, System Volume Information).")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(AegiroPalette.textMuted)
+
+            if !dryRun && passphrase != confirmPassphrase && !confirmPassphrase.isEmpty {
+                Text("Passphrases do not match.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.dangerRed)
+            }
+
+            HStack {
+                Spacer()
+                Button("Refresh Volumes") {
+                    model.refreshAPFSVolumeOptions()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Cancel") {
+                    dismiss()
+                }
+
+                Button(dryRun ? "Scan User Data" : "Encrypt User Data") {
+                    startEncrypt()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
+                .disabled(!canSubmit)
+            }
+        }
+        .padding(24)
+        .frame(width: 700)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            model.refreshAPFSVolumeOptions()
+            applyAutoSelectionIfNeeded(force: true)
+        }
+        .onChange(of: model.mountedNonAPFSVolumes) { _ in
+            applyAutoSelectionIfNeeded(force: false)
+        }
+        .onChange(of: selectedMountPoint) { _ in
+            syncSuggestedPaths(force: false)
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func applyAutoSelectionIfNeeded(force: Bool) {
+        if force || selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !volumes.contains(where: { $0.mountPoint == selectedMountPoint }) {
+            selectedMountPoint = volumes.first?.mountPoint ?? ""
+        }
+        syncSuggestedPaths(force: force)
+    }
+
+    private func syncSuggestedPaths(force: Bool) {
+        let mount = selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !mount.isEmpty else { return }
+
+        let suggestedSource = mount
+        if force || sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sourcePath == lastSuggestedSourcePath {
+            sourcePath = suggestedSource
+        }
+        lastSuggestedSourcePath = suggestedSource
+
+        let suggestedVault = defaultVaultPath(for: mount)
+        if force || vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || vaultPath == lastSuggestedVaultPath {
+            vaultPath = suggestedVault
+        }
+        lastSuggestedVaultPath = suggestedVault
+    }
+
+    private func defaultVaultPath(for mountPoint: String) -> String {
+        let label = (mountPoint as NSString).lastPathComponent
+        let base = label.isEmpty ? "USB" : label
+        return URL(fileURLWithPath: mountPoint, isDirectory: true)
+            .appendingPathComponent("\(base)-userdata.agvt")
+            .path
+    }
+
+    private func chooseSourceFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Source Folder to Encrypt"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        if !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: NSString(string: sourcePath).expandingTildeInPath, isDirectory: true)
+        } else if !selectedMountPoint.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: selectedMountPoint, isDirectory: true)
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            sourcePath = url.path
+        }
+    }
+
+    private func chooseVaultPath() {
+        let panel = NSSavePanel()
+        panel.title = "Choose Vault File"
+        panel.nameFieldStringValue = (defaultVaultPath(for: selectedMountPoint) as NSString).lastPathComponent
+        panel.allowedContentTypes = [UTType(filenameExtension: "agvt") ?? .data]
+        if !selectedMountPoint.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: selectedMountPoint, isDirectory: true)
+        }
+        if panel.runModal() == .OK, var url = panel.url {
+            if url.pathExtension.lowercased() != "agvt" {
+                url.appendPathExtension("agvt")
+            }
+            vaultPath = url.path
+        }
+    }
+
+    private func startEncrypt() {
+        let source = URL(fileURLWithPath: NSString(string: sourcePath).expandingTildeInPath, isDirectory: true).standardizedFileURL
+        let vault = URL(fileURLWithPath: NSString(string: vaultPath).expandingTildeInPath).standardizedFileURL
+        let mount = selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !mount.isEmpty else {
+            model.status = "Select a mounted non-APFS volume"
+            return
+        }
+
+        let mountRoot = URL(fileURLWithPath: mount, isDirectory: true).standardizedFileURL.path
+        let mountPrefix = mountRoot.hasSuffix("/") ? mountRoot : mountRoot + "/"
+        guard source.path == mountRoot || source.path.hasPrefix(mountPrefix) else {
+            model.status = "Source folder must be inside \(mountRoot)"
+            return
+        }
+        guard vault.path == mountRoot || vault.path.hasPrefix(mountPrefix) else {
+            model.status = "Vault file must be inside \(mountRoot)"
+            return
+        }
+
+        if !dryRun {
+            guard passphrase.count >= 8 else {
+                model.status = "Passphrase must be at least 8 characters"
+                return
+            }
+            guard passphrase == confirmPassphrase else {
+                model.status = "Passphrases do not match"
+                return
+            }
+        }
+
+        model.encryptNonAPFSUSBUserData(sourceRootURL: source,
+                                        vaultURL: vault,
+                                        vaultPassphrase: passphrase,
+                                        deleteOriginals: deleteOriginals && !dryRun,
+                                        dryRun: dryRun)
+        onDone()
+        dismiss()
     }
 }
 
