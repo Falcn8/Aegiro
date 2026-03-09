@@ -36,6 +36,7 @@ bash scripts/build-real.sh
 - **AegiroApp** (SwiftUI stubs): First-run flow, main UI, menubar helper, Settings — wired to core APIs (dev-mode). XPC/LaunchAgent stubs included.
 - **Entitlements & Hardened Runtime**: prefilled.
 - **Tests**: Acceptance checks (some are integration stubs pending REAL_CRYPTO).
+- **AGVT v2 Draft Spec**: Portable format and command contract baseline in `SPEC_AGVT_V2.md`.
 
 This repo follows the plan you provided (sections 0–23).
 
