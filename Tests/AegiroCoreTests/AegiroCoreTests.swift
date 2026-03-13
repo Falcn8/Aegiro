@@ -107,6 +107,41 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 1)
     }
 
+    func testDeleteEntriesRemovesOnlyTargets() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let f1 = tmp.appendingPathComponent("one.txt")
+        let f2 = tmp.appendingPathComponent("two.txt")
+        let d1 = Data("hello-one".utf8)
+        let d2 = Data("hello-two".utf8)
+        try d1.write(to: f1)
+        try d2.write(to: f2)
+
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1, f2])
+        XCTAssertEqual(imported.imported, 2)
+        XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 2)
+
+        let removed = try Editor.deleteEntries(vaultURL: vaultURL,
+                                               passphrase: "test-pass",
+                                               logicalPaths: [f1.path])
+        XCTAssertEqual(removed, 1)
+
+        let entries = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?.logicalPath, f2.path)
+
+        let outDir = tmp.appendingPathComponent("out", isDirectory: true)
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        XCTAssertEqual(exported.count, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outDir.appendingPathComponent("one.txt").path))
+        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("two.txt")), d2)
+    }
+
     func testPQCBundleRequiredForUnlockOnNewVault() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

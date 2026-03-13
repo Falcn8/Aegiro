@@ -32,7 +32,7 @@ bash scripts/build-real.sh
 ## What’s here
 
 - **AegiroCore** (Swift library): Vault header/index/manifest per spec, chunked AES-256-GCM I/O, nonce scheme, wrappers for KDF & PQC, secure preview temp policy, shredder, privacy monitor, “secure lock” scriptables, zero-telemetry guard.
-- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`, `disk-encrypt`, `disk-unlock`.
+- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `delete`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`, `disk-encrypt`, `disk-unlock`.
 - **AegiroApp** (SwiftUI stubs): First-run flow, main UI, menubar helper, Settings — wired to core APIs (dev-mode). XPC/LaunchAgent stubs included.
 - **Entitlements & Hardened Runtime**: prefilled.
 - **Tests**: Acceptance checks (some are integration stubs pending REAL_CRYPTO).
@@ -123,6 +123,9 @@ open -n dist/AegiroApp.app
 
 # Import files (direct encrypted write)
 .build/release/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" ~/Downloads/tax.pdf ~/Desktop/passport.jpg
+
+# Delete logical paths from vault
+.build/release/aegiro-cli delete --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" /Users/me/Downloads/tax.pdf
 
 # Lock (legacy staged-data cleanup/import) / unlock
 .build/release/aegiro-cli lock --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"

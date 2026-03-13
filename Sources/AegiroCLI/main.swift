@@ -64,6 +64,29 @@ struct CLI {
             let vpath = NSString(string: p).expandingTildeInPath
             let (imported, _) = try Importer.sidecarImport(vaultURL: URL(fileURLWithPath: vpath), passphrase: pass, files: files.map { URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath) })
             print("Imported \(imported) file(s) directly into encrypted vault.")
+        case "delete":
+            var path: String?
+            var pass: String = ""
+            var logicalPaths: [String] = []
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--vault": path = it.next()
+                case "--passphrase": pass = it.next() ?? ""
+                default:
+                    logicalPaths.append(a)
+                }
+            }
+            guard let p = path, !pass.isEmpty else {
+                hint("Missing required options for delete.", tip: "Use: delete --vault <path> --passphrase \"<pass>\" <logical-paths...>")
+            }
+            guard !logicalPaths.isEmpty else {
+                hint("No logical paths provided to delete.", tip: "Use: delete --vault <path> --passphrase \"<pass>\" <logical-paths...>")
+            }
+            let removed = try Editor.deleteEntries(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath),
+                                                   passphrase: pass,
+                                                   logicalPaths: logicalPaths)
+            print("Deleted \(removed) file(s) from vault.")
         case "unlock":
             var path: String?
             var pass: String = ""
@@ -465,6 +488,7 @@ Usage:
   --help    | help                         Show this help
   create --vault <path.agvt> --passphrase "<pass>" [--touchid]
   import --vault <path> --passphrase "<pass>" <files...>
+  delete --vault <path> --passphrase "<pass>" <logical-paths...>
   lock --vault <path> --passphrase "<pass>"
   unlock --vault <path> --passphrase "<pass>"
   list --vault <path> --passphrase "<pass>"
