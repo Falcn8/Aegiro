@@ -481,6 +481,10 @@ Usage:
   usb-container-unmount --target <mount-point|diskX> [--force] [--dry-run]
   verify --vault <path>                    Verify manifest signature
   status --vault <path> [--passphrase "<pass>"] [--json]
+
+Limits:
+  Max files per vault: 50000 by default.
+  Override: set AEGIRO_MAX_FILES_PER_VAULT=<positive-int>.
 """)
     }
 

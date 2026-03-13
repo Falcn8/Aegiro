@@ -323,8 +323,17 @@ private func mergeImportedPlainItems(vaultURL: URL,
     let idxBlobOld = data.subdata(in: layout.idxRange)
     var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
 
-    // Preserve existing encrypted chunks except for paths being replaced.
     let replacingPaths = Set(items.map { $0.path })
+    let replacedCount = index.entries.reduce(into: 0) { count, entry in
+        if replacingPaths.contains(entry.logicalPath) {
+            count += 1
+        }
+    }
+    try VaultLimits.enforceProjectedFileCount(existingCount: index.entries.count,
+                                              replacedCount: replacedCount,
+                                              addingCount: items.count)
+
+    // Preserve existing encrypted chunks except for paths being replaced.
     let existingCM = data.subdata(in: layout.chunkMapRange)
     let existingChunks = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
     let existingArea = data.subdata(in: layout.chunkAreaStart..<data.count)

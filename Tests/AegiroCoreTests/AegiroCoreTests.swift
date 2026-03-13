@@ -79,6 +79,34 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: result.sidecar.path))
     }
 
+    func testImportRejectsWhenVaultFileLimitWouldBeExceeded() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let previous = VaultLimits.testOverrideMaxFilesPerVault
+        VaultLimits.testOverrideMaxFilesPerVault = 1
+        defer { VaultLimits.testOverrideMaxFilesPerVault = previous }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let f1 = tmp.appendingPathComponent("one.txt")
+        let f2 = tmp.appendingPathComponent("two.txt")
+        try Data("one".utf8).write(to: f1)
+        try Data("two".utf8).write(to: f2)
+
+        let first = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1])
+        XCTAssertEqual(first.imported, 1)
+        XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 1)
+
+        XCTAssertThrowsError(try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f2])) { error in
+            let msg = String(describing: error)
+            XCTAssertTrue(msg.contains("Vault file limit exceeded"))
+        }
+        XCTAssertEqual(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").count, 1)
+    }
+
     func testPQCBundleRequiredForUnlockOnNewVault() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
