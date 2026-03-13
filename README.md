@@ -214,6 +214,7 @@ Example JSON output:
 - Requires ownership/admin permissions for the target disk as enforced by `diskutil`.
 
 Full step-by-step schematics, key material tables, and threat-model notes are in **[USB_ENCRYPTION_SCHEMATICS.md](USB_ENCRYPTION_SCHEMATICS.md)**.
+Diagram view (including before/after drive file trees) is in **[USB_ENCRYPTION_DIAGRAMS.md](USB_ENCRYPTION_DIAGRAMS.md)**.
 
 ## Portable USB Container Encryption
 
