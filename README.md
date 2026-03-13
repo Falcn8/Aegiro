@@ -80,7 +80,7 @@ aegiro --help
 Checksum for the current archive:
 
 ```
-916cb63da045a1dbcbd775cd13bbe7367b8280294ba0f484282ce2b5a0b0d8b5  dist/aegiro-cli-macos-arm64.tar.gz
+87f62e9afde9cfd8c4ea3cc467a9a959ac4ad1bb09659b0b17ef6eede82c6adc  dist/aegiro-cli-macos-arm64.tar.gz
 ```
 
 ### REAL_CRYPTO build (Argon2id + liboqs)
