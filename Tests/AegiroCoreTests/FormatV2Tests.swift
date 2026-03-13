@@ -93,4 +93,11 @@ final class FormatV2Tests: XCTestCase {
         let truncated = Data(repeating: 0, count: AGVTV2.recordHeaderSize - 1)
         XCTAssertThrowsError(try AGVTV2RecordHeader.decode(from: truncated))
     }
+
+    func testV2DefaultMaxSegmentsGuardrail() throws {
+        XCTAssertEqual(AGVTV2.defaultMaxSegmentsPerVault, 4_096)
+        XCTAssertEqual(AGVTV2.maxSegmentsPerVault, AGVTV2.defaultMaxSegmentsPerVault)
+        XCTAssertNoThrow(try AGVTV2.enforceSegmentCount(existing: 4_095, adding: 1))
+        XCTAssertThrowsError(try AGVTV2.enforceSegmentCount(existing: 4_096, adding: 1))
+    }
 }

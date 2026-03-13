@@ -253,6 +253,12 @@ Minimum acceptance:
   - new passphrase accepted
   - data unchanged
 
+Guardrails:
+
+- Max segments per vault (default): `4096`.
+- Segment writers must reject commits that would exceed this cap.
+- Optional runtime override may be provided for controlled advanced use.
+
 ## 16. Migration from Current `.agvt` (v1)
 
 - Implement read support for current format.

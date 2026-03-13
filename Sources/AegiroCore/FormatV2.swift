@@ -4,9 +4,27 @@ public enum AGVTV2 {
     public static let superblockSize = 4096
     public static let dualSuperblockSize = superblockSize * 2
     public static let recordHeaderSize = 20
+    public static let defaultMaxSegmentsPerVault = 4_096
+    public static let maxSegmentsEnvKey = "AEGIRO_MAX_SEGMENTS_PER_VAULT"
 
     // Matches SPEC_AGVT_V2.md draft bytes; revisit only with coordinated format bump.
     public static let superblockMagic = Data([0x41, 0x47, 0x56, 0x54, 0x32, 0x00, 0x00, 0x01]) // "AGVT2\0\0\1"
+
+    public static var maxSegmentsPerVault: Int {
+        if let raw = ProcessInfo.processInfo.environment[maxSegmentsEnvKey],
+           let parsed = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+           parsed > 0 {
+            return parsed
+        }
+        return defaultMaxSegmentsPerVault
+    }
+
+    public static func enforceSegmentCount(existing: Int, adding: Int = 0) throws {
+        let projected = existing + adding
+        guard projected <= maxSegmentsPerVault else {
+            throw AEGError.io("AGVTV2 segment limit exceeded: \(projected) would exceed max \(maxSegmentsPerVault).")
+        }
+    }
 }
 
 public struct AGVTV2Superblock: Equatable, Sendable {
