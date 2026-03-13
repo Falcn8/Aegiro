@@ -2,7 +2,7 @@ import Foundation
 
 public enum VaultLimits {
     // Practical default for JSON index size/perf while allowing large personal archives.
-    public static let defaultMaxFilesPerVault = 50_000
+    public static let defaultMaxFilesPerVault = 10_000
 
     // Optional runtime override for power users and testing.
     public static let maxFilesEnvKey = "AEGIRO_MAX_FILES_PER_VAULT"

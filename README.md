@@ -196,7 +196,7 @@ Example JSON output:
 ## Vault File-Count Limit
 
 - Aegiro enforces a maximum number of files (index entries) per vault file.
-- Default limit: **50,000** files per vault.
+- Default limit: **10,000** files per vault.
 - Runtime override: set `AEGIRO_MAX_FILES_PER_VAULT=<positive-int>` before running CLI commands.
 - Imports that would exceed the cap fail before any new encrypted chunks are written.
 

@@ -483,7 +483,7 @@ Usage:
   status --vault <path> [--passphrase "<pass>"] [--json]
 
 Limits:
-  Max files per vault: 50000 by default.
+  Max files per vault: \(VaultLimits.defaultMaxFilesPerVault) by default.
   Override: set AEGIRO_MAX_FILES_PER_VAULT=<positive-int>.
 """)
     }
