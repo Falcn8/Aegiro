@@ -61,6 +61,7 @@ struct AegiroAppMain: App {
                         .environmentObject(model)
                 }
             }
+            .frame(minWidth: 1080, minHeight: 720)
             .font(AegiroTypography.body(13))
             .preferredColorScheme(.dark)
         }

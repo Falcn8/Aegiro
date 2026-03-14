@@ -34,74 +34,17 @@ struct FirstRunView: View {
 
     var body: some View {
         ZStack {
-            heroBackground
+            backgroundLayer
 
-            LinearGradient(
-                colors: [
-                    AegiroPalette.backgroundMain.opacity(0.42),
-                    AegiroPalette.backgroundMain.opacity(0.86)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            VStack(spacing: 24) {
-                VStack(spacing: 10) {
-                    Text("Encrypted Local Vault")
-                        .font(AegiroTypography.display(20, weight: .medium))
-                        .foregroundStyle(AegiroPalette.textSecondary)
-
-                    Text("Your files never leave your device.")
-                        .font(AegiroTypography.body(14, weight: .regular))
-                        .foregroundStyle(AegiroPalette.textSecondary)
-                }
-
-                HStack(spacing: 12) {
-                    Button("Create Vault") {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            showCreateForm = true
-                            errorText = nil
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(AegiroPalette.accentIndigo)
-
-                    Button("Open Existing") {
-                        openExisting()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Encrypt Disk") {
-                        showDiskEncryptSheet = true
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                if showCreateForm {
-                    createForm
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-
-                if let errorText {
-                    Text(errorText)
-                        .font(AegiroTypography.body(12, weight: .regular))
-                        .foregroundStyle(AegiroPalette.dangerRed)
-                }
-
-                Text("Uses Argon2id, AES-256-GCM, and Post-Quantum Cryptography.")
-                    .font(AegiroTypography.body(12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.textMuted)
+            VStack(spacing: 20) {
+                heroShowcase
+                Spacer(minLength: 12)
+                actionCard
             }
-            .padding(28)
-            .frame(width: 640)
-            .background(AegiroPalette.backgroundCard.opacity(0.78), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
-            )
-            .padding(32)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 24)
         }
+        .frame(minWidth: 1080, minHeight: 720)
         .onAppear {
             touchIDEnabled = model.supportsBiometricUnlock && model.biometricKeychainAvailable && model.allowTouchID
         }
@@ -113,19 +56,89 @@ struct FirstRunView: View {
         }
     }
 
-    private var heroBackground: some View {
+    private var backgroundLayer: some View {
+        LinearGradient(
+            colors: [
+                AegiroPalette.backgroundMain,
+                AegiroPalette.backgroundPanel
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+    }
+
+    private var heroShowcase: some View {
         Group {
             if let image = AegiroResourceLocator.image(named: "LandingHero") {
                 Image(nsImage: image)
                     .resizable()
-                    .scaledToFill()
+                    .scaledToFit()
             } else {
                 Rectangle()
-                    .fill(AegiroPalette.backgroundMain)
+                    .fill(AegiroPalette.backgroundPanel)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
+        .frame(maxWidth: 920, maxHeight: 360)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private var actionCard: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 10) {
+                Text("Encrypted Local Vault")
+                    .font(AegiroTypography.display(20, weight: .medium))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+
+                Text("Your files never leave your device.")
+                    .font(AegiroTypography.body(14, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+            }
+
+            HStack(spacing: 12) {
+                Button("Create Vault") {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        showCreateForm = true
+                        errorText = nil
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
+
+                Button("Open Existing") {
+                    openExisting()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Encrypt Disk") {
+                    showDiskEncryptSheet = true
+                }
+                .buttonStyle(.bordered)
+            }
+
+            if showCreateForm {
+                createForm
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if let errorText {
+                Text(errorText)
+                    .font(AegiroTypography.body(12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.dangerRed)
+            }
+
+            Text("Uses Argon2id, AES-256-GCM, and Post-Quantum Cryptography.")
+                .font(AegiroTypography.body(12, weight: .regular))
+                .foregroundStyle(AegiroPalette.textMuted)
+        }
+        .padding(28)
+        .frame(maxWidth: 760)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(AegiroPalette.backgroundCard.opacity(0.92), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+        )
     }
 
     private var createForm: some View {
