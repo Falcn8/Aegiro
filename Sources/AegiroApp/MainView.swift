@@ -13,6 +13,7 @@ struct MainView: View {
     @State private var showDiskEncryptSheet = false
     @State private var showDiskUnlockSheet = false
     @State private var showUSBUserDataEncryptSheet = false
+    @State private var preferredUSBUserDataMountPoint: String?
     @State private var showDoctorSheet = false
     @State private var showFileInfoPopover = false
 
@@ -86,7 +87,8 @@ struct MainView: View {
         .sheet(isPresented: $showDiskEncryptSheet) {
             DiskEncryptSheet {
                 showDiskEncryptSheet = false
-            } onOpenUSBDataEncrypt: {
+            } onOpenUSBDataEncrypt: { mountPoint in
+                preferredUSBUserDataMountPoint = mountPoint
                 showUSBUserDataEncryptSheet = true
             }
             .environmentObject(model)
@@ -94,11 +96,14 @@ struct MainView: View {
         .sheet(isPresented: $showDiskUnlockSheet) {
             DiskUnlockSheet {
                 showDiskUnlockSheet = false
+            } onOpenUSBDataEncrypt: { mountPoint in
+                preferredUSBUserDataMountPoint = mountPoint
+                showUSBUserDataEncryptSheet = true
             }
             .environmentObject(model)
         }
         .sheet(isPresented: $showUSBUserDataEncryptSheet) {
-            USBUserDataEncryptSheet {
+            USBUserDataEncryptSheet(preferredMountPoint: preferredUSBUserDataMountPoint) {
                 showUSBUserDataEncryptSheet = false
             }
             .environmentObject(model)
@@ -143,6 +148,11 @@ struct MainView: View {
             showUnlockSheet = false
         }
         .onReceive(model.$status) { updateToast(with: $0) }
+        .onChange(of: showUSBUserDataEncryptSheet) { isPresented in
+            if !isPresented {
+                preferredUSBUserDataMountPoint = nil
+            }
+        }
         .onChange(of: selection) { newSelection in
             if newSelection.isEmpty {
                 selectionAnchor = nil
@@ -1493,7 +1503,7 @@ private struct DiskEncryptSheet: View {
     @State private var overwrite = false
 
     var onDone: () -> Void
-    var onOpenUSBDataEncrypt: () -> Void
+    var onOpenUSBDataEncrypt: (String?) -> Void
 
     private var canSubmit: Bool {
         !diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1516,21 +1526,12 @@ private struct DiskEncryptSheet: View {
                 options: model.apfsVolumeOptions,
                 nonAPFSVolumes: model.mountedNonAPFSVolumes,
                 isLoading: model.apfsVolumeOptionsLoading,
-                errorMessage: model.apfsVolumeOptionsError
+                errorMessage: model.apfsVolumeOptionsError,
+                onSelectNonAPFSVolume: { volume in
+                    openUSBDataEncryptFlow(mountPoint: volume.mountPoint)
+                }
             ) {
                 model.refreshAPFSVolumeOptions()
-            }
-
-            if !model.mountedNonAPFSVolumes.isEmpty {
-                HStack(spacing: 8) {
-                    Text("Non-APFS USB detected?")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(AegiroPalette.textSecondary)
-                    Button("Encrypt USB Data") {
-                        openUSBDataEncryptFlow()
-                    }
-                    .buttonStyle(.bordered)
-                }
             }
 
             formLabel("Selected APFS Volume Identifier")
@@ -1636,10 +1637,10 @@ private struct DiskEncryptSheet: View {
         dismiss()
     }
 
-    private func openUSBDataEncryptFlow() {
+    private func openUSBDataEncryptFlow(mountPoint: String?) {
         dismiss()
         DispatchQueue.main.async {
-            onOpenUSBDataEncrypt()
+            onOpenUSBDataEncrypt(mountPoint)
         }
     }
 }
@@ -1654,6 +1655,7 @@ private struct DiskUnlockSheet: View {
     @State private var dryRun = false
 
     var onDone: () -> Void
+    var onOpenUSBDataEncrypt: (String?) -> Void
 
     private var canSubmit: Bool {
         !diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1676,7 +1678,10 @@ private struct DiskUnlockSheet: View {
                 options: model.apfsVolumeOptions,
                 nonAPFSVolumes: model.mountedNonAPFSVolumes,
                 isLoading: model.apfsVolumeOptionsLoading,
-                errorMessage: model.apfsVolumeOptionsError
+                errorMessage: model.apfsVolumeOptionsError,
+                onSelectNonAPFSVolume: { volume in
+                    openUSBDataEncryptFlow(mountPoint: volume.mountPoint)
+                }
             ) {
                 model.refreshAPFSVolumeOptions()
             }
@@ -1760,6 +1765,13 @@ private struct DiskUnlockSheet: View {
         guard let preferred = preferredAPFSVolumeIdentifier(from: model.apfsVolumeOptions) else { return }
         diskIdentifier = preferred
     }
+
+    private func openUSBDataEncryptFlow(mountPoint: String?) {
+        dismiss()
+        DispatchQueue.main.async {
+            onOpenUSBDataEncrypt(mountPoint)
+        }
+    }
 }
 
 private struct USBUserDataEncryptSheet: View {
@@ -1776,6 +1788,7 @@ private struct USBUserDataEncryptSheet: View {
     @State private var deleteOriginals = false
     @State private var dryRun = false
 
+    let preferredMountPoint: String?
     var onDone: () -> Void
 
     private var volumes: [MountedNonAPFSVolume] {
@@ -1899,8 +1912,17 @@ private struct USBUserDataEncryptSheet: View {
     }
 
     private func applyAutoSelectionIfNeeded(force: Bool) {
-        if force || selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || !volumes.contains(where: { $0.mountPoint == selectedMountPoint }) {
+        let preferredTrimmed = preferredMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let currentTrimmed = selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentIsValid = !currentTrimmed.isEmpty && volumes.contains(where: { $0.mountPoint == currentTrimmed })
+
+        if !preferredTrimmed.isEmpty, volumes.contains(where: { $0.mountPoint == preferredTrimmed }), (force || !currentIsValid) {
+            selectedMountPoint = preferredTrimmed
+            syncSuggestedPaths(force: true)
+            return
+        }
+
+        if force || !currentIsValid {
             selectedMountPoint = volumes.first?.mountPoint ?? ""
         }
         syncSuggestedPaths(force: force)
@@ -2026,6 +2048,7 @@ private struct APFSVolumeOptionsPanel: View {
     let nonAPFSVolumes: [MountedNonAPFSVolume]
     let isLoading: Bool
     let errorMessage: String?
+    var onSelectNonAPFSVolume: ((MountedNonAPFSVolume) -> Void)?
     var refresh: () -> Void
     @State private var showAllVolumes = false
 
@@ -2151,31 +2174,66 @@ private struct APFSVolumeOptionsPanel: View {
                                 }
                                 .buttonStyle(.plain)
                             case .nonAPFS(let volume):
-                                HStack(alignment: .top, spacing: 10) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack(spacing: 6) {
-                                            Text(volume.mountPoint)
-                                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                                                .foregroundStyle(AegiroPalette.textMuted)
-                                            badge(text: "Not APFS", color: AegiroPalette.textMuted)
+                                if let onSelectNonAPFSVolume {
+                                    Button {
+                                        onSelectNonAPFSVolume(volume)
+                                    } label: {
+                                        HStack(alignment: .top, spacing: 10) {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                HStack(spacing: 6) {
+                                                    Text(volume.mountPoint)
+                                                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                                        .foregroundStyle(AegiroPalette.textPrimary)
+                                                    badge(text: "Not APFS", color: AegiroPalette.warningAmber)
+                                                }
+                                                Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
+                                                    .font(.system(size: 11, weight: .regular))
+                                                    .foregroundStyle(AegiroPalette.textSecondary)
+                                            }
+                                            Spacer(minLength: 8)
+                                            Image(systemName: "arrow.up.right.square")
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundStyle(AegiroPalette.accentIndigo)
                                         }
-                                        Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
-                                            .font(.system(size: 11, weight: .regular))
-                                            .foregroundStyle(AegiroPalette.textMuted)
+                                        .padding(10)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .fill(AegiroPalette.backgroundCard)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                                        )
                                     }
-                                    Spacer(minLength: 8)
+                                    .buttonStyle(.plain)
+                                } else {
+                                    HStack(alignment: .top, spacing: 10) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack(spacing: 6) {
+                                                Text(volume.mountPoint)
+                                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                                    .foregroundStyle(AegiroPalette.textMuted)
+                                                badge(text: "Not APFS", color: AegiroPalette.textMuted)
+                                            }
+                                            Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
+                                                .font(.system(size: 11, weight: .regular))
+                                                .foregroundStyle(AegiroPalette.textMuted)
+                                        }
+                                        Spacer(minLength: 8)
+                                    }
+                                    .padding(10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(AegiroPalette.backgroundCard.opacity(0.65))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+                                    )
+                                    .opacity(0.72)
                                 }
-                                .padding(10)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(AegiroPalette.backgroundCard.opacity(0.65))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
-                                )
-                                .opacity(0.72)
                             }
                         }
                     }
@@ -2183,7 +2241,7 @@ private struct APFSVolumeOptionsPanel: View {
                 .frame(minHeight: 120, maxHeight: 180)
             }
             if !nonAPFSVolumes.isEmpty {
-                Text("Gray rows are mounted but not APFS. Use Aegiro vault-file encryption on those drives, or reformat to APFS for disk-level APFS encryption.")
+                Text(nonAPFSHintMessage)
                     .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             }
@@ -2200,7 +2258,17 @@ private struct APFSVolumeOptionsPanel: View {
         if nonAPFSVolumes.isEmpty {
             return "No external APFS volumes found. You can still type a disk identifier manually or use Show All External."
         }
+        if onSelectNonAPFSVolume != nil {
+            return "Mounted volumes were found, but none are APFS. Click a non-APFS row to start USB data encryption."
+        }
         return "Mounted volumes were found, but none are APFS. Non-APFS rows are shown in gray and are not selectable here."
+    }
+
+    private var nonAPFSHintMessage: String {
+        if onSelectNonAPFSVolume != nil {
+            return "Non-APFS rows are clickable and will open USB user-data encryption automatically."
+        }
+        return "Gray rows are mounted but not APFS. Use Aegiro vault-file encryption on those drives, or reformat to APFS for disk-level APFS encryption."
     }
 
     private func optionMetaLine(for option: APFSVolumeOption) -> String {
