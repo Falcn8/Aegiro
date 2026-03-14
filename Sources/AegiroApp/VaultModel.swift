@@ -32,6 +32,13 @@ final class VaultModel: ObservableObject {
     @Published var diskEncryptionMonitoringActive: Bool = false
     @Published var diskEncryptionProgressFraction: Double?
     @Published var diskEncryptionProgressMessage: String = ""
+    @Published var usbDataEncryptionTargetMountPoint: String?
+    @Published var usbDataEncryptionActive: Bool = false
+    @Published var usbDataEncryptionProgressFraction: Double?
+    @Published var usbDataEncryptionProgressMessage: String = ""
+    @Published var usbDataEncryptionProcessedFiles: Int = 0
+    @Published var usbDataEncryptionTotalFiles: Int = 0
+    @Published var usbDataEncryptionStage: USBUserDataEncryptProgress.Stage = .completed
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var diskEncryptionProgressTimer: Timer?
@@ -450,6 +457,16 @@ final class VaultModel: ObservableObject {
         diskEncryptionMonitoringActive = false
     }
 
+    func clearUSBDataEncryptionProgressIfIdle() {
+        guard !usbDataEncryptionActive else { return }
+        usbDataEncryptionTargetMountPoint = nil
+        usbDataEncryptionProgressFraction = nil
+        usbDataEncryptionProgressMessage = ""
+        usbDataEncryptionProcessedFiles = 0
+        usbDataEncryptionTotalFiles = 0
+        usbDataEncryptionStage = .completed
+    }
+
     private func startDiskEncryptionProgressMonitoring(diskIdentifier: String) {
         let trimmed = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -499,23 +516,35 @@ final class VaultModel: ObservableObject {
                                    vaultURL: URL,
                                    vaultPassphrase: String,
                                    deleteOriginals: Bool,
-                                   dryRun: Bool) {
+                                   dryRun: Bool,
+                                   targetMountPoint: String?,
+                                   completion: ((Bool) -> Void)? = nil) {
         let sourceRoot = sourceRootURL.standardizedFileURL
         let vault = vaultURL.standardizedFileURL
         let pass = vaultPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let mountPointTrimmed = targetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard dryRun || !pass.isEmpty else {
             status = "Enter a vault passphrase"
+            completion?(false)
             return
         }
         if !dryRun && !PassphraseStrengthReport.evaluate(pass).isStrong {
             status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
+            completion?(false)
             return
         }
 
         status = dryRun
         ? "Scanning USB user data in \(sourceRoot.path)..."
         : "Encrypting USB user data from \(sourceRoot.path)..."
+        usbDataEncryptionTargetMountPoint = mountPointTrimmed
+        usbDataEncryptionActive = true
+        usbDataEncryptionProgressFraction = nil
+        usbDataEncryptionProgressMessage = dryRun ? "Scanning source files..." : "Preparing file encryption..."
+        usbDataEncryptionProcessedFiles = 0
+        usbDataEncryptionTotalFiles = 0
+        usbDataEncryptionStage = .scanning
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
@@ -523,11 +552,27 @@ final class VaultModel: ObservableObject {
                                                                     vaultURL: vault,
                                                                     passphrase: pass,
                                                                     deleteOriginals: deleteOriginals,
-                                                                    dryRun: dryRun)
+                                                                    dryRun: dryRun) { progress in
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        self.usbDataEncryptionStage = progress.stage
+                        self.usbDataEncryptionProcessedFiles = progress.processedFileCount
+                        self.usbDataEncryptionTotalFiles = progress.totalFileCount
+                        self.usbDataEncryptionProgressFraction = progress.fraction
+                        self.usbDataEncryptionProgressMessage = progress.message
+                    }
+                }
                 DispatchQueue.main.async {
                     guard let self else { return }
+                    self.usbDataEncryptionActive = false
+                    self.usbDataEncryptionStage = .completed
+                    self.usbDataEncryptionProcessedFiles = result.encryptedFileCount
+                    self.usbDataEncryptionTotalFiles = result.scannedFileCount
+                    self.usbDataEncryptionProgressFraction = result.scannedFileCount > 0 ? 1.0 : nil
                     if result.dryRun {
+                        self.usbDataEncryptionProgressMessage = "Scan complete: \(result.scannedFileCount) user file(s)."
                         self.status = "Scan complete: \(result.scannedFileCount) user file(s), \(result.skippedPathCount) skipped system path(s)."
+                        completion?(true)
                         return
                     }
 
@@ -542,6 +587,7 @@ final class VaultModel: ObservableObject {
                         message += " Created vault."
                     }
                     self.status = message
+                    self.usbDataEncryptionProgressMessage = "Encryption complete: \(result.encryptedFileCount)/\(result.scannedFileCount) file(s)."
 
                     if self.vaultURL == nil || self.vaultURL?.standardizedFileURL.path == result.vaultURL.path {
                         self.vaultURL = result.vaultURL
@@ -549,10 +595,18 @@ final class VaultModel: ObservableObject {
                         self.locked = false
                         self.refreshStatus()
                     }
+                    completion?(true)
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "USB user-data encryption failed: \(error)"
+                    guard let self else { return }
+                    self.usbDataEncryptionActive = false
+                    self.usbDataEncryptionStage = .completed
+                    if self.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        self.usbDataEncryptionProgressMessage = "Encryption failed."
+                    }
+                    self.status = "USB user-data encryption failed: \(error)"
+                    completion?(false)
                 }
             }
         }
@@ -598,6 +652,7 @@ final class VaultModel: ObservableObject {
 
     func lockSession() {
         stopDiskEncryptionProgressMonitoring()
+        clearUSBDataEncryptionProgressIfIdle()
         self.passphrase = ""
         self.locked = true
         self.entries = []

@@ -44,6 +44,39 @@ public struct USBUserDataEncryptResult: Sendable {
     }
 }
 
+public struct USBUserDataEncryptProgress: Sendable {
+    public enum Stage: String, Sendable {
+        case scanning
+        case encrypting
+        case deletingOriginals
+        case completed
+    }
+
+    public let stage: Stage
+    public let processedFileCount: Int
+    public let totalFileCount: Int
+    public let currentPath: String?
+    public let message: String
+
+    public var fraction: Double? {
+        guard totalFileCount > 0 else { return nil }
+        let clamped = min(max(processedFileCount, 0), totalFileCount)
+        return Double(clamped) / Double(totalFileCount)
+    }
+
+    public init(stage: Stage,
+                processedFileCount: Int,
+                totalFileCount: Int,
+                currentPath: String?,
+                message: String) {
+        self.stage = stage
+        self.processedFileCount = processedFileCount
+        self.totalFileCount = totalFileCount
+        self.currentPath = currentPath
+        self.message = message
+    }
+}
+
 public enum USBUserDataCrypto {
     // Keep USB/OS metadata intact so volume behavior is not damaged.
     private static let excludedRootEntryNames: Set<String> = [
@@ -148,10 +181,26 @@ public enum USBUserDataCrypto {
                                         vaultURL: URL,
                                         passphrase: String,
                                         deleteOriginals: Bool,
-                                        dryRun: Bool) throws -> USBUserDataEncryptResult {
+                                        dryRun: Bool,
+                                        progress: ((USBUserDataEncryptProgress) -> Void)? = nil) throws -> USBUserDataEncryptResult {
+        progress?(USBUserDataEncryptProgress(stage: .scanning,
+                                             processedFileCount: 0,
+                                             totalFileCount: 0,
+                                             currentPath: nil,
+                                             message: "Scanning source files..."))
         let scan = try scanUserFiles(sourceRootURL: sourceRootURL)
         let normalizedVaultURL = vaultURL.standardizedFileURL
+        progress?(USBUserDataEncryptProgress(stage: .encrypting,
+                                             processedFileCount: 0,
+                                             totalFileCount: scan.scannedFileCount,
+                                             currentPath: nil,
+                                             message: "Found \(scan.scannedFileCount) user file(s)."))
         if dryRun {
+            progress?(USBUserDataEncryptProgress(stage: .completed,
+                                                 processedFileCount: scan.scannedFileCount,
+                                                 totalFileCount: scan.scannedFileCount,
+                                                 currentPath: nil,
+                                                 message: "Scan complete: \(scan.scannedFileCount) file(s)."))
             return USBUserDataEncryptResult(vaultURL: normalizedVaultURL,
                                             createdVault: false,
                                             scannedFileCount: scan.scannedFileCount,
@@ -179,7 +228,14 @@ public enum USBUserDataCrypto {
 
         let imported = try Importer.sidecarImport(vaultURL: normalizedVaultURL,
                                                   passphrase: trimmedPassphrase,
-                                                  files: scan.files).imported
+                                                  files: scan.files) { importedCount, totalCount, path in
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            progress?(USBUserDataEncryptProgress(stage: .encrypting,
+                                                 processedFileCount: importedCount,
+                                                 totalFileCount: totalCount,
+                                                 currentPath: path,
+                                                 message: "Encrypting \(importedCount)/\(totalCount): \(name)"))
+        }.imported
 
         var deletedOriginalCount = 0
         var deletionErrors: [String] = []
@@ -187,10 +243,29 @@ public enum USBUserDataCrypto {
             guard imported == scan.scannedFileCount else {
                 throw AEGError.integrity("Imported \(imported) of \(scan.scannedFileCount) files. Original files were left untouched.")
             }
-            let deletion = deleteSourceFiles(scan.files, sourceRootURL: scan.sourceRootURL)
+            progress?(USBUserDataEncryptProgress(stage: .deletingOriginals,
+                                                 processedFileCount: 0,
+                                                 totalFileCount: scan.files.count,
+                                                 currentPath: nil,
+                                                 message: "Deleting original files..."))
+            let deletion = deleteSourceFiles(scan.files,
+                                             sourceRootURL: scan.sourceRootURL) { deletedCount, totalCount, path in
+                let name = URL(fileURLWithPath: path).lastPathComponent
+                progress?(USBUserDataEncryptProgress(stage: .deletingOriginals,
+                                                     processedFileCount: deletedCount,
+                                                     totalFileCount: totalCount,
+                                                     currentPath: path,
+                                                     message: "Deleting \(deletedCount)/\(totalCount): \(name)"))
+            }
             deletedOriginalCount = deletion.deleted
             deletionErrors = deletion.errors
         }
+
+        progress?(USBUserDataEncryptProgress(stage: .completed,
+                                             processedFileCount: imported,
+                                             totalFileCount: scan.scannedFileCount,
+                                             currentPath: nil,
+                                             message: "Encryption complete: \(imported)/\(scan.scannedFileCount) file(s)."))
 
         return USBUserDataEncryptResult(vaultURL: normalizedVaultURL,
                                         createdVault: createdVault,
@@ -224,18 +299,23 @@ public enum USBUserDataCrypto {
         return false
     }
 
-    private static func deleteSourceFiles(_ files: [URL], sourceRootURL: URL) -> (deleted: Int, errors: [String]) {
+    private static func deleteSourceFiles(_ files: [URL],
+                                          sourceRootURL: URL,
+                                          progress: ((Int, Int, String) -> Void)? = nil) -> (deleted: Int, errors: [String]) {
         var deleted = 0
         var errors: [String] = []
+        let total = files.count
 
         for file in files {
             do {
                 try Shredder.shred(path: file.path)
                 deleted += 1
+                progress?(deleted, total, file.path)
             } catch {
                 do {
                     try FileManager.default.removeItem(at: file)
                     deleted += 1
+                    progress?(deleted, total, file.path)
                 } catch {
                     errors.append("\(file.path): \(error)")
                 }

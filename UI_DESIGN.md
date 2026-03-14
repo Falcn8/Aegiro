@@ -69,6 +69,9 @@ Main window uses a three-zone shell:
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
 - Sheets include mounted non-APFS volumes inline in the same list as gray, disabled rows so users can see them but cannot select them.
 - Added "Encrypt USB Data" sheet for mounted non-APFS volumes: encrypts only user files into a `.agvt` vault file on the USB, skips known filesystem metadata, and can optionally delete originals after successful import.
+- Disk encryption sheet uses a two-step flow (select external volume, then details) with a Continue action.
+- Non-APFS encryption now shows live file progress (`processed / total`) while encrypting user data.
+- APFS encryption progress remains volume/block-level from `diskutil` (percent + status message), because file-level counts are not exposed.
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.

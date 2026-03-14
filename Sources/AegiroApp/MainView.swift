@@ -1606,6 +1606,28 @@ private struct DiskEncryptSheet: View {
         return model.diskEncryptionMonitoringActive || !model.diskEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var selectedNonAPFSMountPoint: String {
+        selectedNonAPFSVolume?.mountPoint ?? selectedDiskTrimmed
+    }
+
+    private var isEncryptingSelectedUSBUserData: Bool {
+        guard selectionKind == .nonAPFS else { return false }
+        let mount = selectedNonAPFSMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !mount.isEmpty, mount == target else { return false }
+        return model.usbDataEncryptionActive
+    }
+
+    private var shouldShowUSBDataEncryptionProgress: Bool {
+        guard selectionKind == .nonAPFS else { return false }
+        let mount = selectedNonAPFSMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !mount.isEmpty, mount == target else { return false }
+        return model.usbDataEncryptionActive
+            || model.usbDataEncryptionTotalFiles > 0
+            || !model.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var submitButtonTitle: String {
         switch selectionKind {
         case .apfs:
@@ -1614,6 +1636,9 @@ private struct DiskEncryptSheet: View {
             }
             return isEncryptingSelectedDisk ? "Encrypting..." : "Encrypt Disk"
         case .nonAPFS:
+            if isEncryptingSelectedUSBUserData {
+                return dryRun ? "Scanning..." : "Encrypting..."
+            }
             return dryRun ? "Scan User Data" : "Encrypt User Data"
         case .none, .invalid:
             return "Encrypt Disk"
@@ -1642,6 +1667,7 @@ private struct DiskEncryptSheet: View {
         .onAppear {
             formPhase = .selectVolume
             model.refreshAPFSVolumeOptions()
+            model.clearUSBDataEncryptionProgressIfIdle()
             applyAutoDiskSelectionIfNeeded()
             syncFormFieldsForSelectionChange(force: true)
         }
@@ -1774,6 +1800,9 @@ private struct DiskEncryptSheet: View {
                 if shouldShowEncryptionProgress {
                     encryptionProgressCard
                 }
+                Text("APFS reports block/volume encryption progress only. Per-file counts are not available from `diskutil`.")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
             case .nonAPFS:
                 formLabel("Source Folder to Encrypt")
                 HStack(spacing: 8) {
@@ -1821,6 +1850,10 @@ private struct DiskEncryptSheet: View {
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
+
+                if shouldShowUSBDataEncryptionProgress {
+                    usbDataEncryptionProgressCard
+                }
             case .none, .invalid:
                 Text("Selection is no longer valid. Go back and select an external volume again.")
                     .font(.system(size: 12, weight: .regular))
@@ -1839,7 +1872,11 @@ private struct DiskEncryptSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
-                .disabled(!canSubmit || (selectionKind == .apfs && !dryRun && isEncryptingSelectedDisk))
+                .disabled(
+                    !canSubmit
+                    || (selectionKind == .apfs && !dryRun && isEncryptingSelectedDisk)
+                    || (selectionKind == .nonAPFS && isEncryptingSelectedUSBUserData)
+                )
             }
         }
     }
@@ -1855,6 +1892,40 @@ private struct DiskEncryptSheet: View {
                     .controlSize(.small)
             }
             Text(model.diskEncryptionProgressMessage)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AegiroPalette.backgroundCard.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+        )
+    }
+
+    private var usbDataEncryptionProgressCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("USB User-Data Encryption Progress")
+            if let fraction = model.usbDataEncryptionProgressFraction {
+                ProgressView(value: max(0, min(1, fraction)))
+                    .tint(AegiroPalette.securityGreen)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+            if model.usbDataEncryptionTotalFiles > 0 {
+                Text("\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AegiroPalette.textPrimary)
+            } else {
+                Text("Preparing file list...")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+            }
+            Text(model.usbDataEncryptionProgressMessage)
                 .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
         }
@@ -2007,7 +2078,7 @@ private struct DiskEncryptSheet: View {
                 dismiss()
             }
         case .nonAPFS:
-            let mount = selectedNonAPFSVolume?.mountPoint ?? selectedDiskTrimmed
+            let mount = selectedNonAPFSMountPoint
             let source = URL(fileURLWithPath: NSString(string: sourcePath).expandingTildeInPath, isDirectory: true).standardizedFileURL
             let vault = URL(fileURLWithPath: NSString(string: vaultPath).expandingTildeInPath).standardizedFileURL
             let mountRoot = URL(fileURLWithPath: mount, isDirectory: true).standardizedFileURL.path
@@ -2035,9 +2106,12 @@ private struct DiskEncryptSheet: View {
                                             vaultURL: vault,
                                             vaultPassphrase: vaultPassphrase,
                                             deleteOriginals: deleteOriginals && !dryRun,
-                                            dryRun: dryRun)
-            onDone()
-            dismiss()
+                                            dryRun: dryRun,
+                                            targetMountPoint: mount) { success in
+                guard success else { return }
+                onDone()
+                dismiss()
+            }
         case .none, .invalid:
             return
         }
@@ -2198,6 +2272,22 @@ private struct USBUserDataEncryptSheet: View {
         PassphraseStrengthReport.evaluate(passphrase)
     }
 
+    private var isEncryptingSelectedMount: Bool {
+        let mount = selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !mount.isEmpty, mount == target else { return false }
+        return model.usbDataEncryptionActive
+    }
+
+    private var shouldShowUSBProgressCard: Bool {
+        let mount = selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !mount.isEmpty, mount == target else { return false }
+        return model.usbDataEncryptionActive
+            || model.usbDataEncryptionTotalFiles > 0
+            || !model.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var canSubmit: Bool {
         let pathsReady = !selectedMountPoint.isEmpty
         && !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -2283,23 +2373,29 @@ private struct USBUserDataEncryptSheet: View {
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
+            if shouldShowUSBProgressCard {
+                usbProgressCard
+            }
+
             HStack {
                 Spacer()
                 Button("Refresh Volumes") {
                     model.refreshAPFSVolumeOptions()
                 }
                 .buttonStyle(.bordered)
+                .disabled(isEncryptingSelectedMount)
 
                 Button("Cancel") {
                     dismiss()
                 }
+                .disabled(isEncryptingSelectedMount)
 
-                Button(dryRun ? "Scan User Data" : "Encrypt User Data") {
+                Button(isEncryptingSelectedMount ? (dryRun ? "Scanning..." : "Encrypting...") : (dryRun ? "Scan User Data" : "Encrypt User Data")) {
                     startEncrypt()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
-                .disabled(!canSubmit)
+                .disabled(!canSubmit || isEncryptingSelectedMount)
             }
         }
         .padding(24)
@@ -2307,6 +2403,7 @@ private struct USBUserDataEncryptSheet: View {
         .background(AegiroPalette.backgroundPanel)
         .onAppear {
             model.refreshAPFSVolumeOptions()
+            model.clearUSBDataEncryptionProgressIfIdle()
             applyAutoSelectionIfNeeded(force: true)
         }
         .onChange(of: model.mountedNonAPFSVolumes) { _ in
@@ -2321,6 +2418,40 @@ private struct USBUserDataEncryptSheet: View {
         Text(text)
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private var usbProgressCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("USB User-Data Encryption Progress")
+            if let fraction = model.usbDataEncryptionProgressFraction {
+                ProgressView(value: max(0, min(1, fraction)))
+                    .tint(AegiroPalette.securityGreen)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+            if model.usbDataEncryptionTotalFiles > 0 {
+                Text("\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AegiroPalette.textPrimary)
+            } else {
+                Text("Preparing file list...")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+            }
+            Text(model.usbDataEncryptionProgressMessage)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AegiroPalette.backgroundCard.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+        )
     }
 
     private func applyAutoSelectionIfNeeded(force: Bool) {
@@ -2432,9 +2563,12 @@ private struct USBUserDataEncryptSheet: View {
                                         vaultURL: vault,
                                         vaultPassphrase: passphrase,
                                         deleteOriginals: deleteOriginals && !dryRun,
-                                        dryRun: dryRun)
-        onDone()
-        dismiss()
+                                        dryRun: dryRun,
+                                        targetMountPoint: mount) { success in
+            guard success else { return }
+            onDone()
+            dismiss()
+        }
     }
 }
 

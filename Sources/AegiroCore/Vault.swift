@@ -201,7 +201,10 @@ private func normalizedPath(_ url: URL) -> String {
 }
 
 public enum Importer {
-    public static func sidecarImport(vaultURL: URL, passphrase: String, files: [URL]) throws -> (imported: Int, sidecar: URL) {
+    public static func sidecarImport(vaultURL: URL,
+                                     passphrase: String,
+                                     files: [URL],
+                                     progress: ((Int, Int, String) -> Void)? = nil) throws -> (imported: Int, sidecar: URL) {
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
@@ -209,7 +212,14 @@ public enum Importer {
         let dek = try Exporter.deriveDEK(data: data, passphrase: passphrase)
         let aad = vaultAAD
         let items = try directImportItems(files: files, vaultURL: vaultURL, sidecarURL: sidecar, head: head)
-        let imported = try mergeImportedPlainItems(vaultURL: vaultURL, data: data, head: head, layout: layout, dek: dek, aad: aad, items: items)
+        let imported = try mergeImportedPlainItems(vaultURL: vaultURL,
+                                                   data: data,
+                                                   head: head,
+                                                   layout: layout,
+                                                   dek: dek,
+                                                   aad: aad,
+                                                   items: items,
+                                                   progress: progress)
         try? FileManager.default.removeItem(at: sidecar)
         return (imported, sidecar)
     }
@@ -317,7 +327,8 @@ private func mergeImportedPlainItems(vaultURL: URL,
                                      layout: VaultLayout,
                                      dek: SymmetricKey,
                                      aad: Data,
-                                     items: [PlainImportItem]) throws -> Int {
+                                     items: [PlainImportItem],
+                                     progress: ((Int, Int, String) -> Void)? = nil) throws -> Int {
     guard !items.isEmpty else { return 0 }
 
     let idxBlobOld = data.subdata(in: layout.idxRange)
@@ -358,7 +369,10 @@ private func mergeImportedPlainItems(vaultURL: URL,
     index.entries.removeAll { replacingPaths.contains($0.logicalPath) }
 
     // Encrypt new plaintext data and append chunk descriptors.
-    for item in items.sorted(by: { $0.order < $1.order }) {
+    let orderedItems = items.sorted(by: { $0.order < $1.order })
+    let totalItems = orderedItems.count
+    var importedCount = 0
+    for item in orderedItems {
         let plain = item.plain
         let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
         var fileChunkIndex: UInt64 = 0
@@ -391,6 +405,8 @@ private func mergeImportedPlainItems(vaultURL: URL,
                                     modified: now,
                                     sidecarName: nil)
         index.entries.append(entry)
+        importedCount += 1
+        progress?(importedCount, totalItems, item.path)
     }
 
     let chunkCounts = chunkInfos.reduce(into: [String: Int]()) { counts, chunk in
@@ -447,7 +463,7 @@ private func mergeImportedPlainItems(vaultURL: URL,
     out.append(chunkArea)
 
     try out.write(to: vaultURL, options: .atomic)
-    return items.count
+    return importedCount
 }
 
 private func derivePassphraseKey(passphrase: String, salt: Data) throws -> SymmetricKey {

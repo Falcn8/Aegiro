@@ -354,6 +354,34 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: vaultURL.path))
     }
 
+    func testUSBUserDataEncryptReportsPerFileProgress() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let root = tmp.appendingPathComponent("usb", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("one".utf8).write(to: root.appendingPathComponent("one.txt"))
+        try Data("two".utf8).write(to: root.appendingPathComponent("two.txt"))
+
+        let vaultURL = root.appendingPathComponent("userdata.agvt")
+        var events: [USBUserDataEncryptProgress] = []
+        let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: root,
+                                                            vaultURL: vaultURL,
+                                                            passphrase: "test-pass",
+                                                            deleteOriginals: false,
+                                                            dryRun: false) { progress in
+            events.append(progress)
+        }
+
+        XCTAssertEqual(result.encryptedFileCount, 2)
+        let encryptEvents = events.filter { $0.stage == .encrypting && $0.totalFileCount > 0 }
+        XCTAssertFalse(encryptEvents.isEmpty)
+        XCTAssertEqual(encryptEvents.last?.processedFileCount, 2)
+        XCTAssertEqual(encryptEvents.last?.totalFileCount, 2)
+        XCTAssertEqual(encryptEvents.last?.fraction, 1.0)
+    }
+
     func testUSBUserDataEncryptDeletesOriginalsAfterSuccess() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
