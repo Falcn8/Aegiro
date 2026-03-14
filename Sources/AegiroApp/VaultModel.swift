@@ -447,6 +447,10 @@ final class VaultModel: ObservableObject {
             status = "Enter a vault passphrase"
             return
         }
+        if !dryRun && !PassphraseStrengthReport.evaluate(pass).isStrong {
+            status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
+            return
+        }
 
         status = dryRun
         ? "Scanning USB user data in \(sourceRoot.path)..."

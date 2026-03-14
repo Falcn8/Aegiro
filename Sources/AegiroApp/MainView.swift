@@ -1810,6 +1810,10 @@ private struct USBUserDataEncryptSheet: View {
         model.mountedNonAPFSVolumes
     }
 
+    private var passphraseStrength: PassphraseStrengthReport {
+        PassphraseStrengthReport.evaluate(passphrase)
+    }
+
     private var canSubmit: Bool {
         let pathsReady = !selectedMountPoint.isEmpty
         && !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1819,7 +1823,7 @@ private struct USBUserDataEncryptSheet: View {
             return pathsReady
         }
         return pathsReady
-        && passphrase.count >= 8
+        && passphraseStrength.isStrong
         && passphrase == confirmPassphrase
     }
 
@@ -1865,8 +1869,11 @@ private struct USBUserDataEncryptSheet: View {
             }
 
             formLabel("Vault Passphrase")
-            SecureField(dryRun ? "Optional for scan-only" : "At least 8 characters", text: $passphrase)
+            SecureField(dryRun ? "Optional for scan-only" : "8+ chars with upper/lower letters and numbers", text: $passphrase)
                 .textFieldStyle(.roundedBorder)
+            if !dryRun || !passphrase.isEmpty {
+                PassphraseStrengthMeter(passphrase: passphrase)
+            }
 
             formLabel("Confirm Passphrase")
             SecureField(dryRun ? "Optional for scan-only" : "Repeat passphrase", text: $confirmPassphrase)
@@ -1884,6 +1891,12 @@ private struct USBUserDataEncryptSheet: View {
                 Text("Passphrases do not match.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.dangerRed)
+            }
+
+            if !dryRun && !passphrase.isEmpty && !passphraseStrength.isStrong {
+                Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             HStack {
@@ -2021,8 +2034,8 @@ private struct USBUserDataEncryptSheet: View {
         }
 
         if !dryRun {
-            guard passphrase.count >= 8 else {
-                model.status = "Passphrase must be at least 8 characters"
+            guard passphraseStrength.isStrong else {
+                model.status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
                 return
             }
             guard passphrase == confirmPassphrase else {
