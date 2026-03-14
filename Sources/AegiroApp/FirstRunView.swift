@@ -34,23 +34,24 @@ struct FirstRunView: View {
 
     var body: some View {
         ZStack {
+            Image("LandingHero", bundle: .module)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+
             LinearGradient(
-                colors: [AegiroPalette.backgroundMain, AegiroPalette.backgroundPanel],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                colors: [
+                    AegiroPalette.backgroundMain.opacity(0.42),
+                    AegiroPalette.backgroundMain.opacity(0.86)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
             )
             .ignoresSafeArea()
 
             VStack(spacing: 24) {
                 VStack(spacing: 10) {
-                    Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 46, weight: .medium))
-                        .foregroundStyle(AegiroPalette.accentIndigo)
-
-                    Text("Aegiro")
-                        .font(AegiroTypography.display(36, weight: .semibold))
-                        .foregroundStyle(AegiroPalette.textPrimary)
-
                     Text("Encrypted Local Vault")
                         .font(AegiroTypography.display(20, weight: .medium))
                         .foregroundStyle(AegiroPalette.textSecondary)
@@ -98,7 +99,7 @@ struct FirstRunView: View {
             }
             .padding(28)
             .frame(width: 640)
-            .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(AegiroPalette.backgroundCard.opacity(0.78), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(AegiroPalette.borderSubtle, lineWidth: 1)

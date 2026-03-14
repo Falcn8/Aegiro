@@ -33,7 +33,10 @@ let package = Package(
         .executableTarget(
             name: "AegiroApp",
             dependencies: ["AegiroCore"],
-            exclude: ["Entitlements.plist"]
+            exclude: ["Entitlements.plist"],
+            resources: [
+                .process("Resources/LandingHero.png")
+            ]
         ),
         .systemLibrary(
             name: "Argon2C",

@@ -50,6 +50,7 @@ Main window uses a three-zone shell:
 - Centered hero card.
 - Create Vault, Open Existing, and Encrypt Disk actions.
 - Inline create form (name/location/passphrase/confirm/Touch ID).
+- Uses branded `LandingHero` image as full-screen background with dark overlay.
 - Crypto reassurance copy: Argon2id, AES-256-GCM, and post-quantum cryptography.
 
 2. Main app (`MainView`)
