@@ -1395,7 +1395,7 @@ private struct CreateVaultSheet: View {
     }
 
     private var canCreate: Bool {
-        passphraseStrength.isStrong && passphrase == confirmPassphrase
+        passphraseStrength.isRequired && passphrase == confirmPassphrase
     }
 
     private var passphraseStrength: PassphraseStrengthReport {
@@ -1446,7 +1446,7 @@ private struct CreateVaultSheet: View {
                     .foregroundStyle(AegiroPalette.dangerRed)
             }
 
-            if !passphrase.isEmpty && !passphraseStrength.isStrong {
+            if !passphrase.isEmpty && !passphraseStrength.isRequired {
                 Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
@@ -1487,7 +1487,7 @@ private struct CreateVaultSheet: View {
     }
 
     private func createVault() {
-        guard passphraseStrength.isStrong else {
+        guard passphraseStrength.isRequired else {
             model.status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
             return
         }
@@ -1589,7 +1589,7 @@ private struct DiskEncryptSheet: View {
             if dryRun {
                 return pathsReady
             }
-            return pathsReady && usbPassphraseStrength.isStrong && vaultPassphrase == confirmVaultPassphrase
+            return pathsReady && usbPassphraseStrength.isRequired && vaultPassphrase == confirmVaultPassphrase
         case .none, .invalid:
             return false
         }
@@ -1845,7 +1845,7 @@ private struct DiskEncryptSheet: View {
                         .foregroundStyle(AegiroPalette.dangerRed)
                 }
 
-                if !dryRun && !vaultPassphrase.isEmpty && !usbPassphraseStrength.isStrong {
+                if !dryRun && !vaultPassphrase.isEmpty && !usbPassphraseStrength.isRequired {
                     Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
@@ -2092,7 +2092,7 @@ private struct DiskEncryptSheet: View {
                 return
             }
             if !dryRun {
-                guard usbPassphraseStrength.isStrong else {
+                guard usbPassphraseStrength.isRequired else {
                     model.status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
                     return
                 }
@@ -2297,7 +2297,7 @@ private struct USBUserDataEncryptSheet: View {
             return pathsReady
         }
         return pathsReady
-        && passphraseStrength.isStrong
+        && passphraseStrength.isRequired
         && passphrase == confirmPassphrase
     }
 
@@ -2367,7 +2367,7 @@ private struct USBUserDataEncryptSheet: View {
                     .foregroundStyle(AegiroPalette.dangerRed)
             }
 
-            if !dryRun && !passphrase.isEmpty && !passphraseStrength.isStrong {
+            if !dryRun && !passphrase.isEmpty && !passphraseStrength.isRequired {
                 Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
@@ -2549,7 +2549,7 @@ private struct USBUserDataEncryptSheet: View {
         }
 
         if !dryRun {
-            guard passphraseStrength.isStrong else {
+            guard passphraseStrength.isRequired else {
                 model.status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
                 return
             }
@@ -2730,18 +2730,15 @@ private struct APFSVolumeOptionsPanel: View {
                                                         .foregroundStyle(AegiroPalette.textPrimary)
                                                     badge(text: "Not APFS", color: AegiroPalette.warningAmber)
                                                 }
-                                                Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
-                                                    .font(.system(size: 11, weight: .regular))
-                                                    .foregroundStyle(AegiroPalette.textSecondary)
-                                            }
-                                            Spacer(minLength: 8)
-                                            Image(systemName: "arrow.up.right.square")
-                                                .font(.system(size: 12, weight: .semibold))
-                                                .foregroundStyle(AegiroPalette.accentIndigo)
+                                            Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
+                                                .font(.system(size: 11, weight: .regular))
+                                                .foregroundStyle(AegiroPalette.textSecondary)
                                         }
-                                        .padding(10)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(
+                                        Spacer(minLength: 8)
+                                    }
+                                    .padding(10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
                                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                                 .fill(AegiroPalette.backgroundCard)
                                         )

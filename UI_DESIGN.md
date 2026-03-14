@@ -91,6 +91,7 @@ Main window uses a three-zone shell:
 - Drag-and-drop imports only when vault is unlocked.
 - Toast status feedback appears for key operations.
 - If keychain entitlements are missing in a dev build, Touch ID controls are disabled with explicit guidance text.
+- Passphrase policy: required minimum stays `8+` chars with uppercase, lowercase, and a number; the meter marks `Strong` at `12+` chars with `3+` character types, or `20+` chars.
 
 ## Implementation Map
 

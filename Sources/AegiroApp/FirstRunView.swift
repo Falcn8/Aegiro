@@ -15,7 +15,7 @@ struct FirstRunView: View {
     @State private var errorText: String?
 
     private var canCreate: Bool {
-        passphraseStrength.isStrong && passphrase == confirmPassphrase
+        passphraseStrength.isRequired && passphrase == confirmPassphrase
     }
 
     private var passphraseStrength: PassphraseStrengthReport {
@@ -138,7 +138,7 @@ struct FirstRunView: View {
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
-            if !passphrase.isEmpty && !passphraseStrength.isStrong {
+            if !passphrase.isEmpty && !passphraseStrength.isRequired {
                 Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
@@ -190,7 +190,7 @@ struct FirstRunView: View {
     }
 
     private func createVault() {
-        guard passphraseStrength.isStrong else {
+        guard passphraseStrength.isRequired else {
             errorText = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
             return
         }

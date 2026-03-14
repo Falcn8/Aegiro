@@ -529,7 +529,7 @@ final class VaultModel: ObservableObject {
             completion?(false)
             return
         }
-        if !dryRun && !PassphraseStrengthReport.evaluate(pass).isStrong {
+        if !dryRun && !PassphraseStrengthReport.evaluate(pass).isRequired {
             status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
             completion?(false)
             return

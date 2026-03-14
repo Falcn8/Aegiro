@@ -9,6 +9,7 @@ struct PassphraseStrengthReport {
     let hasSymbol: Bool
     let categoryCount: Int
     let score: Int
+    let isRequired: Bool
     let isStrong: Bool
 
     var label: String {
@@ -55,7 +56,8 @@ struct PassphraseStrengthReport {
 
         let categories = [hasLowercase, hasUppercase, hasDigit, hasSymbol]
         let categoryCount = categories.filter { $0 }.count
-        let isStrong = length >= 8 && hasLowercase && hasUppercase && hasDigit
+        let isRequired = length >= 8 && hasLowercase && hasUppercase && hasDigit
+        let isStrong = length >= 20 || (length >= 12 && categoryCount >= 3)
 
         var score = 0
         if length >= 4 { score += 1 }
@@ -65,7 +67,9 @@ struct PassphraseStrengthReport {
         if hasSymbol { score += 1 }
 
         if isStrong {
-            score = max(score, 5)
+            score = 5
+        } else {
+            score = min(score, 4)
         }
         score = max(0, min(5, score))
 
@@ -76,6 +80,7 @@ struct PassphraseStrengthReport {
                                         hasSymbol: hasSymbol,
                                         categoryCount: categoryCount,
                                         score: score,
+                                        isRequired: isRequired,
                                         isStrong: isStrong)
     }
 }
