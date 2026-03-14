@@ -28,8 +28,13 @@ final class VaultModel: ObservableObject {
     @Published var mountedNonAPFSVolumes: [MountedNonAPFSVolume] = []
     @Published var apfsVolumeOptionsLoading: Bool = false
     @Published var apfsVolumeOptionsError: String?
+    @Published var diskEncryptionMonitoringDiskIdentifier: String?
+    @Published var diskEncryptionMonitoringActive: Bool = false
+    @Published var diskEncryptionProgressFraction: Double?
+    @Published var diskEncryptionProgressMessage: String = ""
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
+    private var diskEncryptionProgressTimer: Timer?
     private var lastActivity: Date = .now
     private var globalMonitors: [Any] = []
     private var localMonitors: [Any] = []
@@ -373,6 +378,9 @@ final class VaultModel: ObservableObject {
         }
 
         status = dryRun ? "Generating PQC recovery bundle for \(disk)..." : "Starting encryption for \(disk)..."
+        if !dryRun {
+            startDiskEncryptionProgressMonitoring(diskIdentifier: disk)
+        }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
                 let result = try ExternalDiskCrypto.encryptAPFSVolume(diskIdentifier: disk,
@@ -386,10 +394,12 @@ final class VaultModel: ObservableObject {
                         self.status = "Dry run complete. Bundle: \(result.recoveryURL.path)"
                     } else {
                         self.status = "Disk encryption started for \(result.diskIdentifier). Bundle: \(result.recoveryURL.path)"
+                        self.startDiskEncryptionProgressMonitoring(diskIdentifier: result.diskIdentifier)
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
+                    self?.stopDiskEncryptionProgressMonitoring()
                     self?.status = "Disk encrypt failed: \(error)"
                 }
             }
@@ -411,7 +421,7 @@ final class VaultModel: ObservableObject {
             return
         }
 
-        status = dryRun ? "Validating PQC bundle for \(disk)..." : "Unlocking \(disk)..."
+        status = dryRun ? "Validating PQC bundle for \(disk)..." : "Decrypting (unlocking) \(disk)..."
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
                 try ExternalDiskCrypto.unlockAPFSVolume(diskIdentifier: disk,
@@ -423,12 +433,63 @@ final class VaultModel: ObservableObject {
                     if dryRun {
                         self.status = "Dry run complete. PQC decapsulation succeeded for \(disk)."
                     } else {
-                        self.status = "Unlock command sent for \(disk)."
+                        self.status = "Decrypt/unlock command sent for \(disk)."
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "Disk unlock failed: \(error)"
+                    self?.status = "Disk decrypt/unlock failed: \(error)"
+                }
+            }
+        }
+    }
+
+    func stopDiskEncryptionProgressMonitoring() {
+        diskEncryptionProgressTimer?.invalidate()
+        diskEncryptionProgressTimer = nil
+        diskEncryptionMonitoringActive = false
+    }
+
+    private func startDiskEncryptionProgressMonitoring(diskIdentifier: String) {
+        let trimmed = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        diskEncryptionProgressTimer?.invalidate()
+        diskEncryptionProgressTimer = nil
+        diskEncryptionMonitoringDiskIdentifier = trimmed
+        diskEncryptionMonitoringActive = true
+        diskEncryptionProgressFraction = nil
+        diskEncryptionProgressMessage = "Waiting for encryption progress..."
+
+        pollDiskEncryptionProgress(for: trimmed)
+        diskEncryptionProgressTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pollDiskEncryptionProgress(for: trimmed)
+            }
+        }
+    }
+
+    private func pollDiskEncryptionProgress(for diskIdentifier: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let result = Result {
+                try ExternalDiskCrypto.encryptionProgress(diskIdentifier: diskIdentifier)
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.diskEncryptionMonitoringDiskIdentifier == diskIdentifier else { return }
+
+                switch result {
+                case .success(let progress):
+                    self.diskEncryptionProgressFraction = progress.percentComplete
+                    self.diskEncryptionProgressMessage = progress.message
+                    if progress.encrypted && !progress.migrationActive {
+                        self.diskEncryptionProgressFraction = max(self.diskEncryptionProgressFraction ?? 0, 1.0)
+                        self.diskEncryptionProgressMessage = "Disk encryption complete."
+                        self.stopDiskEncryptionProgressMonitoring()
+                        self.refreshAPFSVolumeOptions()
+                    }
+                case .failure(let error):
+                    self.diskEncryptionProgressMessage = "Progress unavailable: \(error)"
                 }
             }
         }
@@ -536,6 +597,7 @@ final class VaultModel: ObservableObject {
     }
 
     func lockSession() {
+        stopDiskEncryptionProgressMonitoring()
         self.passphrase = ""
         self.locked = true
         self.entries = []

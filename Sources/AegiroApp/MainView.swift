@@ -393,7 +393,7 @@ struct MainView: View {
                     showDiskEncryptSheet = true
                 }
 
-                actionButton(title: "Unlock Disk", icon: "lock.open") {
+                actionButton(title: "Decrypt Disk", icon: "lock.open") {
                     showDiskUnlockSheet = true
                 }
             }
@@ -1526,6 +1526,20 @@ private struct DiskEncryptSheet: View {
         && !recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var selectedDiskTrimmed: String {
+        diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isEncryptingSelectedDisk: Bool {
+        model.diskEncryptionMonitoringActive && model.diskEncryptionMonitoringDiskIdentifier == selectedDiskTrimmed
+    }
+
+    private var shouldShowEncryptionProgress: Bool {
+        guard !selectedDiskTrimmed.isEmpty else { return false }
+        guard model.diskEncryptionMonitoringDiskIdentifier == selectedDiskTrimmed else { return false }
+        return model.diskEncryptionMonitoringActive || !model.diskEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Encrypt External Disk")
@@ -1568,15 +1582,40 @@ private struct DiskEncryptSheet: View {
             Toggle("Dry run only", isOn: $dryRun)
             Toggle("Overwrite existing recovery bundle", isOn: $overwrite)
 
+            if shouldShowEncryptionProgress {
+                VStack(alignment: .leading, spacing: 8) {
+                    formLabel("Encryption Progress")
+                    if let fraction = model.diskEncryptionProgressFraction {
+                        ProgressView(value: max(0, min(1, fraction)))
+                            .tint(AegiroPalette.securityGreen)
+                    } else {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(model.diskEncryptionProgressMessage)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AegiroPalette.backgroundCard.opacity(0.72))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+                )
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button(dryRun ? "Generate Bundle" : "Encrypt Disk") {
+                Button(dryRun ? "Generate Bundle" : (isEncryptingSelectedDisk ? "Encrypting..." : "Encrypt Disk")) {
                     startEncrypt()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
-                .disabled(!canSubmit)
+                .disabled(!canSubmit || (!dryRun && isEncryptingSelectedDisk))
             }
         }
         .padding(24)
@@ -1648,8 +1687,10 @@ private struct DiskEncryptSheet: View {
             dryRun: dryRun,
             overwrite: overwrite
         )
-        onDone()
-        dismiss()
+        if dryRun {
+            onDone()
+            dismiss()
+        }
     }
 
     private func openUSBDataEncryptFlow(mountPoint: String?) {
@@ -1680,11 +1721,11 @@ private struct DiskUnlockSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Unlock External Disk")
+            Text("Decrypt External Disk")
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("Use a PQC recovery bundle + passphrase to unlock APFS external volumes.")
+            Text("Use a PQC recovery bundle + passphrase to decrypt (unlock) APFS external volumes.")
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -1722,7 +1763,7 @@ private struct DiskUnlockSheet: View {
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button(dryRun ? "Validate Bundle" : "Unlock Disk") {
+                Button(dryRun ? "Validate Bundle" : "Decrypt Disk") {
                     startUnlock()
                 }
                 .buttonStyle(.borderedProminent)

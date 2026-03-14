@@ -13,6 +13,26 @@ public struct ExternalDiskEncryptResult {
     }
 }
 
+public struct APFSEncryptionProgress: Sendable {
+    public let diskIdentifier: String
+    public let percentComplete: Double?
+    public let migrationActive: Bool
+    public let encrypted: Bool
+    public let message: String
+
+    public init(diskIdentifier: String,
+                percentComplete: Double?,
+                migrationActive: Bool,
+                encrypted: Bool,
+                message: String) {
+        self.diskIdentifier = diskIdentifier
+        self.percentComplete = percentComplete
+        self.migrationActive = migrationActive
+        self.encrypted = encrypted
+        self.message = message
+    }
+}
+
 public struct APFSVolumeOption: Hashable, Identifiable, Sendable {
     public var id: String { identifier }
     public let identifier: String
@@ -175,6 +195,46 @@ public enum ExternalDiskCrypto {
             .sorted {
                 $0.mountPoint.localizedCaseInsensitiveCompare($1.mountPoint) == .orderedAscending
             }
+    }
+
+    public static func encryptionProgress(diskIdentifier: String) throws -> APFSEncryptionProgress {
+        let trimmed = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw AEGError.io("Missing APFS disk identifier")
+        }
+
+        let plistOutput = try runDiskutil(arguments: ["apfs", "list", "-plist"], stdinLine: nil)
+        guard let plistData = plistOutput.stdout.data(using: .utf8) else {
+            throw AEGError.io("Unable to decode diskutil APFS plist output")
+        }
+        let root = try PropertyListDecoder().decode(APFSListPlist.self, from: plistData)
+        guard let volume = root.containers
+            .flatMap({ $0.volumes ?? [] })
+            .first(where: { $0.deviceIdentifier == trimmed }) else {
+            throw AEGError.io("APFS volume \(trimmed) was not found")
+        }
+
+        let migrationActive = volume.cryptoMigrationOn ?? false
+        let encrypted = volume.encryption ?? false
+        let textOutput = try runDiskutil(arguments: ["apfs", "list"], stdinLine: nil).stdout
+        let percent = parseEncryptionPercent(from: textOutput, diskIdentifier: trimmed)
+
+        let message: String
+        if let percent {
+            message = "Disk encryption progress: \(Int((percent * 100).rounded()))%"
+        } else if migrationActive {
+            message = "Disk encryption in progress..."
+        } else if encrypted {
+            message = "Disk encryption complete."
+        } else {
+            message = "Waiting for disk encryption status..."
+        }
+
+        return APFSEncryptionProgress(diskIdentifier: trimmed,
+                                      percentComplete: percent,
+                                      migrationActive: migrationActive,
+                                      encrypted: encrypted,
+                                      message: message)
     }
 
     static func recoverDiskPassphrase(diskIdentifier: String,
@@ -395,6 +455,39 @@ public enum ExternalDiskCrypto {
             .replacingOccurrences(of: "\\\\", with: "\\")
     }
 
+    private static func parseEncryptionPercent(from output: String, diskIdentifier: String) -> Double? {
+        let lines = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard let index = lines.firstIndex(where: { line in
+            line.contains("Volume \(diskIdentifier)") || (line.contains("APFS Volume Disk") && line.contains(diskIdentifier))
+        }) else {
+            return nil
+        }
+
+        let lowerBound = max(0, index - 2)
+        let upperBound = min(lines.count - 1, index + 20)
+        guard lowerBound <= upperBound else { return nil }
+
+        for line in lines[lowerBound...upperBound] {
+            let lowered = line.lowercased()
+            guard lowered.contains("progress") || lowered.contains("migration") else { continue }
+            if let percent = firstPercentValue(in: line) {
+                return max(0, min(1, percent / 100))
+            }
+        }
+        return nil
+    }
+
+    private static func firstPercentValue(in text: String) -> Double? {
+        let pattern = #"([0-9]+(?:\.[0-9]+)?)\s*%"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1 else {
+            return nil
+        }
+        guard let valueRange = Range(match.range(at: 1), in: text) else { return nil }
+        return Double(text[valueRange])
+    }
+
     private static func isExcludedSystemExternalMountPoint(_ mountPoint: String) -> Bool {
         let lowered = mountPoint.lowercased()
         return lowered.contains("/coresimulator/")
@@ -447,6 +540,7 @@ private struct APFSVolumePlist: Decodable {
     let deviceIdentifier: String
     let name: String?
     let roles: [String]?
+    let cryptoMigrationOn: Bool?
     let encryption: Bool?
     let fileVault: Bool?
     let locked: Bool?
@@ -455,6 +549,7 @@ private struct APFSVolumePlist: Decodable {
         case deviceIdentifier = "DeviceIdentifier"
         case name = "Name"
         case roles = "Roles"
+        case cryptoMigrationOn = "CryptoMigrationOn"
         case encryption = "Encryption"
         case fileVault = "FileVault"
         case locked = "Locked"

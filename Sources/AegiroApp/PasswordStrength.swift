@@ -119,15 +119,6 @@ struct PassphraseStrengthMeter: View {
                 }
             }
             .frame(height: 10)
-            .overlay(
-                HStack {
-                    Spacer()
-                    Text("\(report.score)/5")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(AegiroPalette.textMuted)
-                },
-                alignment: .trailing
-            )
 
             HStack(spacing: 8) {
                 requirementTag("8+ chars", met: report.length >= 8)
