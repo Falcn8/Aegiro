@@ -1599,13 +1599,6 @@ private struct DiskEncryptSheet: View {
         model.diskEncryptionMonitoringActive && model.diskEncryptionMonitoringDiskIdentifier == selectedDiskTrimmed
     }
 
-    private var shouldShowEncryptionProgress: Bool {
-        guard selectionKind == .apfs else { return false }
-        guard !selectedDiskTrimmed.isEmpty else { return false }
-        guard model.diskEncryptionMonitoringDiskIdentifier == selectedDiskTrimmed else { return false }
-        return model.diskEncryptionMonitoringActive || !model.diskEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     private var selectedNonAPFSMountPoint: String {
         selectedNonAPFSVolume?.mountPoint ?? selectedDiskTrimmed
     }
@@ -1616,16 +1609,6 @@ private struct DiskEncryptSheet: View {
         let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !mount.isEmpty, mount == target else { return false }
         return model.usbDataEncryptionActive
-    }
-
-    private var shouldShowUSBDataEncryptionProgress: Bool {
-        guard selectionKind == .nonAPFS else { return false }
-        let mount = selectedNonAPFSMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !mount.isEmpty, mount == target else { return false }
-        return model.usbDataEncryptionActive
-            || model.usbDataEncryptionTotalFiles > 0
-            || !model.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var submitButtonTitle: String {
@@ -1817,9 +1800,6 @@ private struct DiskEncryptSheet: View {
                 Toggle("Dry run only", isOn: $dryRun)
                 Toggle("Overwrite existing recovery bundle", isOn: $overwrite)
 
-                if shouldShowEncryptionProgress {
-                    encryptionProgressCard
-                }
                 Text("APFS reports block/volume encryption progress only. Per-file counts are not available from `diskutil`.")
                     .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
@@ -1871,9 +1851,6 @@ private struct DiskEncryptSheet: View {
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
 
-                if shouldShowUSBDataEncryptionProgress {
-                    usbDataEncryptionProgressCard
-                }
             case .none, .invalid:
                 Text("Selection is no longer valid. Go back and select an external volume again.")
                     .font(.system(size: 12, weight: .regular))
@@ -2299,15 +2276,6 @@ private struct USBUserDataEncryptSheet: View {
         return model.usbDataEncryptionActive
     }
 
-    private var shouldShowUSBProgressCard: Bool {
-        let mount = selectedMountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !mount.isEmpty, mount == target else { return false }
-        return model.usbDataEncryptionActive
-            || model.usbDataEncryptionTotalFiles > 0
-            || !model.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     private var canSubmit: Bool {
         let pathsReady = !selectedMountPoint.isEmpty
         && !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -2394,10 +2362,6 @@ private struct USBUserDataEncryptSheet: View {
                     Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
-                }
-
-                if shouldShowUSBProgressCard {
-                    usbProgressCard
                 }
 
                 HStack {
