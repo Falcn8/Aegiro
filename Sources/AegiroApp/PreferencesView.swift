@@ -60,11 +60,11 @@ struct PreferencesView: View {
 
                 if let issue = model.biometricKeychainIssue {
                     Text(issue)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 } else if !model.supportsBiometricUnlock {
                     Text("Touch ID is unavailable in the current vault configuration.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.textMuted)
                 }
             }
@@ -101,7 +101,7 @@ struct PreferencesView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 14, weight: .semibold))
+            .font(AegiroTypography.body(14, weight: .semibold))
             .foregroundStyle(AegiroPalette.textPrimary)
     }
 

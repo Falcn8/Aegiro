@@ -53,7 +53,7 @@ struct FirstRunView: View {
                         .foregroundStyle(AegiroPalette.textSecondary)
 
                     Text("Your files never leave your device.")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(AegiroTypography.body(14, weight: .regular))
                         .foregroundStyle(AegiroPalette.textSecondary)
                 }
 
@@ -85,12 +85,12 @@ struct FirstRunView: View {
 
                 if let errorText {
                     Text(errorText)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.dangerRed)
                 }
 
                 Text("Uses Argon2id, AES-256-GCM, and Post-Quantum Cryptography.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             }
             .padding(28)
@@ -158,13 +158,13 @@ struct FirstRunView: View {
 
             if let issue = model.biometricKeychainIssue {
                 Text(issue)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             if !passphrase.isEmpty && !passphraseStrength.isRequired {
                 Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
@@ -190,7 +190,7 @@ struct FirstRunView: View {
 
     private func formLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(AegiroTypography.body(12, weight: .semibold))
             .foregroundStyle(AegiroPalette.textSecondary)
     }
 

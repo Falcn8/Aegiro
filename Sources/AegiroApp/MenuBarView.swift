@@ -14,7 +14,7 @@ struct MenuBarView: View {
                 Image(systemName: model.locked ? "lock.fill" : "circle.fill")
                     .foregroundStyle(model.locked ? AegiroPalette.warningAmber : AegiroPalette.securityGreen)
                 Text(model.locked ? "Locked" : "Unlocked")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AegiroTypography.body(12, weight: .medium))
                 Spacer()
                 Text("Files: \(model.vaultFileCount ?? 0)")
                     .font(AegiroTypography.mono(11, weight: .regular))
@@ -54,7 +54,7 @@ struct MenuBarView: View {
             if !model.status.isEmpty {
                 Divider()
                 Text(model.status)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
             }
@@ -81,7 +81,7 @@ struct MenuBarView: View {
 
                 if let issue = model.biometricKeychainIssue {
                     Text(issue)
-                        .font(.system(size: 11, weight: .regular))
+                        .font(AegiroTypography.body(11, weight: .regular))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                 }

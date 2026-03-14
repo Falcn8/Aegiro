@@ -100,11 +100,11 @@ struct PassphraseStrengthMeter: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Strength")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textSecondary)
                 Spacer()
                 Text(report.label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(report.color)
             }
 
@@ -132,7 +132,7 @@ struct PassphraseStrengthMeter: View {
             }
 
             Text("Strong: 12+ chars with 3+ character types, or 20+ chars.")
-                .font(.system(size: 10, weight: .regular))
+                .font(AegiroTypography.body(10, weight: .regular))
                 .foregroundStyle(AegiroPalette.textMuted)
         }
         .padding(.horizontal, 10)
@@ -152,9 +152,9 @@ struct PassphraseStrengthMeter: View {
     private func requirementTag(_ title: String, met: Bool) -> some View {
         HStack(spacing: 4) {
             Image(systemName: met ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 10, weight: .semibold))
+                .font(AegiroTypography.body(10, weight: .semibold))
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
+                .font(AegiroTypography.body(10, weight: .semibold))
                 .lineLimit(1)
         }
         .padding(.horizontal, 6)

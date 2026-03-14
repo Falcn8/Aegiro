@@ -281,7 +281,7 @@ struct MainView: View {
         card {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Aegiro Vault")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AegiroTypography.body(16, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
 
                 statusPill(
@@ -353,7 +353,7 @@ struct MainView: View {
                     }
                     .buttonStyle(.borderless)
                 }
-                .font(.system(size: 12, weight: .medium))
+                .font(AegiroTypography.body(12, weight: .medium))
                 .foregroundStyle(AegiroPalette.textSecondary)
             }
         }
@@ -371,7 +371,7 @@ struct MainView: View {
 
                 if let issue = model.biometricKeychainIssue {
                     Text(issue)
-                        .font(.system(size: 11, weight: .regular))
+                        .font(AegiroTypography.body(11, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
 
@@ -402,7 +402,7 @@ struct MainView: View {
     private var fileInfoPopover: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("File Info")
-                .font(.system(size: 16, weight: .semibold))
+                .font(AegiroTypography.body(16, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             if let focusedEntry {
@@ -415,11 +415,11 @@ struct MainView: View {
                 infoRow(label: "Selected", value: "\(selection.count) files")
                 infoRow(label: "Total Size", value: ByteCountFormatter.fileFormatter.string(fromByteCount: selectedSize))
                 Text("Select one file to view full metadata.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             } else {
                 Text("Select a file to view details.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
         }
@@ -492,7 +492,7 @@ struct MainView: View {
             if isProcessingDrop {
                 VStack(spacing: 10) {
                     Text("Encrypting files...")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(AegiroTypography.body(14, weight: .semibold))
                         .foregroundStyle(AegiroPalette.textPrimary)
                     ProgressView()
                         .progressViewStyle(.linear)
@@ -529,7 +529,7 @@ struct MainView: View {
                         dismissToast()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(AegiroTypography.body(11, weight: .bold))
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(AegiroPalette.textSecondary)
@@ -555,13 +555,13 @@ struct MainView: View {
     private var noVaultState: some View {
         VStack(spacing: 12) {
             Image(systemName: "lock.shield")
-                .font(.system(size: 42, weight: .medium))
+                .font(AegiroTypography.body(42, weight: .medium))
                 .foregroundStyle(AegiroPalette.accentIndigo)
             Text("Encrypted Local Vault")
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
             Text("Open an existing vault or create a new one to begin.")
-                .font(.system(size: 14, weight: .regular))
+                .font(AegiroTypography.body(14, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
             HStack(spacing: 10) {
                 Button("Open Existing") {
@@ -587,13 +587,13 @@ struct MainView: View {
     private var lockedState: some View {
         VStack(spacing: 12) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 44, weight: .medium))
+                .font(AegiroTypography.body(44, weight: .medium))
                 .foregroundStyle(AegiroPalette.warningAmber)
             Text("Vault Locked")
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
             Text("Unlock to view encrypted files.")
-                .font(.system(size: 14, weight: .regular))
+                .font(AegiroTypography.body(14, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
             Button("Unlock Vault") {
                 showUnlockSheet = true
@@ -607,13 +607,13 @@ struct MainView: View {
     private var emptyVaultState: some View {
         VStack(spacing: 12) {
             Image(systemName: "tray")
-                .font(.system(size: 40, weight: .medium))
+                .font(AegiroTypography.body(40, weight: .medium))
                 .foregroundStyle(AegiroPalette.securityGreen)
             Text("No files in vault")
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
             Text("Drag files here or add files to encrypt.")
-                .font(.system(size: 14, weight: .regular))
+                .font(AegiroTypography.body(14, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
             Button("Add Files") {
                 model.importFiles()
@@ -703,16 +703,16 @@ struct MainView: View {
                                 }
 
                                 Text(entry.displayName)
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(AegiroTypography.body(14, weight: .medium))
                                     .foregroundStyle(AegiroPalette.textPrimary)
                                     .lineLimit(1)
 
                                 Text(entry.formattedSize)
-                                    .font(.system(size: 12, weight: .regular))
+                                    .font(AegiroTypography.body(12, weight: .regular))
                                     .foregroundStyle(AegiroPalette.textSecondary)
 
                                 Text("Modified \(entry.modified.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(.system(size: 12, weight: .regular))
+                                    .font(AegiroTypography.body(12, weight: .regular))
                                     .foregroundStyle(AegiroPalette.textMuted)
                             }
                             .padding(12)
@@ -779,7 +779,7 @@ struct MainView: View {
             Text("Modified")
                 .frame(width: 120, alignment: .leading)
         }
-        .font(.system(size: 12, weight: .semibold))
+        .font(AegiroTypography.body(12, weight: .semibold))
         .foregroundStyle(AegiroPalette.textSecondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -815,7 +815,7 @@ struct MainView: View {
                 .frame(width: 120, alignment: .leading)
                 .foregroundStyle(AegiroPalette.textSecondary)
         }
-        .font(.system(size: 13, weight: .medium))
+        .font(AegiroTypography.body(13, weight: .medium))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -915,7 +915,7 @@ struct MainView: View {
 
             if let issue = model.biometricKeychainIssue {
                 Text(issue)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
@@ -952,18 +952,18 @@ struct MainView: View {
 
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 16, weight: .semibold))
+            .font(AegiroTypography.body(16, weight: .semibold))
             .foregroundStyle(AegiroPalette.textPrimary)
     }
 
     private func infoRow(label: String, value: String) -> some View {
         HStack(spacing: 8) {
             Text(label)
-                .font(.system(size: 12, weight: .regular))
+                .font(AegiroTypography.body(12, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
             Spacer()
             Text(value)
-                .font(.system(size: 12, weight: .medium))
+                .font(AegiroTypography.body(12, weight: .medium))
                 .foregroundStyle(AegiroPalette.textPrimary)
                 .multilineTextAlignment(.trailing)
         }
@@ -972,7 +972,7 @@ struct MainView: View {
     private func actionButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(AegiroTypography.body(13, weight: .medium))
                 .foregroundStyle(AegiroPalette.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 10)
@@ -1479,19 +1479,19 @@ private struct CreateVaultSheet: View {
 
             if let issue = model.biometricKeychainIssue {
                 Text(issue)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             if passphrase != confirmPassphrase && !confirmPassphrase.isEmpty {
                 Text("Passphrases do not match.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.dangerRed)
             }
 
             if !passphrase.isEmpty && !passphraseStrength.isRequired {
                 Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
@@ -1515,7 +1515,7 @@ private struct CreateVaultSheet: View {
 
     private func formLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(AegiroTypography.body(12, weight: .semibold))
             .foregroundStyle(AegiroPalette.textSecondary)
     }
 
@@ -1697,7 +1697,7 @@ struct DiskEncryptSheet: View {
                     .foregroundStyle(AegiroPalette.textPrimary)
 
                 Text("Use one flow for APFS disk encryption and non-APFS USB user-data encryption.")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(AegiroTypography.body(13, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
 
                 if formPhase == .selectVolume {
@@ -1761,25 +1761,25 @@ struct DiskEncryptSheet: View {
             TextField("disk9s1 or /Volumes/MyUSB", text: $diskIdentifier)
                 .textFieldStyle(.roundedBorder)
             Text("Choose from External Volumes above, or type a listed APFS identifier / non-APFS mount point.")
-                .font(.system(size: 10, weight: .regular))
+                .font(AegiroTypography.body(10, weight: .regular))
                 .foregroundStyle(AegiroPalette.textMuted)
 
             switch selectionKind {
             case .apfs:
                 Text("APFS volume selected. Continue to configure recovery bundle + encryption options.")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             case .nonAPFS:
                 Text("Non-APFS volume selected. Continue to configure source/vault/passphrase options.")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             case .none:
                 Text("Select an external volume to continue.")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             case .invalid:
                 Text("The selected value is not a valid external APFS volume identifier or mounted non-APFS external volume.")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
@@ -1803,16 +1803,16 @@ struct DiskEncryptSheet: View {
                 switch selectionKind {
                 case .apfs:
                     Text("\(selectedAPFSVolume?.name ?? "APFS Volume") • \(selectedDiskTrimmed)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AegiroTypography.body(12, weight: .medium))
                         .foregroundStyle(AegiroPalette.textPrimary)
                 case .nonAPFS:
                     let fs = selectedNonAPFSVolume?.filesystemType.uppercased() ?? "NON-APFS"
                     Text("\(selectedDiskTrimmed) • \(fs)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AegiroTypography.body(12, weight: .medium))
                         .foregroundStyle(AegiroPalette.textPrimary)
                 case .none, .invalid:
                     Text("No valid external volume selected.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
             }
@@ -1844,7 +1844,7 @@ struct DiskEncryptSheet: View {
                 Toggle("Overwrite existing recovery bundle", isOn: $overwrite)
 
                 Text("APFS reports block/volume encryption progress only. Per-file counts are not available from `diskutil`.")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(AegiroTypography.body(10, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             case .nonAPFS:
                 formLabel("Source Folder to Encrypt")
@@ -1879,24 +1879,24 @@ struct DiskEncryptSheet: View {
                     .disabled(dryRun)
 
                 Text("System USB metadata is skipped automatically (.Spotlight-V100, .fseventsd, .Trashes, .DS_Store, System Volume Information).")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(AegiroTypography.body(10, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
 
                 if !dryRun && vaultPassphrase != confirmVaultPassphrase && !confirmVaultPassphrase.isEmpty {
                     Text("Passphrases do not match.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.dangerRed)
                 }
 
                 if !dryRun && !vaultPassphrase.isEmpty && !usbPassphraseStrength.isRequired {
                     Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
 
             case .none, .invalid:
                 Text("Selection is no longer valid. Go back and select an external volume again.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
@@ -1932,7 +1932,7 @@ struct DiskEncryptSheet: View {
                     .controlSize(.small)
             }
             Text(model.diskEncryptionProgressMessage)
-                .font(.system(size: 11, weight: .regular))
+                .font(AegiroTypography.body(11, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
         }
         .padding(10)
@@ -1958,15 +1958,15 @@ struct DiskEncryptSheet: View {
             }
             if model.usbDataEncryptionTotalFiles > 0 {
                 Text("\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
             } else {
                 Text("Preparing file list...")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
             Text(model.usbDataEncryptionProgressMessage)
-                .font(.system(size: 11, weight: .regular))
+                .font(AegiroTypography.body(11, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
         }
         .padding(10)
@@ -1982,7 +1982,7 @@ struct DiskEncryptSheet: View {
 
     private func formLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(AegiroTypography.body(12, weight: .semibold))
             .foregroundStyle(AegiroPalette.textSecondary)
     }
 
@@ -2183,7 +2183,7 @@ private struct DiskUnlockSheet: View {
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             Text("Use a PQC recovery bundle + passphrase to decrypt (unlock) APFS external volumes.")
-                .font(.system(size: 13, weight: .regular))
+                .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
             APFSVolumeOptionsPanel(
@@ -2242,7 +2242,7 @@ private struct DiskUnlockSheet: View {
 
     private func formLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(AegiroTypography.body(12, weight: .semibold))
             .foregroundStyle(AegiroPalette.textSecondary)
     }
 
@@ -2342,13 +2342,13 @@ private struct USBUserDataEncryptSheet: View {
                     .foregroundStyle(AegiroPalette.textPrimary)
 
                 Text("For non-APFS USB drives: encrypt user files into an Aegiro vault file without changing the USB format.")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(AegiroTypography.body(13, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
 
                 formLabel("Mounted Non-APFS Volume")
                 if volumes.isEmpty {
                     Text("No mounted non-APFS USB volumes found.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 } else {
                     Picker("Mounted Non-APFS Volume", selection: $selectedMountPoint) {
@@ -2392,18 +2392,18 @@ private struct USBUserDataEncryptSheet: View {
                     .disabled(dryRun)
 
                 Text("System USB metadata is skipped automatically (.Spotlight-V100, .fseventsd, .Trashes, .DS_Store, System Volume Information).")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(AegiroTypography.body(10, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
 
                 if !dryRun && passphrase != confirmPassphrase && !confirmPassphrase.isEmpty {
                     Text("Passphrases do not match.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.dangerRed)
                 }
 
                 if !dryRun && !passphrase.isEmpty && !passphraseStrength.isRequired {
                     Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(AegiroTypography.body(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
 
@@ -2445,7 +2445,7 @@ private struct USBUserDataEncryptSheet: View {
 
     private func formLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(AegiroTypography.body(12, weight: .semibold))
             .foregroundStyle(AegiroPalette.textSecondary)
     }
 
@@ -2461,15 +2461,15 @@ private struct USBUserDataEncryptSheet: View {
             }
             if model.usbDataEncryptionTotalFiles > 0 {
                 Text("\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
             } else {
                 Text("Preparing file list...")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
             Text(model.usbDataEncryptionProgressMessage)
-                .font(.system(size: 11, weight: .regular))
+                .font(AegiroTypography.body(11, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
         }
         .padding(10)
@@ -2654,7 +2654,7 @@ private struct APFSVolumeOptionsPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(showAllVolumes || mountedExternalOptions.isEmpty ? "External Volumes" : "Mounted External Volumes")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AegiroTypography.body(12, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textSecondary)
                 Spacer()
                 if !mountedExternalOptions.isEmpty && mountedExternalOptions.count != externalOptions.count {
@@ -2662,13 +2662,13 @@ private struct APFSVolumeOptionsPanel: View {
                         showAllVolumes.toggle()
                     }
                     .buttonStyle(.bordered)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AegiroTypography.body(11, weight: .semibold))
                 }
                 Button {
                     refresh()
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(AegiroTypography.body(11, weight: .semibold))
                 }
                 .buttonStyle(.bordered)
                 .disabled(isLoading)
@@ -2679,20 +2679,20 @@ private struct APFSVolumeOptionsPanel: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Scanning volumes...")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AegiroTypography.body(12, weight: .medium))
                         .foregroundStyle(AegiroPalette.textSecondary)
                 }
             }
 
             if let errorMessage, !errorMessage.isEmpty {
                 Text("Could not load APFS options: \(errorMessage)")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             if displayRows.isEmpty {
                 Text(noAPFSMessage)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             } else {
                 ScrollView {
@@ -2708,7 +2708,7 @@ private struct APFSVolumeOptionsPanel: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack(spacing: 6) {
                                                 Text(option.name)
-                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .font(AegiroTypography.body(13, weight: .semibold))
                                                     .foregroundStyle(AegiroPalette.textPrimary)
                                                 if let locationBadge = locationBadgeLabel(for: option) {
                                                     badge(text: locationBadge, color: option.isInternalStore == false ? AegiroPalette.securityGreen : AegiroPalette.warningAmber)
@@ -2724,14 +2724,14 @@ private struct APFSVolumeOptionsPanel: View {
                                                 .font(AegiroTypography.mono(12, weight: .medium))
                                                 .foregroundStyle(AegiroPalette.textSecondary)
                                             Text(optionMetaLine(for: option))
-                                                .font(.system(size: 11, weight: .regular))
+                                                .font(AegiroTypography.body(11, weight: .regular))
                                                 .foregroundStyle(AegiroPalette.textMuted)
                                         }
                                         Spacer(minLength: 8)
                                         if isSelected {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .foregroundStyle(AegiroPalette.securityGreen)
-                                                .font(.system(size: 15, weight: .semibold))
+                                                .font(AegiroTypography.body(15, weight: .semibold))
                                         }
                                     }
                                     .padding(10)
@@ -2760,7 +2760,7 @@ private struct APFSVolumeOptionsPanel: View {
                                                     badge(text: "Not APFS", color: AegiroPalette.warningAmber)
                                                 }
                                             Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
-                                                .font(.system(size: 11, weight: .regular))
+                                                .font(AegiroTypography.body(11, weight: .regular))
                                                 .foregroundStyle(AegiroPalette.textSecondary)
                                         }
                                         Spacer(minLength: 8)
@@ -2787,7 +2787,7 @@ private struct APFSVolumeOptionsPanel: View {
                                                 badge(text: "Not APFS", color: AegiroPalette.textMuted)
                                             }
                                             Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
-                                                .font(.system(size: 11, weight: .regular))
+                                                .font(AegiroTypography.body(11, weight: .regular))
                                                 .foregroundStyle(AegiroPalette.textMuted)
                                         }
                                         Spacer(minLength: 8)
@@ -2812,7 +2812,7 @@ private struct APFSVolumeOptionsPanel: View {
             }
             if !nonAPFSVolumes.isEmpty {
                 Text(nonAPFSHintMessage)
-                    .font(.system(size: 10, weight: .regular))
+                    .font(AegiroTypography.body(10, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             }
         }
@@ -2871,7 +2871,7 @@ private struct APFSVolumeOptionsPanel: View {
 
     private func badge(text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(AegiroTypography.body(10, weight: .bold))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(color.opacity(0.2), in: Capsule())
@@ -2972,7 +2972,7 @@ private struct DoctorSheet: View {
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             Text("Run integrity checks directly in the app.")
-                .font(.system(size: 13, weight: .regular))
+                .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
             if let report {
@@ -2988,11 +2988,11 @@ private struct DoctorSheet: View {
                             Text("\(entries)")
                                 .foregroundStyle(AegiroPalette.textPrimary)
                         }
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AegiroTypography.body(12, weight: .medium))
                     }
                     if report.fixed {
                         Text("Fix applied: manifest was re-signed.")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(AegiroTypography.body(12, weight: .semibold))
                             .foregroundStyle(AegiroPalette.securityGreen)
                     }
                 }
@@ -3007,11 +3007,11 @@ private struct DoctorSheet: View {
             if let report, !report.issues.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Issues")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AegiroTypography.body(13, weight: .semibold))
                         .foregroundStyle(AegiroPalette.textPrimary)
                     ForEach(report.issues, id: \.self) { issue in
                         Text("- \(issue)")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(AegiroTypography.body(12, weight: .regular))
                             .foregroundStyle(AegiroPalette.textSecondary)
                     }
                 }
@@ -3025,13 +3025,13 @@ private struct DoctorSheet: View {
 
             if !canApplyFix {
                 Text("Unlock the vault with your passphrase to enable Apply Fix.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             if !runMessage.isEmpty {
                 Text(runMessage)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(AegiroTypography.body(12, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
 
