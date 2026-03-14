@@ -168,6 +168,7 @@ public enum ExternalDiskCrypto {
         try mountedVolumes()
             .filter { $0.filesystemType != "apfs" }
             .filter { $0.mountPoint == "/Volumes" || $0.mountPoint.hasPrefix("/Volumes/") }
+            .filter { !isExcludedSystemExternalMountPoint($0.mountPoint) }
             .map { MountedNonAPFSVolume(deviceIdentifier: $0.deviceIdentifier,
                                         mountPoint: $0.mountPoint,
                                         filesystemType: $0.filesystemType) }
@@ -392,6 +393,11 @@ public enum ExternalDiskCrypto {
             .replacingOccurrences(of: "\\011", with: "\t")
             .replacingOccurrences(of: "\\012", with: "\n")
             .replacingOccurrences(of: "\\\\", with: "\\")
+    }
+
+    private static func isExcludedSystemExternalMountPoint(_ mountPoint: String) -> Bool {
+        let lowered = mountPoint.lowercased()
+        return lowered.contains("/coresimulator/")
     }
 
     private static func randomDiskPassphrase() -> String {

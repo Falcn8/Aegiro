@@ -86,6 +86,8 @@ struct MainView: View {
         .sheet(isPresented: $showDiskEncryptSheet) {
             DiskEncryptSheet {
                 showDiskEncryptSheet = false
+            } onOpenUSBDataEncrypt: {
+                showUSBUserDataEncryptSheet = true
             }
             .environmentObject(model)
         }
@@ -376,10 +378,6 @@ struct MainView: View {
         card {
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("External Disk")
-
-                actionButton(title: "Encrypt USB Data", icon: "folder.badge.lock") {
-                    showUSBUserDataEncryptSheet = true
-                }
 
                 actionButton(title: "Encrypt Disk", icon: "externaldrive.badge.plus") {
                     showDiskEncryptSheet = true
@@ -1495,6 +1493,7 @@ private struct DiskEncryptSheet: View {
     @State private var overwrite = false
 
     var onDone: () -> Void
+    var onOpenUSBDataEncrypt: () -> Void
 
     private var canSubmit: Bool {
         !diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1520,6 +1519,18 @@ private struct DiskEncryptSheet: View {
                 errorMessage: model.apfsVolumeOptionsError
             ) {
                 model.refreshAPFSVolumeOptions()
+            }
+
+            if !model.mountedNonAPFSVolumes.isEmpty {
+                HStack(spacing: 8) {
+                    Text("Non-APFS USB detected?")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                    Button("Encrypt USB Data") {
+                        openUSBDataEncryptFlow()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
 
             formLabel("Selected APFS Volume Identifier")
@@ -1623,6 +1634,13 @@ private struct DiskEncryptSheet: View {
         )
         onDone()
         dismiss()
+    }
+
+    private func openUSBDataEncryptFlow() {
+        dismiss()
+        DispatchQueue.main.async {
+            onOpenUSBDataEncrypt()
+        }
     }
 }
 
@@ -2261,6 +2279,9 @@ private func isMountedExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
     guard let mountPoint = option.mountPoint else {
         return false
     }
+    if isExcludedSystemExternalMountPoint(mountPoint) {
+        return false
+    }
     return mountPoint == "/Volumes" || mountPoint.hasPrefix("/Volumes/")
 }
 
@@ -2268,13 +2289,18 @@ private func isExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
     if option.isInternalStore == true {
         return false
     }
-    if option.isInternalStore == false {
-        return true
+    if let mountPoint = option.mountPoint {
+        if isExcludedSystemExternalMountPoint(mountPoint) {
+            return false
+        }
+        return mountPoint == "/Volumes" || mountPoint.hasPrefix("/Volumes/")
     }
-    guard let mountPoint = option.mountPoint else {
-        return false
-    }
-    return mountPoint == "/Volumes" || mountPoint.hasPrefix("/Volumes/")
+    return option.isInternalStore == false
+}
+
+private func isExcludedSystemExternalMountPoint(_ mountPoint: String) -> Bool {
+    let lowered = mountPoint.lowercased()
+    return lowered.contains("/coresimulator/")
 }
 
 private let systemAPFSRoles: Set<String> = [
