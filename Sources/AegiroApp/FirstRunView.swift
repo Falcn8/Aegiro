@@ -36,13 +36,19 @@ struct FirstRunView: View {
         ZStack {
             backgroundLayer
 
-            VStack(spacing: 20) {
+            VStack(spacing: 0) {
                 heroShowcase
-                Spacer(minLength: 12)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
                 actionCard
             }
             .padding(.horizontal, 32)
-            .padding(.vertical, 24)
+            .padding(.bottom, 24)
         }
         .frame(minWidth: 1080, minHeight: 720)
         .onAppear {
@@ -74,12 +80,13 @@ struct FirstRunView: View {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()
+                    .scaleEffect(1.12)
             } else {
                 Rectangle()
                     .fill(AegiroPalette.backgroundPanel)
             }
         }
-        .frame(maxWidth: 1280, maxHeight: 560)
+        .frame(maxWidth: 1500, maxHeight: 680)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
