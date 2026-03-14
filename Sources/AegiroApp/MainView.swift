@@ -574,6 +574,11 @@ struct MainView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
+
+                Button("Encrypt Disk") {
+                    showDiskEncryptSheet = true
+                }
+                .buttonStyle(.bordered)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

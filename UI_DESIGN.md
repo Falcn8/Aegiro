@@ -51,6 +51,7 @@ Main window uses a three-zone shell:
 
 2. Main app (`MainView`)
 - Dark, card-based sidebar and high-contrast content area.
+- No-vault empty state includes quick actions for Open Existing, Create Vault, and Encrypt Disk.
 - File list and grid modes.
 - Finder-style selection behavior:
   - Single click selects one file.
