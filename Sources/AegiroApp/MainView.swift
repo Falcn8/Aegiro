@@ -1426,7 +1426,7 @@ private struct CreateVaultSheet: View {
             }
 
             formLabel("Passphrase")
-            SecureField("Strong passphrase required", text: $passphrase)
+            SecureField("8+ chars with upper/lower letters and numbers", text: $passphrase)
                 .textFieldStyle(.roundedBorder)
             PassphraseStrengthMeter(passphrase: passphrase)
 
@@ -1450,7 +1450,7 @@ private struct CreateVaultSheet: View {
             }
 
             if !passphrase.isEmpty && !passphraseStrength.isStrong {
-                Text("Passphrase must be strong: use 12+ chars with 3+ character types, or 20+ chars.")
+                Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
@@ -1491,7 +1491,7 @@ private struct CreateVaultSheet: View {
 
     private func createVault() {
         guard passphraseStrength.isStrong else {
-            model.status = "Passphrase is too weak. Use 12+ chars with 3+ types, or 20+ chars."
+            model.status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
             return
         }
         model.createVault(

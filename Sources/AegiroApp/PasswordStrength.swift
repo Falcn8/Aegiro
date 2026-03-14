@@ -55,21 +55,14 @@ struct PassphraseStrengthReport {
 
         let categories = [hasLowercase, hasUppercase, hasDigit, hasSymbol]
         let categoryCount = categories.filter { $0 }.count
-        let meetsLengthAndTypes = length >= 12 && categoryCount >= 3
-        let meetsLongPassphraseRule = length >= 20
-        let isStrong = meetsLengthAndTypes || meetsLongPassphraseRule
+        let isStrong = length >= 8 && hasLowercase && hasUppercase && hasDigit
 
         var score = 0
+        if length >= 4 { score += 1 }
         if length >= 8 { score += 1 }
-        if length >= 12 { score += 1 }
-        if categoryCount >= 2 { score += 1 }
-        if categoryCount >= 3 { score += 1 }
-        if categoryCount == 4 || length >= 20 { score += 1 }
-
-        let lowered = passphrase.lowercased()
-        if lowered.contains("password") || lowered.contains("qwerty") || lowered.contains("123456") {
-            score = max(0, score - 2)
-        }
+        if hasLowercase && hasUppercase { score += 1 }
+        if hasDigit { score += 1 }
+        if hasSymbol { score += 1 }
 
         if isStrong {
             score = max(score, 5)
@@ -94,6 +87,10 @@ struct PassphraseStrengthMeter: View {
         PassphraseStrengthReport.evaluate(passphrase)
     }
 
+    private var progress: CGFloat {
+        CGFloat(report.score) / 5.0
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
@@ -106,19 +103,36 @@ struct PassphraseStrengthMeter: View {
                     .foregroundStyle(report.color)
             }
 
-            HStack(spacing: 6) {
-                ForEach(0..<5, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(index < report.score ? report.color : AegiroPalette.borderSubtle.opacity(0.6))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 6)
+            GeometryReader { proxy in
+                let totalWidth = max(0, proxy.size.width)
+                let fillWidth = totalWidth * progress
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(AegiroPalette.borderSubtle.opacity(0.62))
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(colors: [report.color.opacity(0.72), report.color],
+                                           startPoint: .leading,
+                                           endPoint: .trailing)
+                        )
+                        .frame(width: fillWidth)
                 }
             }
+            .frame(height: 10)
+            .overlay(
+                HStack {
+                    Spacer()
+                    Text("\(report.score)/5")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(AegiroPalette.textMuted)
+                },
+                alignment: .trailing
+            )
 
             HStack(spacing: 8) {
-                requirementTag("12+ chars", met: report.length >= 12)
-                requirementTag("3+ types", met: report.categoryCount >= 3)
-                requirementTag("or 20+ chars", met: report.length >= 20)
+                requirementTag("8+ chars", met: report.length >= 8)
+                requirementTag("upper + lower", met: report.hasUppercase && report.hasLowercase)
+                requirementTag("number", met: report.hasDigit)
             }
         }
         .padding(.horizontal, 10)
@@ -132,6 +146,7 @@ struct PassphraseStrengthMeter: View {
                 .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
         )
         .animation(.easeInOut(duration: 0.18), value: report.score)
+        .animation(.easeInOut(duration: 0.18), value: passphrase)
     }
 
     private func requirementTag(_ title: String, met: Bool) -> some View {
