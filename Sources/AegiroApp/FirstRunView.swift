@@ -81,12 +81,14 @@ struct FirstRunView: View {
                     .resizable()
                     .scaledToFit()
                     .scaleEffect(1.12)
+                    .offset(y: -120)
             } else {
                 Rectangle()
                     .fill(AegiroPalette.backgroundPanel)
             }
         }
-        .frame(maxWidth: 1500, maxHeight: 680)
+        .frame(maxWidth: 1500, maxHeight: 680, alignment: .top)
+        .clipped()
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
