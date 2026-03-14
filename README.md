@@ -162,6 +162,7 @@ open -n dist/AegiroApp.app
 .build/release/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<recovery-pass>" --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json
 .build/release/aegiro-cli usb-container-mount --image /Volumes/MyUSB/aegiro-portable.sparsebundle --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json --passphrase "<recovery-pass>"
 .build/release/aegiro-cli usb-container-unmount --target "/Volumes/AegiroUSB"
+```
 
 Example text output:
 
@@ -192,7 +193,9 @@ Example JSON output:
 }
 ```
 
-# Doctor (check, optional fix)
+### Doctor (check, optional fix)
+
+```bash
 .build/release/aegiro-cli doctor --vault ~/AegiroVaults/alpha.agvt [--passphrase "<pass>"] [--fix]
 ```
 
