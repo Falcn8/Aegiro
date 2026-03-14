@@ -79,7 +79,7 @@ struct FirstRunView: View {
                     .fill(AegiroPalette.backgroundPanel)
             }
         }
-        .frame(maxWidth: 1080, maxHeight: 470)
+        .frame(maxWidth: 1280, maxHeight: 560)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
