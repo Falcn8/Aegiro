@@ -80,13 +80,9 @@ Main window uses a three-zone shell:
 - Auto-lock presets + slider.
 - Touch ID toggle.
 
-4. Menu bar (`MenuBarView`)
-- Dynamic icon state (locked/unlocked).
-- Status summary and quick lock/unlock/import/export actions.
-
 ## Behavior Standards
 
-- Security state is explicit in sidebar, status bar, and menu bar.
+- Security state is explicit in sidebar and status bar.
 - Locked state blocks file operations and shows clear unlock call-to-action.
 - Search filters by name, path, mime/type, and tags.
 - Drag-and-drop imports only when vault is unlocked.
@@ -100,7 +96,6 @@ Main window uses a three-zone shell:
 - `Sources/AegiroApp/FirstRunView.swift`: onboarding flow
 - `Sources/AegiroApp/MainView.swift`: app shell, file browser, overlays, sheets
 - `Sources/AegiroApp/PreferencesView.swift`: settings UI
-- `Sources/AegiroApp/MenuBarView.swift`: menu bar companion
 - `Sources/AegiroApp/VaultModel.swift`: dropped-file import helper
 
 ## Validation Checklist

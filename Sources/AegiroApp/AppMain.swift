@@ -59,12 +59,6 @@ struct AegiroAppMain: App {
             .preferredColorScheme(.dark)
         }
         .windowStyle(.hiddenTitleBar)
-        MenuBarExtra {
-            MenuBarView()
-                .environmentObject(model)
-        } label: {
-            Image(systemName: model.locked ? "lock.fill" : "checkmark.circle.fill")
-        }
         Settings {
             PreferencesView()
                 .environmentObject(model)
