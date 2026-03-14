@@ -40,6 +40,8 @@ struct MainView: View {
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
 
+    private let toastDisplayDuration: TimeInterval = 12
+
     private var filteredEntries: [VaultIndexEntry] {
         let searched = applySearch(to: model.entries)
         return applySort(to: searched)
@@ -507,18 +509,43 @@ struct MainView: View {
             }
 
             if let toastMessage {
-                Text(toastMessage)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(AegiroPalette.textPrimary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(AegiroPalette.backgroundCard, in: Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
-                    )
-                    .padding(.bottom, 12)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                HStack(spacing: 8) {
+                    Text(toastMessage)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                        .lineLimit(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button {
+                        copyToastToClipboard(toastMessage)
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                            .labelStyle(.titleAndIcon)
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(AegiroPalette.textSecondary)
+
+                    Button {
+                        dismissToast()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(AegiroPalette.textSecondary)
+                    .accessibilityLabel("Dismiss message")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: 820)
+                .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .background(AegiroPalette.backgroundMain)
@@ -1343,12 +1370,23 @@ struct MainView: View {
             toastMessage = trimmed
         }
         let work = DispatchWorkItem {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                toastMessage = nil
-            }
+            dismissToast()
         }
         toastDismissWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + toastDisplayDuration, execute: work)
+    }
+
+    private func dismissToast() {
+        toastDismissWork?.cancel()
+        toastDismissWork = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            toastMessage = nil
+        }
+    }
+
+    private func copyToastToClipboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
