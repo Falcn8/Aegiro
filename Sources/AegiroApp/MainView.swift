@@ -1843,7 +1843,7 @@ private struct USBUserDataEncryptSheet: View {
 
             formLabel("Vault File on USB")
             HStack(spacing: 8) {
-                TextField("/Volumes/MyUSB/MyUSB-userdata.agvt", text: $vaultPath)
+                TextField("/Volumes/MyUSB/data.agvt", text: $vaultPath)
                     .textFieldStyle(.roundedBorder)
                 Button("Choose...") { chooseVaultPath() }
                     .buttonStyle(.bordered)
@@ -1946,10 +1946,8 @@ private struct USBUserDataEncryptSheet: View {
     }
 
     private func defaultVaultPath(for mountPoint: String) -> String {
-        let label = (mountPoint as NSString).lastPathComponent
-        let base = label.isEmpty ? "USB" : label
         return URL(fileURLWithPath: mountPoint, isDirectory: true)
-            .appendingPathComponent("\(base)-userdata.agvt")
+            .appendingPathComponent("data.agvt")
             .path
     }
 
