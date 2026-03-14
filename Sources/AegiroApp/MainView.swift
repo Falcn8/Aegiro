@@ -1645,20 +1645,40 @@ private struct DiskEncryptSheet: View {
         }
     }
 
+    private var shouldShowProgressOnlyView: Bool {
+        isEncryptingSelectedDisk || isEncryptingSelectedUSBUserData
+    }
+
+    @ViewBuilder
+    private var progressOnlyContent: some View {
+        switch selectionKind {
+        case .apfs:
+            encryptionProgressCard
+        case .nonAPFS:
+            usbDataEncryptionProgressCard
+        case .none, .invalid:
+            ProgressView()
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Encrypt External Disk")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(AegiroPalette.textPrimary)
-
-            Text("Use one flow for APFS disk encryption and non-APFS USB user-data encryption.")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(AegiroPalette.textSecondary)
-
-            if formPhase == .selectVolume {
-                selectionPhaseContent
+            if shouldShowProgressOnlyView {
+                progressOnlyContent
             } else {
-                detailsPhaseContent
+                Text("Encrypt External Disk")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(AegiroPalette.textPrimary)
+
+                Text("Use one flow for APFS disk encryption and non-APFS USB user-data encryption.")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+
+                if formPhase == .selectVolume {
+                    selectionPhaseContent
+                } else {
+                    detailsPhaseContent
+                }
             }
         }
         .padding(24)
@@ -2303,99 +2323,101 @@ private struct USBUserDataEncryptSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Encrypt USB User Data")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(AegiroPalette.textPrimary)
-
-            Text("For non-APFS USB drives: encrypt user files into an Aegiro vault file without changing the USB format.")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(AegiroPalette.textSecondary)
-
-            formLabel("Mounted Non-APFS Volume")
-            if volumes.isEmpty {
-                Text("No mounted non-APFS USB volumes found.")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.warningAmber)
-            } else {
-                Picker("Mounted Non-APFS Volume", selection: $selectedMountPoint) {
-                    Text("Select mounted volume").tag("")
-                    ForEach(volumes, id: \.mountPoint) { volume in
-                        Text("\(volume.mountPoint) (\(volume.filesystemType.uppercased()))").tag(volume.mountPoint)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            formLabel("Source Folder to Encrypt")
-            HStack(spacing: 8) {
-                TextField("/Volumes/MyUSB", text: $sourcePath)
-                    .textFieldStyle(.roundedBorder)
-                Button("Choose...") { chooseSourceFolder() }
-                    .buttonStyle(.bordered)
-            }
-
-            formLabel("Vault File on USB")
-            HStack(spacing: 8) {
-                TextField("/Volumes/MyUSB/data.agvt", text: $vaultPath)
-                    .textFieldStyle(.roundedBorder)
-                Button("Choose...") { chooseVaultPath() }
-                    .buttonStyle(.bordered)
-            }
-
-            formLabel("Vault Passphrase")
-            SecureField(dryRun ? "Optional for scan-only" : "8+ chars with upper/lower letters and numbers", text: $passphrase)
-                .textFieldStyle(.roundedBorder)
-            if !dryRun || !passphrase.isEmpty {
-                PassphraseStrengthMeter(passphrase: passphrase)
-            }
-
-            formLabel("Confirm Passphrase")
-            SecureField(dryRun ? "Optional for scan-only" : "Repeat passphrase", text: $confirmPassphrase)
-                .textFieldStyle(.roundedBorder)
-
-            Toggle("Dry run only (scan user files without encrypting)", isOn: $dryRun)
-            Toggle("Delete original files after successful encryption", isOn: $deleteOriginals)
-                .disabled(dryRun)
-
-            Text("System USB metadata is skipped automatically (.Spotlight-V100, .fseventsd, .Trashes, .DS_Store, System Volume Information).")
-                .font(.system(size: 10, weight: .regular))
-                .foregroundStyle(AegiroPalette.textMuted)
-
-            if !dryRun && passphrase != confirmPassphrase && !confirmPassphrase.isEmpty {
-                Text("Passphrases do not match.")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.dangerRed)
-            }
-
-            if !dryRun && !passphrase.isEmpty && !passphraseStrength.isRequired {
-                Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.warningAmber)
-            }
-
-            if shouldShowUSBProgressCard {
+            if isEncryptingSelectedMount {
                 usbProgressCard
-            }
+            } else {
+                Text("Encrypt USB User Data")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(AegiroPalette.textPrimary)
 
-            HStack {
-                Spacer()
-                Button("Refresh Volumes") {
-                    model.refreshAPFSVolumeOptions()
-                }
-                .buttonStyle(.bordered)
-                .disabled(isEncryptingSelectedMount)
+                Text("For non-APFS USB drives: encrypt user files into an Aegiro vault file without changing the USB format.")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
 
-                Button("Cancel") {
-                    dismiss()
+                formLabel("Mounted Non-APFS Volume")
+                if volumes.isEmpty {
+                    Text("No mounted non-APFS USB volumes found.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.warningAmber)
+                } else {
+                    Picker("Mounted Non-APFS Volume", selection: $selectedMountPoint) {
+                        Text("Select mounted volume").tag("")
+                        ForEach(volumes, id: \.mountPoint) { volume in
+                            Text("\(volume.mountPoint) (\(volume.filesystemType.uppercased()))").tag(volume.mountPoint)
+                        }
+                    }
+                    .pickerStyle(.menu)
                 }
-                .disabled(isEncryptingSelectedMount)
 
-                Button(isEncryptingSelectedMount ? (dryRun ? "Scanning..." : "Encrypting...") : (dryRun ? "Scan User Data" : "Encrypt User Data")) {
-                    startEncrypt()
+                formLabel("Source Folder to Encrypt")
+                HStack(spacing: 8) {
+                    TextField("/Volumes/MyUSB", text: $sourcePath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose...") { chooseSourceFolder() }
+                        .buttonStyle(.bordered)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(AegiroPalette.accentIndigo)
-                .disabled(!canSubmit || isEncryptingSelectedMount)
+
+                formLabel("Vault File on USB")
+                HStack(spacing: 8) {
+                    TextField("/Volumes/MyUSB/data.agvt", text: $vaultPath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose...") { chooseVaultPath() }
+                        .buttonStyle(.bordered)
+                }
+
+                formLabel("Vault Passphrase")
+                SecureField(dryRun ? "Optional for scan-only" : "8+ chars with upper/lower letters and numbers", text: $passphrase)
+                    .textFieldStyle(.roundedBorder)
+                if !dryRun || !passphrase.isEmpty {
+                    PassphraseStrengthMeter(passphrase: passphrase)
+                }
+
+                formLabel("Confirm Passphrase")
+                SecureField(dryRun ? "Optional for scan-only" : "Repeat passphrase", text: $confirmPassphrase)
+                    .textFieldStyle(.roundedBorder)
+
+                Toggle("Dry run only (scan user files without encrypting)", isOn: $dryRun)
+                Toggle("Delete original files after successful encryption", isOn: $deleteOriginals)
+                    .disabled(dryRun)
+
+                Text("System USB metadata is skipped automatically (.Spotlight-V100, .fseventsd, .Trashes, .DS_Store, System Volume Information).")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+
+                if !dryRun && passphrase != confirmPassphrase && !confirmPassphrase.isEmpty {
+                    Text("Passphrases do not match.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.dangerRed)
+                }
+
+                if !dryRun && !passphrase.isEmpty && !passphraseStrength.isRequired {
+                    Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.warningAmber)
+                }
+
+                if shouldShowUSBProgressCard {
+                    usbProgressCard
+                }
+
+                HStack {
+                    Spacer()
+                    Button("Refresh Volumes") {
+                        model.refreshAPFSVolumeOptions()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Cancel") {
+                        dismiss()
+                    }
+
+                    Button(dryRun ? "Scan User Data" : "Encrypt User Data") {
+                        startEncrypt()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.accentIndigo)
+                    .disabled(!canSubmit)
+                }
             }
         }
         .padding(24)
