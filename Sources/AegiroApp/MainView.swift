@@ -1195,6 +1195,9 @@ struct MainView: View {
         let orderedIDs = filteredEntries.map(\.id)
         guard !orderedIDs.isEmpty else { return }
 
+        // Require an actual Shift key press for range extension to match Finder behavior.
+        let shouldExtendRange = extending && NSEvent.modifierFlags.contains(.shift)
+
         let fallbackStart = (direction == .up) ? orderedIDs.last : orderedIDs.first
         let currentID = selectionCursor
             ?? selectionAnchor
@@ -1212,7 +1215,7 @@ struct MainView: View {
             targetID = nextListNavigationID(from: currentID, direction: direction, orderedIDs: orderedIDs) ?? currentID
         }
 
-        if extending {
+        if shouldExtendRange {
             let anchor = selectionAnchor ?? currentID
             selectionAnchor = anchor
             selection = selectionRange(from: anchor, to: targetID, orderedIDs: orderedIDs)
