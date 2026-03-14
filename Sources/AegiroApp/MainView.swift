@@ -1546,7 +1546,7 @@ private struct CreateVaultSheet: View {
     }
 }
 
-private struct DiskEncryptSheet: View {
+struct DiskEncryptSheet: View {
     @EnvironmentObject var model: VaultModel
     @Environment(\.dismiss) private var dismiss
 

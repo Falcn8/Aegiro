@@ -130,6 +130,10 @@ struct PassphraseStrengthMeter: View {
                 requirementTag("upper + lower", met: report.hasUppercase && report.hasLowercase)
                 requirementTag("number", met: report.hasDigit)
             }
+
+            Text("Strong: 12+ chars with 3+ character types, or 20+ chars.")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(AegiroPalette.textMuted)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)

@@ -45,7 +45,7 @@ Main window uses a three-zone shell:
 
 1. First run (`FirstRunView`)
 - Centered hero card.
-- Create Vault and Open Existing actions.
+- Create Vault, Open Existing, and Encrypt Disk actions.
 - Inline create form (name/location/passphrase/confirm/Touch ID).
 - Crypto reassurance copy: Argon2id, AES-256-GCM, and post-quantum cryptography.
 

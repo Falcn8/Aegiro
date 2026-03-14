@@ -13,6 +13,7 @@ struct FirstRunView: View {
     @State private var confirmPassphrase = ""
     @State private var touchIDEnabled = true
     @State private var errorText: String?
+    @State private var showDiskEncryptSheet = false
 
     private var canCreate: Bool {
         passphraseStrength.isRequired && passphrase == confirmPassphrase
@@ -73,6 +74,11 @@ struct FirstRunView: View {
                         openExisting()
                     }
                     .buttonStyle(.bordered)
+
+                    Button("Encrypt Disk") {
+                        showDiskEncryptSheet = true
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 if showCreateForm {
@@ -101,6 +107,12 @@ struct FirstRunView: View {
         }
         .onAppear {
             touchIDEnabled = model.supportsBiometricUnlock && model.biometricKeychainAvailable && model.allowTouchID
+        }
+        .sheet(isPresented: $showDiskEncryptSheet) {
+            DiskEncryptSheet {
+                showDiskEncryptSheet = false
+            }
+            .environmentObject(model)
         }
     }
 
