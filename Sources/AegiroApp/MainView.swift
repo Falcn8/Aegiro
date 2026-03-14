@@ -1398,7 +1398,11 @@ private struct CreateVaultSheet: View {
     }
 
     private var canCreate: Bool {
-        passphrase.count >= 8 && passphrase == confirmPassphrase
+        passphraseStrength.isStrong && passphrase == confirmPassphrase
+    }
+
+    private var passphraseStrength: PassphraseStrengthReport {
+        PassphraseStrengthReport.evaluate(passphrase)
     }
 
     var body: some View {
@@ -1422,8 +1426,9 @@ private struct CreateVaultSheet: View {
             }
 
             formLabel("Passphrase")
-            SecureField("At least 8 characters", text: $passphrase)
+            SecureField("Strong passphrase required", text: $passphrase)
                 .textFieldStyle(.roundedBorder)
+            PassphraseStrengthMeter(passphrase: passphrase)
 
             formLabel("Confirm Passphrase")
             SecureField("Repeat passphrase", text: $confirmPassphrase)
@@ -1442,6 +1447,12 @@ private struct CreateVaultSheet: View {
                 Text("Passphrases do not match.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.dangerRed)
+            }
+
+            if !passphrase.isEmpty && !passphraseStrength.isStrong {
+                Text("Passphrase must be strong: use 12+ chars with 3+ character types, or 20+ chars.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             HStack {
@@ -1479,6 +1490,10 @@ private struct CreateVaultSheet: View {
     }
 
     private func createVault() {
+        guard passphraseStrength.isStrong else {
+            model.status = "Passphrase is too weak. Use 12+ chars with 3+ types, or 20+ chars."
+            return
+        }
         model.createVault(
             at: URL(fileURLWithPath: effectivePath),
             passphrase: passphrase,

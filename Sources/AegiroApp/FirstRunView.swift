@@ -15,7 +15,11 @@ struct FirstRunView: View {
     @State private var errorText: String?
 
     private var canCreate: Bool {
-        passphrase.count >= 8 && passphrase == confirmPassphrase
+        passphraseStrength.isStrong && passphrase == confirmPassphrase
+    }
+
+    private var passphraseStrength: PassphraseStrengthReport {
+        PassphraseStrengthReport.evaluate(passphrase)
     }
 
     private var effectivePath: String {
@@ -117,8 +121,9 @@ struct FirstRunView: View {
             }
 
             formLabel("Passphrase")
-            SecureField("At least 8 characters", text: $passphrase)
+            SecureField("Strong passphrase required", text: $passphrase)
                 .textFieldStyle(.roundedBorder)
+            PassphraseStrengthMeter(passphrase: passphrase)
 
             formLabel("Confirm Passphrase")
             SecureField("Repeat passphrase", text: $confirmPassphrase)
@@ -129,6 +134,12 @@ struct FirstRunView: View {
 
             if let issue = model.biometricKeychainIssue {
                 Text(issue)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
+
+            if !passphrase.isEmpty && !passphraseStrength.isStrong {
+                Text("Passphrase must be strong: use 12+ chars with 3+ character types, or 20+ chars.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
@@ -179,6 +190,10 @@ struct FirstRunView: View {
     }
 
     private func createVault() {
+        guard passphraseStrength.isStrong else {
+            errorText = "Passphrase is too weak. Use 12+ chars with 3+ types, or 20+ chars."
+            return
+        }
         model.allowTouchID = touchIDEnabled && model.supportsBiometricUnlock && model.biometricKeychainAvailable
         model.saveSettings()
         model.createVault(
