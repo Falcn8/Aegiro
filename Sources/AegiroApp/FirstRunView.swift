@@ -96,22 +96,28 @@ struct FirstRunView: View {
             }
 
             HStack(spacing: 12) {
-                Button("Create Vault") {
+                Button {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         showCreateForm = true
                         errorText = nil
                     }
+                } label: {
+                    buttonLabel("Create Vault")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
 
-                Button("Open Existing") {
+                Button {
                     openExisting()
+                } label: {
+                    buttonLabel("Open Existing")
                 }
                 .buttonStyle(.bordered)
 
-                Button("Encrypt Disk") {
+                Button {
                     showDiskEncryptSheet = true
+                } label: {
+                    buttonLabel("Encrypt Disk")
                 }
                 .buttonStyle(.bordered)
             }
@@ -151,8 +157,10 @@ struct FirstRunView: View {
             HStack(spacing: 8) {
                 TextField("/Users/...", text: $parentPath)
                     .textFieldStyle(.roundedBorder)
-                Button("Choose...") {
+                Button {
                     chooseParentFolder()
+                } label: {
+                    buttonLabel("Choose...")
                 }
                 .buttonStyle(.bordered)
             }
@@ -182,17 +190,21 @@ struct FirstRunView: View {
             }
 
             HStack {
-                Button("Back") {
+                Button {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         showCreateForm = false
                     }
+                } label: {
+                    buttonLabel("Back")
                 }
                 .buttonStyle(.bordered)
 
                 Spacer()
 
-                Button("Create Vault") {
+                Button {
                     createVault()
+                } label: {
+                    buttonLabel("Create Vault")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
@@ -205,6 +217,11 @@ struct FirstRunView: View {
         Text(text)
             .font(AegiroTypography.body(12, weight: .semibold))
             .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func buttonLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(13, weight: .semibold))
     }
 
     private func openExisting() {
