@@ -87,9 +87,6 @@ struct MainView: View {
         .sheet(isPresented: $showDiskEncryptSheet) {
             DiskEncryptSheet {
                 showDiskEncryptSheet = false
-            } onOpenUSBDataEncrypt: { mountPoint in
-                preferredUSBUserDataMountPoint = mountPoint
-                showUSBUserDataEncryptSheet = true
             }
             .environmentObject(model)
         }
@@ -1514,20 +1511,73 @@ private struct DiskEncryptSheet: View {
     @State private var recoveryPassphrase = ""
     @State private var recoveryPath = ""
     @State private var lastSuggestedRecoveryPath = ""
+    @State private var sourcePath = ""
+    @State private var vaultPath = ""
+    @State private var vaultPassphrase = ""
+    @State private var confirmVaultPassphrase = ""
+    @State private var lastSuggestedSourcePath = ""
+    @State private var lastSuggestedVaultPath = ""
     @State private var dryRun = false
     @State private var overwrite = false
+    @State private var deleteOriginals = false
 
     var onDone: () -> Void
-    var onOpenUSBDataEncrypt: (String?) -> Void
 
-    private var canSubmit: Bool {
-        !diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        && !recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        && !recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private enum SelectionKind {
+        case none
+        case apfs
+        case nonAPFS
+        case invalid
     }
 
     private var selectedDiskTrimmed: String {
         diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var externalAPFSOptions: [APFSVolumeOption] {
+        externalAPFSVolumes(from: model.apfsVolumeOptions)
+    }
+
+    private var selectedAPFSVolume: APFSVolumeOption? {
+        externalAPFSOptions.first { $0.identifier == selectedDiskTrimmed }
+    }
+
+    private var selectedNonAPFSVolume: MountedNonAPFSVolume? {
+        model.mountedNonAPFSVolumes.first { $0.mountPoint == selectedDiskTrimmed }
+    }
+
+    private var selectionKind: SelectionKind {
+        if selectedDiskTrimmed.isEmpty {
+            return .none
+        }
+        if selectedAPFSVolume != nil {
+            return .apfs
+        }
+        if selectedNonAPFSVolume != nil {
+            return .nonAPFS
+        }
+        return .invalid
+    }
+
+    private var usbPassphraseStrength: PassphraseStrengthReport {
+        PassphraseStrengthReport.evaluate(vaultPassphrase)
+    }
+
+    private var canSubmit: Bool {
+        switch selectionKind {
+        case .apfs:
+            return !recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .nonAPFS:
+            let pathsReady = !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if dryRun {
+                return pathsReady
+            }
+            return pathsReady && usbPassphraseStrength.isStrong && vaultPassphrase == confirmVaultPassphrase
+        case .none, .invalid:
+            return false
+        }
     }
 
     private var isEncryptingSelectedDisk: Bool {
@@ -1535,9 +1585,24 @@ private struct DiskEncryptSheet: View {
     }
 
     private var shouldShowEncryptionProgress: Bool {
+        guard selectionKind == .apfs else { return false }
         guard !selectedDiskTrimmed.isEmpty else { return false }
         guard model.diskEncryptionMonitoringDiskIdentifier == selectedDiskTrimmed else { return false }
         return model.diskEncryptionMonitoringActive || !model.diskEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var submitButtonTitle: String {
+        switch selectionKind {
+        case .apfs:
+            if dryRun {
+                return "Generate Bundle"
+            }
+            return isEncryptingSelectedDisk ? "Encrypting..." : "Encrypt Disk"
+        case .nonAPFS:
+            return dryRun ? "Scan User Data" : "Encrypt User Data"
+        case .none, .invalid:
+            return "Encrypt Disk"
+        }
     }
 
     var body: some View {
@@ -1546,7 +1611,7 @@ private struct DiskEncryptSheet: View {
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("Encrypt APFS external volumes and generate a PQC recovery bundle.")
+            Text("Use one flow for APFS disk encryption and non-APFS USB user-data encryption.")
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -1557,65 +1622,109 @@ private struct DiskEncryptSheet: View {
                 isLoading: model.apfsVolumeOptionsLoading,
                 errorMessage: model.apfsVolumeOptionsError,
                 onSelectNonAPFSVolume: { volume in
-                    openUSBDataEncryptFlow(mountPoint: volume.mountPoint)
+                    diskIdentifier = volume.mountPoint
+                    syncSuggestedUSBPaths(for: volume.mountPoint, force: true)
                 }
             ) {
                 model.refreshAPFSVolumeOptions()
             }
 
             formLabel("Selected APFS Volume Identifier")
-            TextField("disk9s1", text: $diskIdentifier)
+            TextField("disk9s1 or /Volumes/MyUSB", text: $diskIdentifier)
                 .textFieldStyle(.roundedBorder)
+            Text("Choose from External Volumes above, or type a listed APFS identifier / non-APFS mount point.")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(AegiroPalette.textMuted)
 
-            formLabel("Recovery Passphrase")
-            SecureField("Required to decrypt recovery bundle", text: $recoveryPassphrase)
-                .textFieldStyle(.roundedBorder)
-
-            formLabel("Recovery Bundle File")
-            HStack(spacing: 8) {
-                TextField("/path/to/disk.aegiro-diskkey.json", text: $recoveryPath)
+            switch selectionKind {
+            case .apfs:
+                formLabel("Recovery Passphrase")
+                SecureField("Required to decrypt recovery bundle", text: $recoveryPassphrase)
                     .textFieldStyle(.roundedBorder)
-                Button("Choose...") { chooseRecoveryPath() }
-                    .buttonStyle(.bordered)
-            }
 
-            Toggle("Dry run only", isOn: $dryRun)
-            Toggle("Overwrite existing recovery bundle", isOn: $overwrite)
-
-            if shouldShowEncryptionProgress {
-                VStack(alignment: .leading, spacing: 8) {
-                    formLabel("Encryption Progress")
-                    if let fraction = model.diskEncryptionProgressFraction {
-                        ProgressView(value: max(0, min(1, fraction)))
-                            .tint(AegiroPalette.securityGreen)
-                    } else {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                    Text(model.diskEncryptionProgressMessage)
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(AegiroPalette.textSecondary)
+                formLabel("Recovery Bundle File")
+                HStack(spacing: 8) {
+                    TextField("/path/to/disk.aegiro-diskkey.json", text: $recoveryPath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose...") { chooseRecoveryPath() }
+                        .buttonStyle(.bordered)
                 }
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(AegiroPalette.backgroundCard.opacity(0.72))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
-                )
+
+                Toggle("Dry run only", isOn: $dryRun)
+                Toggle("Overwrite existing recovery bundle", isOn: $overwrite)
+
+                if shouldShowEncryptionProgress {
+                    encryptionProgressCard
+                }
+
+            case .nonAPFS:
+                formLabel("Source Folder to Encrypt")
+                HStack(spacing: 8) {
+                    TextField("/Volumes/MyUSB", text: $sourcePath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose...") { chooseSourceFolder() }
+                        .buttonStyle(.bordered)
+                }
+
+                formLabel("Vault File on USB")
+                HStack(spacing: 8) {
+                    TextField("/Volumes/MyUSB/data.agvt", text: $vaultPath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose...") { chooseVaultPath() }
+                        .buttonStyle(.bordered)
+                }
+
+                formLabel("Vault Passphrase")
+                SecureField(dryRun ? "Optional for scan-only" : "8+ chars with upper/lower letters and numbers", text: $vaultPassphrase)
+                    .textFieldStyle(.roundedBorder)
+                if !dryRun || !vaultPassphrase.isEmpty {
+                    PassphraseStrengthMeter(passphrase: vaultPassphrase)
+                }
+
+                formLabel("Confirm Passphrase")
+                SecureField(dryRun ? "Optional for scan-only" : "Repeat passphrase", text: $confirmVaultPassphrase)
+                    .textFieldStyle(.roundedBorder)
+
+                Toggle("Dry run only (scan user files without encrypting)", isOn: $dryRun)
+                Toggle("Delete original files after successful encryption", isOn: $deleteOriginals)
+                    .disabled(dryRun)
+
+                Text("System USB metadata is skipped automatically (.Spotlight-V100, .fseventsd, .Trashes, .DS_Store, System Volume Information).")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+
+                if !dryRun && vaultPassphrase != confirmVaultPassphrase && !confirmVaultPassphrase.isEmpty {
+                    Text("Passphrases do not match.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.dangerRed)
+                }
+
+                if !dryRun && !vaultPassphrase.isEmpty && !usbPassphraseStrength.isStrong {
+                    Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.warningAmber)
+                }
+
+            case .none:
+                Text("Select an external volume to continue.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+
+            case .invalid:
+                Text("The selected value is not a valid external APFS volume identifier or mounted non-APFS external volume.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button(dryRun ? "Generate Bundle" : (isEncryptingSelectedDisk ? "Encrypting..." : "Encrypt Disk")) {
+                Button(submitButtonTitle) {
                     startEncrypt()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
-                .disabled(!canSubmit || (!dryRun && isEncryptingSelectedDisk))
+                .disabled(!canSubmit || (selectionKind == .apfs && !dryRun && isEncryptingSelectedDisk))
             }
         }
         .padding(24)
@@ -1624,16 +1733,46 @@ private struct DiskEncryptSheet: View {
         .onAppear {
             model.refreshAPFSVolumeOptions()
             applyAutoDiskSelectionIfNeeded()
-            if recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                syncRecoveryPathWithDisk(diskIdentifier)
-            }
+            syncFormFieldsForSelectionChange(force: true)
         }
         .onChange(of: model.apfsVolumeOptions) { _ in
             applyAutoDiskSelectionIfNeeded()
+            syncFormFieldsForSelectionChange(force: false)
+        }
+        .onChange(of: model.mountedNonAPFSVolumes) { _ in
+            syncFormFieldsForSelectionChange(force: false)
         }
         .onChange(of: diskIdentifier) { newValue in
-            syncRecoveryPathWithDisk(newValue)
+            syncFormFieldsForSelectionChange(force: false)
+            if selectedAPFSVolume != nil {
+                syncRecoveryPathWithDisk(newValue)
+            }
         }
+    }
+
+    private var encryptionProgressCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Encryption Progress")
+            if let fraction = model.diskEncryptionProgressFraction {
+                ProgressView(value: max(0, min(1, fraction)))
+                    .tint(AegiroPalette.securityGreen)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+            Text(model.diskEncryptionProgressMessage)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AegiroPalette.backgroundCard.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+        )
     }
 
     private func formLabel(_ text: String) -> some View {
@@ -1675,28 +1814,132 @@ private struct DiskEncryptSheet: View {
         diskIdentifier = preferred
     }
 
-    private func startEncrypt() {
-        let disk = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        let pass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        let path = recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !disk.isEmpty, !pass.isEmpty, !path.isEmpty else { return }
-        model.encryptExternalDisk(
-            diskIdentifier: disk,
-            recoveryPassphrase: pass,
-            recoveryURL: URL(fileURLWithPath: NSString(string: path).expandingTildeInPath),
-            dryRun: dryRun,
-            overwrite: overwrite
-        )
-        if dryRun {
-            onDone()
-            dismiss()
+    private func syncFormFieldsForSelectionChange(force: Bool) {
+        switch selectionKind {
+        case .apfs:
+            if recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || force {
+                syncRecoveryPathWithDisk(diskIdentifier)
+            }
+        case .nonAPFS:
+            if let mount = selectedNonAPFSVolume?.mountPoint {
+                syncSuggestedUSBPaths(for: mount, force: force)
+            }
+        case .none:
+            applyAutoDiskSelectionIfNeeded()
+        case .invalid:
+            break
         }
     }
 
-    private func openUSBDataEncryptFlow(mountPoint: String?) {
-        dismiss()
-        DispatchQueue.main.async {
-            onOpenUSBDataEncrypt(mountPoint)
+    private func syncSuggestedUSBPaths(for mountPoint: String, force: Bool) {
+        let mount = mountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !mount.isEmpty else { return }
+
+        let suggestedSource = mount
+        if force || sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sourcePath == lastSuggestedSourcePath {
+            sourcePath = suggestedSource
+        }
+        lastSuggestedSourcePath = suggestedSource
+
+        let suggestedVault = defaultVaultPath(for: mount)
+        if force || vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || vaultPath == lastSuggestedVaultPath {
+            vaultPath = suggestedVault
+        }
+        lastSuggestedVaultPath = suggestedVault
+    }
+
+    private func defaultVaultPath(for mountPoint: String) -> String {
+        URL(fileURLWithPath: mountPoint, isDirectory: true)
+            .appendingPathComponent("data.agvt")
+            .path
+    }
+
+    private func chooseSourceFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Source Folder to Encrypt"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        if !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: NSString(string: sourcePath).expandingTildeInPath, isDirectory: true)
+        } else if let mount = selectedNonAPFSVolume?.mountPoint {
+            panel.directoryURL = URL(fileURLWithPath: mount, isDirectory: true)
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            sourcePath = url.path
+        }
+    }
+
+    private func chooseVaultPath() {
+        let panel = NSSavePanel()
+        panel.title = "Choose Vault File"
+        let mount = selectedNonAPFSVolume?.mountPoint ?? selectedDiskTrimmed
+        panel.nameFieldStringValue = (defaultVaultPath(for: mount) as NSString).lastPathComponent
+        panel.allowedContentTypes = [UTType(filenameExtension: "agvt") ?? .data]
+        if !mount.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: mount, isDirectory: true)
+        }
+        if panel.runModal() == .OK, var url = panel.url {
+            if url.pathExtension.lowercased() != "agvt" {
+                url.appendPathExtension("agvt")
+            }
+            vaultPath = url.path
+        }
+    }
+
+    private func startEncrypt() {
+        switch selectionKind {
+        case .apfs:
+            let disk = selectedDiskTrimmed
+            let pass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = recoveryPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !disk.isEmpty, !pass.isEmpty, !path.isEmpty else { return }
+            model.encryptExternalDisk(
+                diskIdentifier: disk,
+                recoveryPassphrase: pass,
+                recoveryURL: URL(fileURLWithPath: NSString(string: path).expandingTildeInPath),
+                dryRun: dryRun,
+                overwrite: overwrite
+            )
+            if dryRun {
+                onDone()
+                dismiss()
+            }
+        case .nonAPFS:
+            let mount = selectedNonAPFSVolume?.mountPoint ?? selectedDiskTrimmed
+            let source = URL(fileURLWithPath: NSString(string: sourcePath).expandingTildeInPath, isDirectory: true).standardizedFileURL
+            let vault = URL(fileURLWithPath: NSString(string: vaultPath).expandingTildeInPath).standardizedFileURL
+            let mountRoot = URL(fileURLWithPath: mount, isDirectory: true).standardizedFileURL.path
+            let mountPrefix = mountRoot.hasSuffix("/") ? mountRoot : mountRoot + "/"
+            guard source.path == mountRoot || source.path.hasPrefix(mountPrefix) else {
+                model.status = "Source folder must be inside \(mountRoot)"
+                return
+            }
+            guard vault.path == mountRoot || vault.path.hasPrefix(mountPrefix) else {
+                model.status = "Vault file must be inside \(mountRoot)"
+                return
+            }
+            if !dryRun {
+                guard usbPassphraseStrength.isStrong else {
+                    model.status = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
+                    return
+                }
+                guard vaultPassphrase == confirmVaultPassphrase else {
+                    model.status = "Passphrases do not match"
+                    return
+                }
+            }
+
+            model.encryptNonAPFSUSBUserData(sourceRootURL: source,
+                                            vaultURL: vault,
+                                            vaultPassphrase: vaultPassphrase,
+                                            deleteOriginals: deleteOriginals && !dryRun,
+                                            dryRun: dryRun)
+            onDone()
+            dismiss()
+        case .none, .invalid:
+            return
         }
     }
 }
@@ -2333,7 +2576,7 @@ private struct APFSVolumeOptionsPanel: View {
 
     private var nonAPFSHintMessage: String {
         if onSelectNonAPFSVolume != nil {
-            return "Non-APFS rows are clickable and will open USB user-data encryption automatically."
+            return "Non-APFS rows are clickable and will switch this flow to USB user-data encryption fields."
         }
         return "Gray rows are mounted but not APFS. Use Aegiro vault-file encryption on those drives, or reformat to APFS for disk-level APFS encryption."
     }
