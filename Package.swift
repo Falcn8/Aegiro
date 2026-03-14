@@ -35,7 +35,8 @@ let package = Package(
             dependencies: ["AegiroCore"],
             exclude: ["Entitlements.plist"],
             resources: [
-                .process("Resources/LandingHero.png")
+                .process("Resources/LandingHero.png"),
+                .process("Resources/Fonts")
             ]
         ),
         .systemLibrary(

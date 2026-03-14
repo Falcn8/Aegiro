@@ -1,6 +1,8 @@
 import SwiftUI
+import Foundation
 #if os(macOS)
 import AppKit
+import CoreText
 #endif
 
 enum AegiroPalette {
@@ -19,6 +21,90 @@ enum AegiroPalette {
     static let textMuted = Color(hex: "#6B7280")
 
     static let selection = Color(hex: "#312E81")
+}
+
+enum AegiroFontRegistry {
+    #if os(macOS)
+    private static var didRegister = false
+    private static var registeredByFamily: [String: [String]] = [:]
+    #endif
+
+    static func registerBundledFonts() {
+        #if os(macOS)
+        guard !didRegister else { return }
+        didRegister = true
+
+        let fontURLs = bundledFontURLs()
+        for fontURL in fontURLs {
+            registerFont(at: fontURL)
+        }
+        #endif
+    }
+
+    static func firstRegisteredPostScriptName(matching candidates: [String]) -> String? {
+        #if os(macOS)
+        for candidate in candidates {
+            if let names = registeredByFamily[candidate],
+               let resolved = names.first(where: { NSFont(name: $0, size: 12) != nil }) {
+                return resolved
+            }
+            if let resolved = caseInsensitiveMatch(for: candidate) {
+                return resolved
+            }
+        }
+        #endif
+        return nil
+    }
+
+    #if os(macOS)
+    private static func bundledFontURLs() -> [URL] {
+        let bundle = Bundle.module
+        var urls = [URL]()
+        urls.append(contentsOf: bundle.urls(forResourcesWithExtension: "ttf", subdirectory: "Fonts") ?? [])
+        urls.append(contentsOf: bundle.urls(forResourcesWithExtension: "otf", subdirectory: "Fonts") ?? [])
+        urls.append(contentsOf: bundle.urls(forResourcesWithExtension: "ttf", subdirectory: nil) ?? [])
+        urls.append(contentsOf: bundle.urls(forResourcesWithExtension: "otf", subdirectory: nil) ?? [])
+        return Array(Set(urls))
+    }
+
+    private static func registerFont(at url: URL) {
+        var registrationError: Unmanaged<CFError>?
+        let didRegisterURL = CTFontManagerRegisterFontsForURL(url as CFURL, .process, &registrationError)
+        if !didRegisterURL, registrationError == nil {
+            return
+        }
+
+        guard let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor] else {
+            return
+        }
+        for descriptor in descriptors {
+            guard let attrs = CTFontDescriptorCopyAttributes(descriptor) as? [CFString: Any],
+                  let postScriptName = attrs[kCTFontNameAttribute] as? String else {
+                continue
+            }
+            let family = (attrs[kCTFontFamilyNameAttribute] as? String) ?? postScriptName
+            appendFont(postScriptName, to: family)
+            appendFont(postScriptName, to: postScriptName)
+        }
+    }
+
+    private static func appendFont(_ postScriptName: String, to key: String) {
+        let existing = registeredByFamily[key] ?? []
+        if existing.contains(postScriptName) {
+            return
+        }
+        registeredByFamily[key] = existing + [postScriptName]
+    }
+
+    private static func caseInsensitiveMatch(for candidate: String) -> String? {
+        for (key, names) in registeredByFamily where key.caseInsensitiveCompare(candidate) == .orderedSame {
+            if let resolved = names.first(where: { NSFont(name: $0, size: 12) != nil }) {
+                return resolved
+            }
+        }
+        return nil
+    }
+    #endif
 }
 
 extension Color {
@@ -44,9 +130,9 @@ extension Color {
 }
 
 enum AegiroTypography {
-    private static let displayCandidates = ["Fraunces", "Fraunces 72pt", "Fraunces 9pt", "Fraunces Variable"]
-    private static let bodyCandidates = ["Space Grotesk", "SpaceGrotesk", "SpaceGrotesk-Regular"]
-    private static let monoCandidates = ["JetBrains Mono", "JetBrainsMono", "JetBrainsMono-Regular"]
+    private static let displayCandidates = ["Fraunces-Regular", "Fraunces", "Fraunces 72pt", "Fraunces 9pt", "Fraunces Variable"]
+    private static let bodyCandidates = ["SpaceGrotesk-Regular", "Space Grotesk", "SpaceGrotesk", "SpaceGrotesk-Light_Regular"]
+    private static let monoCandidates = ["JetBrainsMono-Regular", "JetBrains Mono", "JetBrainsMono"]
 
     static func display(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle = .body) -> Font {
         resolvedFont(candidates: displayCandidates, size: size, weight: weight, relativeTo: textStyle)
@@ -71,6 +157,9 @@ enum AegiroTypography {
         #if os(macOS)
         for name in names where NSFont(name: name, size: 12) != nil {
             return name
+        }
+        if let registeredName = AegiroFontRegistry.firstRegisteredPostScriptName(matching: names) {
+            return registeredName
         }
         #endif
         return nil

@@ -42,6 +42,11 @@ struct AegiroAppMain: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = VaultModel()
     @State private var showFirstRun = true
+
+    init() {
+        AegiroFontRegistry.registerBundledFonts()
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
