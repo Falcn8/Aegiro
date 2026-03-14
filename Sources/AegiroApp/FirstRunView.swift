@@ -81,7 +81,7 @@ struct FirstRunView: View {
                     .resizable()
                     .scaledToFit()
                     .scaleEffect(1.12)
-                    .offset(y: -90)
+                    .offset(y: -70)
             } else {
                 Rectangle()
                     .fill(AegiroPalette.backgroundPanel)
