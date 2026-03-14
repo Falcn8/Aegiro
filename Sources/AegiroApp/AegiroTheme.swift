@@ -192,27 +192,82 @@ extension Color {
 }
 
 enum AegiroTypography {
-    private static let displayCandidates = ["Fraunces-Regular", "Fraunces", "Fraunces 72pt", "Fraunces 9pt", "Fraunces Variable"]
-    private static let bodyCandidates = ["SpaceGrotesk-Regular", "Space Grotesk", "SpaceGrotesk", "SpaceGrotesk-Light_Regular"]
-    private static let monoCandidates = ["JetBrainsMono-Regular", "JetBrains Mono", "JetBrainsMono"]
-
     static func display(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle = .body) -> Font {
-        resolvedFont(candidates: displayCandidates, size: size, weight: weight, relativeTo: textStyle)
+        resolvedFont(candidates: displayCandidates(for: weight), size: size, weight: weight, relativeTo: textStyle)
     }
 
     static func body(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle = .body) -> Font {
-        resolvedFont(candidates: bodyCandidates, size: size, weight: weight, relativeTo: textStyle)
+        resolvedFont(candidates: bodyCandidates(for: weight), size: size, weight: weight, relativeTo: textStyle)
     }
 
     static func mono(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle = .body) -> Font {
-        resolvedFont(candidates: monoCandidates, size: size, weight: weight, relativeTo: textStyle)
+        resolvedFont(candidates: monoCandidates(for: weight), size: size, weight: weight, relativeTo: textStyle)
     }
 
     private static func resolvedFont(candidates: [String], size: CGFloat, weight: Font.Weight, relativeTo textStyle: Font.TextStyle) -> Font {
         if let name = firstInstalledFontName(in: candidates) {
-            return .custom(name, size: size, relativeTo: textStyle).weight(weight)
+            return .custom(name, size: size, relativeTo: textStyle)
         }
         return .system(size: size, weight: weight)
+    }
+
+    private static func displayCandidates(for weight: Font.Weight) -> [String] {
+        switch weightBucket(weight) {
+        case .light:
+            return ["Fraunces-Light", "Fraunces-Regular", "Fraunces"]
+        case .regular:
+            return ["Fraunces-Regular", "Fraunces"]
+        case .medium:
+            return ["Fraunces-SemiBold", "Fraunces-Bold", "Fraunces-Regular", "Fraunces"]
+        case .bold:
+            return ["Fraunces-Bold", "Fraunces-9ptBlack", "Fraunces-SemiBold", "Fraunces-Regular", "Fraunces"]
+        }
+    }
+
+    private static func bodyCandidates(for weight: Font.Weight) -> [String] {
+        switch weightBucket(weight) {
+        case .light:
+            return ["SpaceGrotesk-Light", "SpaceGrotesk-Light_Regular", "SpaceGrotesk-Regular", "Space Grotesk"]
+        case .regular:
+            return ["SpaceGrotesk-Light_Regular", "SpaceGrotesk-Regular", "Space Grotesk", "SpaceGrotesk-Light"]
+        case .medium:
+            return ["SpaceGrotesk-Light_Medium", "SpaceGrotesk-Light_Regular", "SpaceGrotesk-Regular", "Space Grotesk"]
+        case .bold:
+            return ["SpaceGrotesk-Light_Bold", "SpaceGrotesk-Light_Medium", "SpaceGrotesk-Light_Regular", "SpaceGrotesk-Regular", "Space Grotesk"]
+        }
+    }
+
+    private static func monoCandidates(for weight: Font.Weight) -> [String] {
+        switch weightBucket(weight) {
+        case .light:
+            return ["JetBrainsMono-Regular_Light", "JetBrainsMono-Regular_ExtraLight", "JetBrainsMono-Regular_Thin", "JetBrainsMono-Regular", "JetBrains Mono"]
+        case .regular:
+            return ["JetBrainsMono-Regular", "JetBrains Mono", "JetBrainsMono"]
+        case .medium:
+            return ["JetBrainsMono-Regular_Medium", "JetBrainsMono-Regular", "JetBrains Mono", "JetBrainsMono"]
+        case .bold:
+            return ["JetBrainsMono-Regular_SemiBold", "JetBrainsMono-Regular_Bold", "JetBrainsMono-Regular_ExtraBold", "JetBrainsMono-Regular", "JetBrains Mono", "JetBrainsMono"]
+        }
+    }
+
+    private enum WeightBucket {
+        case light
+        case regular
+        case medium
+        case bold
+    }
+
+    private static func weightBucket(_ weight: Font.Weight) -> WeightBucket {
+        switch weight {
+        case .ultraLight, .thin, .light:
+            return .light
+        case .medium, .semibold:
+            return .medium
+        case .bold, .heavy, .black:
+            return .bold
+        default:
+            return .regular
+        }
     }
 
     private static func firstInstalledFontName(in names: [String]) -> String? {
