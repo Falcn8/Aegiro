@@ -1520,8 +1520,14 @@ private struct DiskEncryptSheet: View {
     @State private var dryRun = false
     @State private var overwrite = false
     @State private var deleteOriginals = false
+    @State private var formPhase: FormPhase = .selectVolume
 
     var onDone: () -> Void
+
+    private enum FormPhase {
+        case selectVolume
+        case details
+    }
 
     private enum SelectionKind {
         case none
@@ -1561,6 +1567,15 @@ private struct DiskEncryptSheet: View {
 
     private var usbPassphraseStrength: PassphraseStrengthReport {
         PassphraseStrengthReport.evaluate(vaultPassphrase)
+    }
+
+    private var canContinueFromSelection: Bool {
+        switch selectionKind {
+        case .apfs, .nonAPFS:
+            return true
+        case .none, .invalid:
+            return false
+        }
     }
 
     private var canSubmit: Bool {
@@ -1615,6 +1630,47 @@ private struct DiskEncryptSheet: View {
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
+            if formPhase == .selectVolume {
+                selectionPhaseContent
+            } else {
+                detailsPhaseContent
+            }
+        }
+        .padding(24)
+        .frame(width: 640)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            formPhase = .selectVolume
+            model.refreshAPFSVolumeOptions()
+            applyAutoDiskSelectionIfNeeded()
+            syncFormFieldsForSelectionChange(force: true)
+        }
+        .onChange(of: model.apfsVolumeOptions) { _ in
+            applyAutoDiskSelectionIfNeeded()
+            syncFormFieldsForSelectionChange(force: false)
+            if formPhase == .details, !canContinueFromSelection {
+                formPhase = .selectVolume
+            }
+        }
+        .onChange(of: model.mountedNonAPFSVolumes) { _ in
+            syncFormFieldsForSelectionChange(force: false)
+            if formPhase == .details, !canContinueFromSelection {
+                formPhase = .selectVolume
+            }
+        }
+        .onChange(of: diskIdentifier) { newValue in
+            syncFormFieldsForSelectionChange(force: false)
+            if selectedAPFSVolume != nil {
+                syncRecoveryPathWithDisk(newValue)
+            }
+            if formPhase == .details, !canContinueFromSelection {
+                formPhase = .selectVolume
+            }
+        }
+    }
+
+    private var selectionPhaseContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
             APFSVolumeOptionsPanel(
                 selectedDiskIdentifier: $diskIdentifier,
                 options: model.apfsVolumeOptions,
@@ -1638,6 +1694,68 @@ private struct DiskEncryptSheet: View {
 
             switch selectionKind {
             case .apfs:
+                Text("APFS volume selected. Continue to configure recovery bundle + encryption options.")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+            case .nonAPFS:
+                Text("Non-APFS volume selected. Continue to configure source/vault/passphrase options.")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+            case .none:
+                Text("Select an external volume to continue.")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+            case .invalid:
+                Text("The selected value is not a valid external APFS volume identifier or mounted non-APFS external volume.")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Continue") {
+                    continueToDetails()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
+                .disabled(!canContinueFromSelection)
+            }
+        }
+    }
+
+    private var detailsPhaseContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                formLabel("Selected External Volume")
+                switch selectionKind {
+                case .apfs:
+                    Text("\(selectedAPFSVolume?.name ?? "APFS Volume") • \(selectedDiskTrimmed)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                case .nonAPFS:
+                    let fs = selectedNonAPFSVolume?.filesystemType.uppercased() ?? "NON-APFS"
+                    Text("\(selectedDiskTrimmed) • \(fs)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                case .none, .invalid:
+                    Text("No valid external volume selected.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.warningAmber)
+                }
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(AegiroPalette.backgroundCard.opacity(0.72))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+            )
+
+            switch selectionKind {
+            case .apfs:
                 formLabel("Recovery Passphrase")
                 SecureField("Required to decrypt recovery bundle", text: $recoveryPassphrase)
                     .textFieldStyle(.roundedBorder)
@@ -1656,7 +1774,6 @@ private struct DiskEncryptSheet: View {
                 if shouldShowEncryptionProgress {
                     encryptionProgressCard
                 }
-
             case .nonAPFS:
                 formLabel("Source Folder to Encrypt")
                 HStack(spacing: 8) {
@@ -1704,19 +1821,17 @@ private struct DiskEncryptSheet: View {
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(AegiroPalette.warningAmber)
                 }
-
-            case .none:
-                Text("Select an external volume to continue.")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.textMuted)
-
-            case .invalid:
-                Text("The selected value is not a valid external APFS volume identifier or mounted non-APFS external volume.")
+            case .none, .invalid:
+                Text("Selection is no longer valid. Go back and select an external volume again.")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
             HStack {
+                Button("Back") {
+                    formPhase = .selectVolume
+                }
+                .buttonStyle(.bordered)
                 Spacer()
                 Button("Cancel") { dismiss() }
                 Button(submitButtonTitle) {
@@ -1725,27 +1840,6 @@ private struct DiskEncryptSheet: View {
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
                 .disabled(!canSubmit || (selectionKind == .apfs && !dryRun && isEncryptingSelectedDisk))
-            }
-        }
-        .padding(24)
-        .frame(width: 640)
-        .background(AegiroPalette.backgroundPanel)
-        .onAppear {
-            model.refreshAPFSVolumeOptions()
-            applyAutoDiskSelectionIfNeeded()
-            syncFormFieldsForSelectionChange(force: true)
-        }
-        .onChange(of: model.apfsVolumeOptions) { _ in
-            applyAutoDiskSelectionIfNeeded()
-            syncFormFieldsForSelectionChange(force: false)
-        }
-        .onChange(of: model.mountedNonAPFSVolumes) { _ in
-            syncFormFieldsForSelectionChange(force: false)
-        }
-        .onChange(of: diskIdentifier) { newValue in
-            syncFormFieldsForSelectionChange(force: false)
-            if selectedAPFSVolume != nil {
-                syncRecoveryPathWithDisk(newValue)
             }
         }
     }
@@ -1829,6 +1923,12 @@ private struct DiskEncryptSheet: View {
         case .invalid:
             break
         }
+    }
+
+    private func continueToDetails() {
+        guard canContinueFromSelection else { return }
+        syncFormFieldsForSelectionChange(force: true)
+        formPhase = .details
     }
 
     private func syncSuggestedUSBPaths(for mountPoint: String, force: Bool) {
