@@ -195,7 +195,7 @@ struct MainView: View {
                 Image(systemName: model.locked ? "lock.fill" : "checkmark.shield.fill")
                     .foregroundStyle(model.locked ? AegiroPalette.warningAmber : AegiroPalette.securityGreen)
                 Text(model.vaultURL?.lastPathComponent ?? "No Vault Selected")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(AegiroTypography.display(22, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
                     .lineLimit(1)
             }
@@ -483,7 +483,7 @@ struct MainView: View {
                     .padding(24)
                     .overlay {
                         Text("Drop files to encrypt")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(AegiroTypography.display(22, weight: .semibold))
                             .foregroundStyle(AegiroPalette.textPrimary)
                     }
                     .allowsHitTesting(false)
@@ -511,7 +511,7 @@ struct MainView: View {
             if let toastMessage {
                 HStack(spacing: 8) {
                     Text(toastMessage)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .font(AegiroTypography.mono(12, weight: .semibold))
                         .foregroundStyle(AegiroPalette.textPrimary)
                         .lineLimit(4)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -558,7 +558,7 @@ struct MainView: View {
                 .font(.system(size: 42, weight: .medium))
                 .foregroundStyle(AegiroPalette.accentIndigo)
             Text("Encrypted Local Vault")
-                .font(.system(size: 24, weight: .semibold))
+                .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
             Text("Open an existing vault or create a new one to begin.")
                 .font(.system(size: 14, weight: .regular))
@@ -590,7 +590,7 @@ struct MainView: View {
                 .font(.system(size: 44, weight: .medium))
                 .foregroundStyle(AegiroPalette.warningAmber)
             Text("Vault Locked")
-                .font(.system(size: 24, weight: .semibold))
+                .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
             Text("Unlock to view encrypted files.")
                 .font(.system(size: 14, weight: .regular))
@@ -610,7 +610,7 @@ struct MainView: View {
                 .font(.system(size: 40, weight: .medium))
                 .foregroundStyle(AegiroPalette.securityGreen)
             Text("No files in vault")
-                .font(.system(size: 24, weight: .semibold))
+                .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
             Text("Drag files here or add files to encrypt.")
                 .font(.system(size: 14, weight: .regular))
@@ -887,7 +887,7 @@ struct MainView: View {
                 .truncationMode(.middle)
                 .foregroundStyle(AegiroPalette.textSecondary)
         }
-        .font(.system(size: 11, weight: .regular, design: .monospaced))
+        .font(AegiroTypography.mono(11, weight: .regular))
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .foregroundStyle(AegiroPalette.textSecondary)
@@ -897,7 +897,7 @@ struct MainView: View {
     private var unlockSheet: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Unlock Vault")
-                .font(.system(size: 22, weight: .semibold))
+                .font(AegiroTypography.display(22, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             SecureField("Passphrase", text: $unlockPass)
@@ -991,7 +991,7 @@ struct MainView: View {
             Image(systemName: icon)
             Text(text)
         }
-        .font(.system(size: 11, weight: .medium, design: .monospaced))
+        .font(AegiroTypography.mono(11, weight: .medium))
         .foregroundStyle(color)
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
@@ -1448,7 +1448,7 @@ private struct CreateVaultSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Create Vault")
-                .font(.system(size: 24, weight: .semibold))
+                .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             formLabel("Vault Name")
@@ -1693,7 +1693,7 @@ struct DiskEncryptSheet: View {
                 progressOnlyContent
             } else {
                 Text("Encrypt External Disk")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(AegiroTypography.display(24, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
 
                 Text("Use one flow for APFS disk encryption and non-APFS USB user-data encryption.")
@@ -2179,7 +2179,7 @@ private struct DiskUnlockSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Decrypt External Disk")
-                .font(.system(size: 24, weight: .semibold))
+                .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             Text("Use a PQC recovery bundle + passphrase to decrypt (unlock) APFS external volumes.")
@@ -2338,7 +2338,7 @@ private struct USBUserDataEncryptSheet: View {
                 usbProgressCard
             } else {
                 Text("Encrypt USB User Data")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(AegiroTypography.display(24, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
 
                 Text("For non-APFS USB drives: encrypt user files into an Aegiro vault file without changing the USB format.")
@@ -2721,7 +2721,7 @@ private struct APFSVolumeOptionsPanel: View {
                                                 }
                                             }
                                             Text(option.identifier)
-                                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                                .font(AegiroTypography.mono(12, weight: .medium))
                                                 .foregroundStyle(AegiroPalette.textSecondary)
                                             Text(optionMetaLine(for: option))
                                                 .font(.system(size: 11, weight: .regular))
@@ -2755,7 +2755,7 @@ private struct APFSVolumeOptionsPanel: View {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 HStack(spacing: 6) {
                                                     Text(volume.mountPoint)
-                                                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                                        .font(AegiroTypography.mono(13, weight: .semibold))
                                                         .foregroundStyle(AegiroPalette.textPrimary)
                                                     badge(text: "Not APFS", color: AegiroPalette.warningAmber)
                                                 }
@@ -2782,7 +2782,7 @@ private struct APFSVolumeOptionsPanel: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack(spacing: 6) {
                                                 Text(volume.mountPoint)
-                                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                                    .font(AegiroTypography.mono(13, weight: .semibold))
                                                     .foregroundStyle(AegiroPalette.textMuted)
                                                 badge(text: "Not APFS", color: AegiroPalette.textMuted)
                                             }
@@ -2968,7 +2968,7 @@ private struct DoctorSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Vault Doctor")
-                .font(.system(size: 24, weight: .semibold))
+                .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             Text("Run integrity checks directly in the app.")
@@ -3080,7 +3080,7 @@ private struct DoctorSheet: View {
             Text(ok ? "OK" : "BAD")
                 .foregroundStyle(ok ? AegiroPalette.securityGreen : AegiroPalette.dangerRed)
         }
-        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+        .font(AegiroTypography.mono(12, weight: .semibold))
     }
 
     private func runDoctor(fix: Bool) {

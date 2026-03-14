@@ -48,11 +48,11 @@ struct FirstRunView: View {
                         .foregroundStyle(AegiroPalette.accentIndigo)
 
                     Text("Aegiro")
-                        .font(.system(size: 36, weight: .semibold))
+                        .font(AegiroTypography.display(36, weight: .semibold))
                         .foregroundStyle(AegiroPalette.textPrimary)
 
                     Text("Encrypted Local Vault")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(AegiroTypography.display(20, weight: .medium))
                         .foregroundStyle(AegiroPalette.textSecondary)
 
                     Text("Your files never leave your device.")

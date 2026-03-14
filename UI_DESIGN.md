@@ -11,6 +11,9 @@ This document describes the current visual and interaction model for the macOS a
 
 ## Visual Identity
 
+- Display font: `Fraunces`
+- Body/UI font: `Space Grotesk`
+- Monospace/technical font: `JetBrains Mono`
 - Primary accent: `#4F46E5` (indigo)
 - Security highlight: `#10B981` (emerald)
 - Warning: `#F59E0B` (amber)

@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 enum AegiroPalette {
     static let accentIndigo = Color(hex: "#4F46E5")
@@ -37,5 +40,39 @@ extension Color {
             blue: Double(b) / 255,
             opacity: 1
         )
+    }
+}
+
+enum AegiroTypography {
+    private static let displayCandidates = ["Fraunces", "Fraunces 72pt", "Fraunces 9pt", "Fraunces Variable"]
+    private static let bodyCandidates = ["Space Grotesk", "SpaceGrotesk", "SpaceGrotesk-Regular"]
+    private static let monoCandidates = ["JetBrains Mono", "JetBrainsMono", "JetBrainsMono-Regular"]
+
+    static func display(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle = .body) -> Font {
+        resolvedFont(candidates: displayCandidates, size: size, weight: weight, relativeTo: textStyle)
+    }
+
+    static func body(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle = .body) -> Font {
+        resolvedFont(candidates: bodyCandidates, size: size, weight: weight, relativeTo: textStyle)
+    }
+
+    static func mono(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle = .body) -> Font {
+        resolvedFont(candidates: monoCandidates, size: size, weight: weight, relativeTo: textStyle)
+    }
+
+    private static func resolvedFont(candidates: [String], size: CGFloat, weight: Font.Weight, relativeTo textStyle: Font.TextStyle) -> Font {
+        if let name = firstInstalledFontName(in: candidates) {
+            return .custom(name, size: size, relativeTo: textStyle).weight(weight)
+        }
+        return .system(size: size, weight: weight)
+    }
+
+    private static func firstInstalledFontName(in names: [String]) -> String? {
+        #if os(macOS)
+        for name in names where NSFont(name: name, size: 12) != nil {
+            return name
+        }
+        #endif
+        return nil
     }
 }

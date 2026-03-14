@@ -8,7 +8,7 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Aegiro Vault")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AegiroTypography.display(14, weight: .semibold))
 
             HStack(spacing: 8) {
                 Image(systemName: model.locked ? "lock.fill" : "circle.fill")
@@ -17,7 +17,7 @@ struct MenuBarView: View {
                     .font(.system(size: 12, weight: .medium))
                 Spacer()
                 Text("Files: \(model.vaultFileCount ?? 0)")
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .font(AegiroTypography.mono(11, weight: .regular))
                     .foregroundStyle(.secondary)
             }
 
@@ -64,7 +64,7 @@ struct MenuBarView: View {
         .sheet(isPresented: $showUnlock) {
             VStack(spacing: 12) {
                 Text("Unlock Vault")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(AegiroTypography.display(20, weight: .semibold))
 
                 SecureField("Passphrase", text: $unlockPass)
                     .textFieldStyle(.roundedBorder)

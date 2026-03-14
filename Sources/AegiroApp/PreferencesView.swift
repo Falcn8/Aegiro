@@ -11,14 +11,14 @@ struct PreferencesView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Preferences")
-                .font(.system(size: 24, weight: .semibold))
+                .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
             VStack(alignment: .leading, spacing: 16) {
                 sectionLabel("Default Vault Folder")
                 HStack(spacing: 10) {
                     Text(model.defaultVaultDir.path)
-                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                        .font(AegiroTypography.mono(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -33,7 +33,7 @@ struct PreferencesView: View {
                     sectionLabel("Auto-lock Timeout")
                     Spacer()
                     Text("\(Int(ttlMinutes)) min")
-                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                        .font(AegiroTypography.mono(12, weight: .regular))
                         .foregroundStyle(AegiroPalette.textSecondary)
                 }
 

@@ -56,6 +56,7 @@ struct AegiroAppMain: App {
                         .environmentObject(model)
                 }
             }
+            .font(AegiroTypography.body(13))
             .preferredColorScheme(.dark)
         }
         .windowStyle(.hiddenTitleBar)
