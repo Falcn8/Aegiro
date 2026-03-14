@@ -133,6 +133,13 @@ rm -rf "$APP_PATH"
 mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 cp "$APP_BIN" "$APP_PATH/Contents/MacOS/$APP_NAME"
 
+# SwiftPM resource bundles are emitted next to the executable.
+# Copy bundles into app resources so packaged builds include images/fonts/json assets.
+while IFS= read -r bundle; do
+  [[ -z "$bundle" ]] && continue
+  cp -R "$bundle" "$APP_PATH/Contents/Resources/$(basename "$bundle")"
+done < <(find "$BIN_DIR" -maxdepth 1 -type d -name '*.bundle' | sort)
+
 cat > "$APP_PATH/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

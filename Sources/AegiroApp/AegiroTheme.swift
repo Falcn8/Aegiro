@@ -23,6 +23,68 @@ enum AegiroPalette {
     static let selection = Color(hex: "#312E81")
 }
 
+enum AegiroResourceLocator {
+    #if os(macOS)
+    private static let appBundleName = "Aegiro_AegiroApp.bundle"
+    private static let cachedBundle: Bundle = locateResourceBundle() ?? .main
+    #endif
+
+    static var resourceBundle: Bundle {
+        #if os(macOS)
+        return cachedBundle
+        #else
+        return .main
+        #endif
+    }
+
+    #if os(macOS)
+    static func image(named name: String, ext: String = "png") -> NSImage? {
+        let bundle = cachedBundle
+        if let image = bundle.image(forResource: NSImage.Name(name)) {
+            return image
+        }
+        if let url = bundle.url(forResource: name, withExtension: ext),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+        if let url = Bundle.main.url(forResource: name, withExtension: ext),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+        return nil
+    }
+
+    private static func locateResourceBundle() -> Bundle? {
+        for candidate in candidateBundleURLs() {
+            if let bundle = Bundle(url: candidate) {
+                return bundle
+            }
+        }
+        return nil
+    }
+
+    private static func candidateBundleURLs() -> [URL] {
+        var results = [URL]()
+        var seen = Set<String>()
+
+        func append(_ url: URL?) {
+            guard let url else { return }
+            let key = url.standardizedFileURL.path
+            guard !seen.contains(key) else { return }
+            seen.insert(key)
+            results.append(url)
+        }
+
+        let mainBundle = Bundle.main
+        append(mainBundle.resourceURL?.appendingPathComponent(appBundleName, isDirectory: true))
+        append(mainBundle.bundleURL.appendingPathComponent(appBundleName, isDirectory: true))
+        append(mainBundle.bundleURL.appendingPathComponent("Contents/Resources/\(appBundleName)", isDirectory: true))
+        append(mainBundle.executableURL?.deletingLastPathComponent().appendingPathComponent(appBundleName, isDirectory: true))
+        return results
+    }
+    #endif
+}
+
 enum AegiroFontRegistry {
     #if os(macOS)
     private static var didRegister = false
@@ -58,7 +120,7 @@ enum AegiroFontRegistry {
 
     #if os(macOS)
     private static func bundledFontURLs() -> [URL] {
-        let bundle = Bundle.module
+        let bundle = AegiroResourceLocator.resourceBundle
         var urls = [URL]()
         urls.append(contentsOf: bundle.urls(forResourcesWithExtension: "ttf", subdirectory: "Fonts") ?? [])
         urls.append(contentsOf: bundle.urls(forResourcesWithExtension: "otf", subdirectory: "Fonts") ?? [])

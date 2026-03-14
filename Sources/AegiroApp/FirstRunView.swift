@@ -34,11 +34,7 @@ struct FirstRunView: View {
 
     var body: some View {
         ZStack {
-            Image("LandingHero", bundle: .module)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
+            heroBackground
 
             LinearGradient(
                 colors: [
@@ -115,6 +111,21 @@ struct FirstRunView: View {
             }
             .environmentObject(model)
         }
+    }
+
+    private var heroBackground: some View {
+        Group {
+            if let image = AegiroResourceLocator.image(named: "LandingHero") {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle()
+                    .fill(AegiroPalette.backgroundMain)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
     }
 
     private var createForm: some View {
