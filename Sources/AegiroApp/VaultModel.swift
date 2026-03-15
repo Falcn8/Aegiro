@@ -831,11 +831,7 @@ final class VaultModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
                 let manifest = try ManifestIO.load(from: vaultURL)
-                #if REAL_CRYPTO
                 let signer = Dilithium2()
-                #else
-                let signer = StubSig()
-                #endif
                 let ok = ManifestBuilder.verify(manifest, signer: signer)
                 DispatchQueue.main.async {
                     self?.status = ok ? "Manifest signature: OK" : "Manifest signature: INVALID"

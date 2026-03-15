@@ -48,7 +48,7 @@ Aegiro is a local-first encrypted vault system for macOS:
 ## Quick Start
 
 ```bash
-# Build REAL_CRYPTO package (recommended)
+# Build package (REAL_CRYPTO by default)
 bash scripts/build-real.sh
 ./dist/aegiro-cli --version
 
@@ -81,7 +81,7 @@ Use `./dist/aegiro-cli --help` for full options.
 
 ## Build
 
-### REAL_CRYPTO (recommended)
+### Default build (REAL_CRYPTO)
 
 ```bash
 brew install liboqs argon2 openssl@3
@@ -92,13 +92,6 @@ Outputs:
 
 - `dist/aegiro-cli`
 - `dist/aegiro-cli-macos-arm64.tar.gz`
-
-### Dev build (STUB_CRYPTO)
-
-```bash
-swift build -c release
-.build/release/aegiro-cli --help
-```
 
 ---
 

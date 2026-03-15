@@ -5,11 +5,7 @@ import AegiroCore
 enum Exit: Int32 { case ok = 0, usage = 2, fail = 1 }
 
 let AEGIRO_CLI_VERSION = "0.1.0"
-#if REAL_CRYPTO
 let AEGIRO_CRYPTO_MODE = "REAL_CRYPTO"
-#else
-let AEGIRO_CRYPTO_MODE = "STUB_CRYPTO"
-#endif
 
 struct CLI {
     static func run() throws {
@@ -273,11 +269,7 @@ struct CLI {
             }
             guard let p = path else { hint("Missing --vault for verify.", tip: "Use: verify --vault <path>") }
             let m = try ManifestIO.load(from: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath))
-            #if REAL_CRYPTO
             let sig = Dilithium2()
-            #else
-            let sig = StubSig()
-            #endif
             let ok = ManifestBuilder.verify(m, signer: sig)
             print(ok ? "Manifest signature: OK" : "Manifest signature: INVALID")
         case "status":
