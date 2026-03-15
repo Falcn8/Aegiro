@@ -487,6 +487,41 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    private func mergedUSBDataEncryptionStage(for stage: USBUserDataEncryptProgress.Stage) -> USBUserDataEncryptProgress.Stage {
+        switch stage {
+        case .scanning, .preparing:
+            return .scanning
+        default:
+            return stage
+        }
+    }
+
+    private func mergedUSBDataEncryptionMessage(for progress: USBUserDataEncryptProgress) -> String {
+        switch progress.stage {
+        case .scanning, .preparing:
+            if progress.totalFileCount > 0 {
+                if progress.processedFileCount > 0, let path = progress.currentPath {
+                    let name = URL(fileURLWithPath: path).lastPathComponent
+                    return "Analyzing \(progress.processedFileCount)/\(progress.totalFileCount): \(name)"
+                }
+                if progress.processedFileCount > 0 {
+                    return "Analyzing \(progress.processedFileCount)/\(progress.totalFileCount) files..."
+                }
+                return "Analyzing \(progress.totalFileCount) files..."
+            }
+            if progress.processedFileCount > 0 {
+                if let path = progress.currentPath {
+                    let name = URL(fileURLWithPath: path).lastPathComponent
+                    return "Analyzing... found \(progress.processedFileCount) file(s). Latest: \(name)"
+                }
+                return "Analyzing... found \(progress.processedFileCount) file(s)."
+            }
+            return "Analyzing source files..."
+        default:
+            return progress.message
+        }
+    }
+
     private func startDiskEncryptionProgressMonitoring(diskIdentifier: String) {
         let trimmed = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -568,7 +603,7 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionTargetMountPoint = mountPointTrimmed
         usbDataEncryptionActive = true
         usbDataEncryptionProgressFraction = nil
-        usbDataEncryptionProgressMessage = dryRun ? "Scanning source files..." : "Preparing file encryption..."
+        usbDataEncryptionProgressMessage = "Analyzing source files..."
         usbDataEncryptionProcessedFiles = 0
         usbDataEncryptionTotalFiles = 0
         usbDataEncryptionStage = .scanning
@@ -605,12 +640,13 @@ final class VaultModel: ObservableObject {
                         if cancellationFlag.isCancelled() {
                             return
                         }
-                        self.usbDataEncryptionStage = progress.stage
+                        self.usbDataEncryptionStage = self.mergedUSBDataEncryptionStage(for: progress.stage)
                         self.usbDataEncryptionProcessedFiles = progress.processedFileCount
                         self.usbDataEncryptionTotalFiles = progress.totalFileCount
                         self.usbDataEncryptionProgressFraction = progress.fraction
-                        self.usbDataEncryptionProgressMessage = progress.message
-                        self.appendUSBDataEncryptionLog(progress.message)
+                        let mergedMessage = self.mergedUSBDataEncryptionMessage(for: progress)
+                        self.usbDataEncryptionProgressMessage = mergedMessage
+                        self.appendUSBDataEncryptionLog(mergedMessage)
                     }
                 },
                                                                     isCancelled: {

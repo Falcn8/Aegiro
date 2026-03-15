@@ -1616,21 +1616,22 @@ private struct USBEncryptionWorkspacePage: View {
 
     private var vaultFileProgressDetail: String {
         switch model.usbDataEncryptionStage {
-        case .scanning:
-            if model.usbDataEncryptionProcessedFiles > 0 {
-                return "Scanning... found \(model.usbDataEncryptionProcessedFiles) file(s)"
-            }
-            return "Scanning source files..."
-        case .preparing:
+        case .scanning, .preparing:
             if model.usbDataEncryptionTotalFiles > 0 {
-                return "Preparing \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
+                if model.usbDataEncryptionProcessedFiles > 0 {
+                    return "Analyzing \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
+                }
+                return "Analyzing \(model.usbDataEncryptionTotalFiles) files"
             }
-            return "Preparing file list..."
+            if model.usbDataEncryptionProcessedFiles > 0 {
+                return "Analyzing... found \(model.usbDataEncryptionProcessedFiles) file(s)"
+            }
+            return "Analyzing source files..."
         case .encrypting:
             if model.usbDataEncryptionTotalFiles > 0 {
                 return "\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
             }
-            return "Preparing file list..."
+            return "Analyzing source files..."
         case .deletingOriginals:
             if model.usbDataEncryptionTotalFiles > 0 {
                 return "Deleting originals: \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
@@ -3240,7 +3241,7 @@ struct DiskEncryptSheet: View {
                     .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
             } else {
-                Text("Preparing file list...")
+                Text("Analyzing source files...")
                     .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
@@ -3738,7 +3739,7 @@ private struct USBUserDataEncryptSheet: View {
                     .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
             } else {
-                Text("Preparing file list...")
+                Text("Analyzing source files...")
                     .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
