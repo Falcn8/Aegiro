@@ -78,7 +78,7 @@ Main window uses a three-zone shell:
 - Non-APFS encryption now shows live file progress (`processed / total`) while encrypting user data.
 - APFS encryption progress remains volume/block-level from `diskutil` (percent + status message), because file-level counts are not exposed.
 - Added an **Operations** sidebar card with app UI entry points for:
-  - USB container workflows (`usb-container-create`, `usb-container-mount`, `usb-container-unmount`)
+  - USB container workflows (`usb-container-create`, `usb-container-open`, `usb-container-close`)
   - Vault backup (`backup`)
   - Manifest verify (`verify`)
   - CLI-style status rendering (`status`, including JSON output)

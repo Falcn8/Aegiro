@@ -295,7 +295,7 @@ struct CLI {
                 print("Manifest: \(info.manifestOK ? "OK" : "INVALID")")
                 print("Touch ID: \(info.touchIDEnabled ? "enabled" : "disabled")")
             }
-        case "disk-encrypt":
+        case "apfs-volume-encrypt":
             var disk: String?
             var pass: String = ""
             var recovery: String?
@@ -313,7 +313,7 @@ struct CLI {
                 }
             }
             guard let d = disk, !pass.isEmpty else {
-                hint("Missing required options for disk-encrypt.", tip: "Use: disk-encrypt --disk <diskXsY> --passphrase \"<recovery-pass>\" [--recovery <path.json>] [--dry-run] [--force]")
+                hint("Missing required options for apfs-volume-encrypt.", tip: "Use: apfs-volume-encrypt --disk <diskXsY> --passphrase \"<recovery-pass>\" [--recovery <path.json>] [--dry-run] [--force]")
             }
             let recURL: URL
             if let r = recovery {
@@ -332,7 +332,7 @@ struct CLI {
                 print("Started APFS encryption for \(d).")
             }
             print("PQC recovery bundle: \(result.recoveryURL.path)")
-        case "disk-unlock":
+        case "apfs-volume-decrypt":
             var disk: String?
             var pass: String = ""
             var recovery: String?
@@ -348,7 +348,7 @@ struct CLI {
                 }
             }
             guard let d = disk, !pass.isEmpty, let r = recovery else {
-                hint("Missing required options for disk-unlock.", tip: "Use: disk-unlock --disk <diskXsY> --recovery <path.json> --passphrase \"<recovery-pass>\" [--dry-run]")
+                hint("Missing required options for apfs-volume-decrypt.", tip: "Use: apfs-volume-decrypt --disk <diskXsY> --recovery <path.json> --passphrase \"<recovery-pass>\" [--dry-run]")
             }
             try ExternalDiskCrypto.unlockAPFSVolume(diskIdentifier: d,
                                                     recoveryPassphrase: pass,
@@ -406,7 +406,7 @@ struct CLI {
                 print("Created encrypted container image: \(result.imageURL.path)")
             }
             print("PQC recovery bundle: \(result.recoveryURL.path)")
-        case "usb-container-mount":
+        case "usb-container-open":
             var image: String?
             var recoveryPass: String = ""
             var recovery: String?
@@ -424,10 +424,10 @@ struct CLI {
                 }
             }
             guard let i = image else {
-                hint("Missing required options for usb-container-mount.", tip: "Use: usb-container-mount --image <path.sparsebundle> --passphrase \"<recovery-pass>\" [--recovery <path.json>] [--container-passphrase \"<pass>\"] [--dry-run]")
+                hint("Missing required options for usb-container-open.", tip: "Use: usb-container-open --image <path.sparsebundle> --passphrase \"<recovery-pass>\" [--recovery <path.json>] [--container-passphrase \"<pass>\"] [--dry-run]")
             }
             if (containerPass?.isEmpty ?? true) && recoveryPass.isEmpty {
-                hint("Missing passphrase for usb-container-mount.", tip: "Use --passphrase for PQC recovery bundle unlock, or --container-passphrase for direct legacy mount.")
+                hint("Missing passphrase for usb-container-open.", tip: "Use --passphrase for PQC recovery bundle unlock, or --container-passphrase for direct legacy mount.")
             }
             let imageURL = URL(fileURLWithPath: NSString(string: i).expandingTildeInPath)
             let recoveryURL: URL
@@ -453,7 +453,7 @@ struct CLI {
                     print("Device: \(device)")
                 }
             }
-        case "usb-container-unmount":
+        case "usb-container-close":
             var target: String?
             var force = false
             var dryRun = false
@@ -467,7 +467,7 @@ struct CLI {
                 }
             }
             guard let t = target else {
-                hint("Missing required options for usb-container-unmount.", tip: "Use: usb-container-unmount --target <mount-point|diskX> [--force] [--dry-run]")
+                hint("Missing required options for usb-container-close.", tip: "Use: usb-container-close --target <mount-point|diskX> [--force] [--dry-run]")
             }
             try USBContainerCrypto.unmountContainer(target: t, force: force, dryRun: dryRun)
             if dryRun {
@@ -475,7 +475,7 @@ struct CLI {
             } else {
                 print("Unmounted \(t).")
             }
-        case "usb-data-encrypt":
+        case "usb-vault-pack":
             var source: String?
             var vault: String?
             var passphrase: String = ""
@@ -493,10 +493,10 @@ struct CLI {
                 }
             }
             guard let source, let vault else {
-                hint("Missing required options for usb-data-encrypt.", tip: "Use: usb-data-encrypt --source <folder> --vault <path.agvt> [--passphrase \"<pass>\"] [--dry-run] [--delete-originals]")
+                hint("Missing required options for usb-vault-pack.", tip: "Use: usb-vault-pack --source <folder> --vault <path.agvt> [--passphrase \"<pass>\"] [--dry-run] [--delete-originals]")
             }
             if !dryRun && passphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                hint("Missing passphrase for usb-data-encrypt.", tip: "Use --passphrase for encryption mode, or --dry-run for scan-only.")
+                hint("Missing passphrase for usb-vault-pack.", tip: "Use --passphrase for encryption mode, or --dry-run for scan-only.")
             }
             if dryRun && deleteOriginals {
                 hint("--delete-originals cannot be used with --dry-run.", tip: "Remove --delete-originals or run without --dry-run.")
@@ -555,12 +555,12 @@ Usage:
   backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]
   scan <paths...>
   shred <paths...>
-  disk-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
-  disk-unlock --disk <diskXsY> --recovery <path.json> --passphrase "<recovery-pass>" [--dry-run]
+  apfs-volume-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
+  apfs-volume-decrypt --disk <diskXsY> --recovery <path.json> --passphrase "<recovery-pass>" [--dry-run]
   usb-container-create --image <path.sparsebundle> --size <size> --passphrase "<recovery-pass>" [--recovery <path.json>] [--name "<volume>"] [--container-passphrase "<pass>"] [--dry-run] [--force]
-  usb-container-mount --image <path.sparsebundle> --passphrase "<recovery-pass>" [--recovery <path.json>] [--container-passphrase "<pass>"] [--dry-run]
-  usb-container-unmount --target <mount-point|diskX> [--force] [--dry-run]
-  usb-data-encrypt --source <folder> --vault <path.agvt> [--passphrase "<pass>"] [--dry-run] [--delete-originals]
+  usb-container-open --image <path.sparsebundle> --passphrase "<recovery-pass>" [--recovery <path.json>] [--container-passphrase "<pass>"] [--dry-run]
+  usb-container-close --target <mount-point|diskX> [--force] [--dry-run]
+  usb-vault-pack --source <folder> --vault <path.agvt> [--passphrase "<pass>"] [--dry-run] [--delete-originals]
   verify --vault <path>                    Verify manifest signature
   status --vault <path> [--passphrase "<pass>"] [--json]
 

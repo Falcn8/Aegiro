@@ -2766,7 +2766,7 @@ private struct USBContainerSheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("Use the same app flow as `usb-container-create`, `usb-container-mount`, and `usb-container-unmount`.")
+            Text("Use the same app flow as `usb-container-create`, `usb-container-open`, and `usb-container-close`.")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 

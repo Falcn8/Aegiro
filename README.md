@@ -32,7 +32,7 @@ bash scripts/build-real.sh
 ## What’s here
 
 - **AegiroCore** (Swift library): Vault header/index/manifest per spec, chunked AES-256-GCM I/O, nonce scheme, wrappers for KDF & PQC, secure preview temp policy, shredder, privacy monitor, “secure lock” scriptables, zero-telemetry guard.
-- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `delete`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`, `disk-encrypt`, `disk-unlock`, `usb-container-*`, `usb-data-encrypt`.
+- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `delete`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`, `apfs-volume-encrypt`, `apfs-volume-decrypt`, `usb-container-*`, `usb-vault-pack`.
 - **AegiroApp** (SwiftUI stubs): First-run flow, main UI, menubar helper, Settings — wired to core APIs (dev-mode). XPC/LaunchAgent stubs included.
 - **Entitlements & Hardened Runtime**: prefilled.
 - **Tests**: Acceptance checks (some are integration stubs pending REAL_CRYPTO).
@@ -155,17 +155,17 @@ open -n dist/AegiroApp.app
 .build/release/aegiro-cli status --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --json
 
 # External APFS volume encryption + unlock (PQC recovery bundle)
-.build/release/aegiro-cli disk-encrypt --disk disk9s1 --passphrase "<recovery-pass>" --recovery ~/Backups/disk9s1.aegiro-diskkey.json
-.build/release/aegiro-cli disk-unlock --disk disk9s1 --recovery ~/Backups/disk9s1.aegiro-diskkey.json --passphrase "<recovery-pass>"
+.build/release/aegiro-cli apfs-volume-encrypt --disk disk9s1 --passphrase "<recovery-pass>" --recovery ~/Backups/disk9s1.aegiro-diskkey.json
+.build/release/aegiro-cli apfs-volume-decrypt --disk disk9s1 --recovery ~/Backups/disk9s1.aegiro-diskkey.json --passphrase "<recovery-pass>"
 
 # Portable encrypted container on any writable USB filesystem (exFAT/FAT/NTFS/APFS), with PQC recovery bundle
 .build/release/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<recovery-pass>" --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json
-.build/release/aegiro-cli usb-container-mount --image /Volumes/MyUSB/aegiro-portable.sparsebundle --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json --passphrase "<recovery-pass>"
-.build/release/aegiro-cli usb-container-unmount --target "/Volumes/AegiroUSB"
+.build/release/aegiro-cli usb-container-open --image /Volumes/MyUSB/aegiro-portable.sparsebundle --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json --passphrase "<recovery-pass>"
+.build/release/aegiro-cli usb-container-close --target "/Volumes/AegiroUSB"
 
 # Non-APFS USB user-data flow into .agvt vault file
-.build/release/aegiro-cli usb-data-encrypt --source /Volumes/MyUSB --vault /Volumes/MyUSB/data.agvt --passphrase "<vault-pass>"
-.build/release/aegiro-cli usb-data-encrypt --source /Volumes/MyUSB --vault /Volumes/MyUSB/data.agvt --dry-run
+.build/release/aegiro-cli usb-vault-pack --source /Volumes/MyUSB --vault /Volumes/MyUSB/data.agvt --passphrase "<vault-pass>"
+.build/release/aegiro-cli usb-vault-pack --source /Volumes/MyUSB --vault /Volumes/MyUSB/data.agvt --dry-run
 ```
 
 Example text output:
@@ -214,8 +214,8 @@ Example JSON output:
 
 ## External Disk Encryption
 
-- `disk-encrypt` targets APFS volumes (`diskutil apfs encryptVolume`) and creates a PQC recovery bundle JSON.
-- `disk-unlock` recovers the APFS unlock passphrase from that bundle and unlocks with `diskutil apfs unlockVolume`.
+- `apfs-volume-encrypt` targets APFS volumes (`diskutil apfs encryptVolume`) and creates a PQC recovery bundle JSON.
+- `apfs-volume-decrypt` recovers the APFS unlock passphrase from that bundle and unlocks with `diskutil apfs unlockVolume`.
 - Recovery bundle flow: passphrase KDF unwraps Kyber secret key; Kyber decapsulation derives shared secret; shared secret unwraps the APFS passphrase.
 - Use `--dry-run` to generate/validate bundle logic without changing disk state.
 - Requires ownership/admin permissions for the target disk as enforced by `diskutil`.
@@ -226,15 +226,15 @@ Diagram view (including before/after drive file trees) is in **[USB_ENCRYPTION_D
 ## Portable USB Container Encryption
 
 - `usb-container-create` creates an encrypted APFS sparsebundle using `hdiutil` (AES-256) at a path on your USB, and writes a PQC recovery bundle that protects the container passphrase with Kyber + Argon2id + AEAD.
-- `usb-container-mount` recovers the container passphrase from that PQC bundle and mounts the container, returning mount point/device.
-- `usb-container-unmount` detaches the mounted container by mount path or disk identifier.
+- `usb-container-open` recovers the container passphrase from that PQC bundle and mounts the container, returning mount point/device.
+- `usb-container-close` detaches the mounted container by mount path or disk identifier.
 - This is the safe path for non-APFS USB formats (for example, exFAT): you keep the host filesystem and store an encrypted APFS container file on it.
-- Unlike `disk-encrypt`, this does not encrypt the physical USB block device in place.
+- Unlike `apfs-volume-encrypt`, this does not encrypt the physical USB block device in place.
 
 ## Non-APFS USB User-Data Encryption (App + CLI)
 
 - App sidebar includes **Encrypt USB Data** for mounted non-APFS volumes.
-- CLI equivalent: `usb-data-encrypt --source <folder> --vault <path.agvt> [--passphrase "<pass>"] [--dry-run] [--delete-originals]`.
+- CLI equivalent: `usb-vault-pack --source <folder> --vault <path.agvt> [--passphrase "<pass>"] [--dry-run] [--delete-originals]`.
 - It encrypts user files into a `.agvt` vault file on the same USB without reformatting the drive.
 - Known volume/system metadata paths are skipped by default (for example: `.Spotlight-V100`, `.fseventsd`, `.Trashes`, `.DS_Store`, `System Volume Information`).
 - Optional: delete original files after successful encryption.
@@ -345,5 +345,5 @@ Aegiro/
 - Integrity: Index is AEAD-encrypted; manifest signs SHA256(index JSON) + SHA256(chunk map). `verify` validates integrity without passphrase.
 - Zero telemetry: No network access required. Keep the CLI offline; signing and KDF are all local.
 - Backups: Keep your passphrase safe. The backup includes only encrypted data + metadata; losing the passphrase means losing access.
-- External disks: `disk-encrypt` relies on APFS/FileVault volume encryption and stores unlock material in a PQC recovery bundle.
+- External disks: `apfs-volume-encrypt` relies on APFS/FileVault volume encryption and stores unlock material in a PQC recovery bundle.
 - Compatibility note: legacy vaults (created before this PQ unlock flow) still use direct PDK->DEK unwrap until migrated.
