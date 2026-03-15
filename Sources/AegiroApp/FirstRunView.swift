@@ -5,6 +5,7 @@ import AppKit
 struct FirstRunView: View {
     @EnvironmentObject var model: VaultModel
     var onDone: () -> Void
+    var onOpenUSBEncryption: () -> Void
 
     @State private var showCreateForm = false
     @State private var vaultName = "MyVault"
@@ -13,7 +14,6 @@ struct FirstRunView: View {
     @State private var confirmPassphrase = ""
     @State private var touchIDEnabled = true
     @State private var errorText: String?
-    @State private var showDiskEncryptSheet = false
 
     private var canCreate: Bool {
         passphraseStrength.isRequired && passphrase == confirmPassphrase
@@ -53,12 +53,6 @@ struct FirstRunView: View {
         .frame(minWidth: 1080, minHeight: 720)
         .onAppear {
             touchIDEnabled = model.supportsBiometricUnlock && model.biometricKeychainAvailable && model.allowTouchID
-        }
-        .sheet(isPresented: $showDiskEncryptSheet) {
-            DiskEncryptSheet {
-                showDiskEncryptSheet = false
-            }
-            .environmentObject(model)
         }
     }
 
@@ -124,9 +118,9 @@ struct FirstRunView: View {
                 .buttonStyle(.bordered)
 
                 Button {
-                    showDiskEncryptSheet = true
+                    onOpenUSBEncryption()
                 } label: {
-                    buttonLabel("Encrypt Disk")
+                    buttonLabel("USB Encryption")
                 }
                 .buttonStyle(.bordered)
             }

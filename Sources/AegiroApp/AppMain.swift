@@ -42,6 +42,7 @@ struct AegiroAppMain: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = VaultModel()
     @State private var showFirstRun = true
+    @State private var startOnUSBEncryption = false
 
     init() {
         AegiroFontRegistry.registerBundledFonts()
@@ -53,11 +54,16 @@ struct AegiroAppMain: App {
                 if showFirstRun {
                     FirstRunView(onDone: {
                         UserDefaults.standard.set(true, forKey: "onboardingCompleted")
+                        startOnUSBEncryption = false
+                        showFirstRun = false
+                    }, onOpenUSBEncryption: {
+                        UserDefaults.standard.set(true, forKey: "onboardingCompleted")
+                        startOnUSBEncryption = true
                         showFirstRun = false
                     })
                     .environmentObject(model)
                 } else {
-                    MainView()
+                    MainView(startOnUSBEncryption: startOnUSBEncryption)
                         .environmentObject(model)
                 }
             }

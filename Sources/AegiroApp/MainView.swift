@@ -54,6 +54,10 @@ struct MainView: View {
 
     private let toastDisplayDuration: TimeInterval = 12
 
+    init(startOnUSBEncryption: Bool = false) {
+        _activePage = State(initialValue: startOnUSBEncryption ? .usbEncryption : .vault)
+    }
+
     private var filteredEntries: [VaultIndexEntry] {
         let searched = applySearch(to: model.entries)
         return applySort(to: searched)
@@ -72,18 +76,27 @@ struct MainView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-            horizontalDivider
-            HStack(spacing: 0) {
-                sidebar
-                verticalDivider
-                contentArea
+        Group {
+            if activePage == .vault {
+                VStack(spacing: 0) {
+                    topBar
+                    horizontalDivider
+                    HStack(spacing: 0) {
+                        sidebar
+                        verticalDivider
+                        contentArea
+                    }
+                    horizontalDivider
+                    statusBar
+                    quickLookKeyboardShortcut
+                    selectionNavigationShortcuts
+                }
+            } else {
+                USBEncryptionWorkspacePage(
+                    onBackToVault: { activePage = .vault },
+                    onOpenUSBContainer: { showUSBContainerSheet = true }
+                )
             }
-            horizontalDivider
-            statusBar
-            quickLookKeyboardShortcut
-            selectionNavigationShortcuts
         }
         .frame(minWidth: 1080, minHeight: 720)
         .background(AegiroPalette.backgroundMain.ignoresSafeArea())
@@ -443,15 +456,7 @@ struct MainView: View {
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("External Disk")
 
-                actionButton(title: "Encrypt Disk", icon: "externaldrive.badge.plus") {
-                    showDiskEncryptSheet = true
-                }
-
-                actionButton(title: "Decrypt Disk", icon: "lock.open") {
-                    showDiskUnlockSheet = true
-                }
-
-                actionButton(title: "USB Encryption Page", icon: "externaldrive.connected.to.line.below") {
+                actionButton(title: "USB Encryption", icon: "externaldrive.connected.to.line.below") {
                     activePage = .usbEncryption
                     model.refreshAPFSVolumeOptions()
                 }
@@ -648,11 +653,6 @@ struct MainView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
-
-                Button("Encrypt Disk") {
-                    showDiskEncryptSheet = true
-                }
-                .buttonStyle(.bordered)
 
                 Button("USB Encryption") {
                     activePage = .usbEncryption
