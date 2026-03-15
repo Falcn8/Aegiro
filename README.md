@@ -52,7 +52,7 @@ Aegiro is a local-first encrypted vault system for macOS:
 ## Quick Start
 
 ```bash
-# Build package (REAL_CRYPTO by default)
+# Build package
 bash scripts/build-real.sh
 ./dist/aegiro-cli --version
 
