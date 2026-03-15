@@ -78,8 +78,10 @@ Main window uses a three-zone shell:
 - Non-APFS encryption now shows live file progress (`processed / total`) while encrypting user data.
 - APFS encryption progress remains volume/block-level from `diskutil` (percent + status message), because file-level counts are not exposed.
 - Added a dedicated **USB Encryption** page that renders as its own screen (not inside the Open Vault shell).
-- The USB page has one volume picker for APFS and non-APFS USB volumes, then a format-aware encryption option selector with "Recommended" badges.
-- Users can run APFS volume encryption and vault-file encryption directly on that page (plus quick access to the USB Container tool).
+- The USB page has one volume picker for APFS and non-APFS USB volumes, then an encryption option selector that explicitly covers:
+  - `apfs-volume-encrypt` / `apfs-volume-decrypt`
+  - `usb-vault-pack`
+  - `usb-container-create` / `usb-container-open` / `usb-container-close`
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.
