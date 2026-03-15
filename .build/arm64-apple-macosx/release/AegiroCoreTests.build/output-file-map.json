@@ -9,5 +9,11 @@
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests~partial.swiftmodule",
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FormatV2Tests.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests.dia"
   }
 }

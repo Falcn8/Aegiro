@@ -28,6 +28,12 @@
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.dia"
   },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FormatV2.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FormatV2.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FormatV2~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FormatV2.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FormatV2.dia"
+  },
   "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift": {
     "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o",
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest~partial.swiftmodule",
@@ -58,6 +64,18 @@
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Shredder.dia"
   },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/USBContainerCrypto.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/USBUserDataCrypto.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto.dia"
+  },
   "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Vault.swift": {
     "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o",
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Vault~partial.swiftmodule",
@@ -69,6 +87,12 @@
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader~partial.swiftmodule",
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultLimits.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultLimits.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultLimits~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultLimits.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/VaultLimits.dia"
   },
   "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift": {
     "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o",

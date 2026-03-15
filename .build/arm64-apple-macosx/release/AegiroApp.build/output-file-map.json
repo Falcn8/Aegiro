@@ -40,6 +40,12 @@
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.dia"
   },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/PasswordStrength.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PasswordStrength.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PasswordStrength~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PasswordStrength.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PasswordStrength.dia"
+  },
   "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/PreferencesView.swift": {
     "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView.swift.o",
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/PreferencesView~partial.swiftmodule",
@@ -69,5 +75,11 @@
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel~partial.swiftmodule",
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/VaultModel.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/DerivedSources/resource_bundle_accessor.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/resource_bundle_accessor.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/resource_bundle_accessor~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/resource_bundle_accessor.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/resource_bundle_accessor.dia"
   }
 }

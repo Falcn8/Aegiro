@@ -2,12 +2,16 @@
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ExternalDiskCrypto.swift
+/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FormatV2.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Session.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Shredder.swift
+/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/USBContainerCrypto.swift
+/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/USBUserDataCrypto.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Vault.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultHeader.swift
+/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultLimits.swift
 /Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift
 /Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/DerivedSources/resource_bundle_accessor.swift
