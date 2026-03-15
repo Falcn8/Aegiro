@@ -118,7 +118,7 @@ Jump between project markdown pages:
 
 ## Notes
 
-- Default file-count limit per vault: `10,000` (`AEGIRO_MAX_FILES_PER_VAULT` to override).
+- Default file-count limit per vault: `1,000` (`AEGIRO_MAX_FILES_PER_VAULT` to override).
 - Non-APFS metadata paths are skipped in USB user-data flow.
 - All encryption workflows are local; no telemetry endpoints are used by default.
 
