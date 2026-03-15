@@ -1640,18 +1640,6 @@ private struct USBEncryptionWorkspacePage: View {
         return model.usbDataEncryptionActive && target == mount
     }
 
-    private var hasVaultFileProgressForSelectedMount: Bool {
-        let mount = normalizedMountPath(selectedMountPoint)
-        guard !mount.isEmpty else {
-            return false
-        }
-        let target = normalizedMountPath(model.usbDataEncryptionTargetMountPoint)
-        guard target == mount else { return false }
-        if model.usbDataEncryptionActive { return true }
-        if model.usbDataEncryptionTotalFiles > 0 { return true }
-        return !model.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     private var vaultFileProgressDetail: String {
         switch model.usbDataEncryptionStage {
         case .scanning:
@@ -1680,6 +1668,16 @@ private struct USBEncryptionWorkspacePage: View {
             }
             return "Completed"
         }
+    }
+
+    private var shouldShowVaultFileProgressSection: Bool {
+        if model.usbDataEncryptionActive {
+            return true
+        }
+        if let fraction = model.usbDataEncryptionProgressFraction {
+            return fraction > 0
+        }
+        return false
     }
 
     private var existingVaultPathWarning: String? {
@@ -2171,18 +2169,6 @@ private struct USBEncryptionWorkspacePage: View {
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
-            if hasVaultFileProgressForSelectedMount {
-                progressCard(title: "Vault-File Encryption Progress",
-                             message: model.usbDataEncryptionProgressMessage,
-                             fraction: model.usbDataEncryptionProgressFraction,
-                             detail: vaultFileProgressDetail)
-                if isVaultFileEncryptingSelectedMount {
-                    Button("Cancel Encryption") {
-                        model.cancelUSBDataEncryption()
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
         }
     }
 
@@ -2210,10 +2196,28 @@ private struct USBEncryptionWorkspacePage: View {
         VStack(alignment: .leading, spacing: 12) {
             configurationHeaderCard
             if selectedOption == .vaultFile {
-                progressCard(title: "Vault-File Encryption Progress",
-                             message: model.usbDataEncryptionProgressMessage,
-                             fraction: model.usbDataEncryptionProgressFraction,
-                             detail: vaultFileProgressDetail)
+                if shouldShowVaultFileProgressSection {
+                    progressCard(title: "Vault-File Encryption Progress",
+                                 message: model.usbDataEncryptionProgressMessage,
+                                 fraction: model.usbDataEncryptionProgressFraction,
+                                 detail: vaultFileProgressDetail)
+                } else {
+                    Text(model.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                         ? "No active encryption progress."
+                         : model.usbDataEncryptionProgressMessage)
+                        .font(AegiroTypography.body(12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(AegiroPalette.backgroundMain.opacity(0.72))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+                        )
+                }
                 usbEncryptionDebugLogCard
 
                 HStack {
@@ -2253,7 +2257,15 @@ private struct USBEncryptionWorkspacePage: View {
 
     private var usbEncryptionDebugLogCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            formLabel("Live Debug Info")
+            HStack {
+                formLabel("Live Debug Info")
+                Spacer()
+                Button("Copy Logs") {
+                    copyUSBDataEncryptionLogsToClipboard()
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.usbDataEncryptionLogs.isEmpty)
+            }
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
@@ -2263,7 +2275,7 @@ private struct USBEncryptionWorkspacePage: View {
                                 .foregroundStyle(AegiroPalette.textMuted)
                         } else {
                             ForEach(model.usbDataEncryptionLogs) { entry in
-                                Text("[\(entry.timestamp.formatted(date: .omitted, time: .standard))] \(entry.message)")
+                                Text(formattedUSBDataEncryptionLogLine(for: entry))
                                     .font(AegiroTypography.mono(11, weight: .regular))
                                     .foregroundStyle(AegiroPalette.textSecondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -2272,6 +2284,7 @@ private struct USBEncryptionWorkspacePage: View {
                         }
                     }
                     .padding(8)
+                    .textSelection(.enabled)
                 }
                 .frame(minHeight: 180, maxHeight: 280)
                 .background(
@@ -2576,6 +2589,7 @@ private struct USBEncryptionWorkspacePage: View {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = true
+        panel.showsHiddenFiles = true
         let preferredRoot = sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? mount : sourcePath
         panel.directoryURL = URL(fileURLWithPath: NSString(string: preferredRoot).expandingTildeInPath, isDirectory: true)
         if panel.runModal() == .OK {
@@ -2613,6 +2627,22 @@ private struct USBEncryptionWorkspacePage: View {
         } else {
             proxy.scrollTo(id, anchor: .bottom)
         }
+    }
+
+    private func formattedUSBDataEncryptionLogLine(for entry: USBDataEncryptionLogEntry) -> String {
+        "[\(entry.timestamp.formatted(date: .omitted, time: .standard))] \(entry.message)"
+    }
+
+    private func copyUSBDataEncryptionLogsToClipboard() {
+        let text = model.usbDataEncryptionLogs
+            .map(formattedUSBDataEncryptionLogLine(for:))
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        model.status = "Copied USB encryption debug logs."
     }
 
     private func defaultRecoveryPath(for diskID: String) -> String {

@@ -83,7 +83,9 @@ Main window uses a three-zone shell:
   - `usb-vault-pack`
   - `usb-container-create` / `usb-container-open` / `usb-container-close`
 - Vault Pack configuration includes a "Do Not Encrypt" file/folder exclusion picker so users can explicitly skip paths they do not want encrypted.
+- Vault Pack excludes hidden files/folders by default during scan/encrypt, and the exclusion picker still shows hidden items so users can inspect/select them explicitly.
 - Pressing Vault Pack Encrypt/Scan opens a dedicated progress screen with live logs, auto-scroll to newest entries, and inline cancel control.
+- Live debug logs support selection/copy, with a one-click copy action.
 - If the target `.agvt` already exists, USB Encryption shows an overlap warning before run.
 
 3. Preferences (`PreferencesView`)

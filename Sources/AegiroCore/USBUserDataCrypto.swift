@@ -191,6 +191,14 @@ public enum USBUserDataCrypto {
                 .map(String.init)
             guard let first = relativeComponents.first else { continue }
 
+            if shouldSkipHiddenPath(relativeComponents) {
+                if itemIsDirectory {
+                    enumerator.skipDescendants()
+                }
+                skipped.insert(candidate.path)
+                continue
+            }
+
             if shouldSkipRootEntry(first) {
                 if itemIsDirectory {
                     enumerator.skipDescendants()
@@ -403,6 +411,13 @@ public enum USBUserDataCrypto {
             return true
         }
         return false
+    }
+
+    private static func shouldSkipHiddenPath(_ relativeComponents: [String]) -> Bool {
+        relativeComponents.contains { component in
+            let trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.hasPrefix(".")
+        }
     }
 
     private static func shouldSkipUserExcludedPath(relativePath: String,
