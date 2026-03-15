@@ -215,6 +215,9 @@ public enum Importer {
                                      isCancelled: (() -> Bool)? = nil) throws -> (imported: Int, sidecar: URL) {
         try throwIfCancelled(isCancelled)
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
+        defer {
+            try? FileManager.default.removeItem(at: sidecar)
+        }
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
@@ -235,7 +238,6 @@ public enum Importer {
                                                    items: items,
                                                    progress: progress,
                                                    isCancelled: isCancelled)
-        try? FileManager.default.removeItem(at: sidecar)
         return (imported, sidecar)
     }
 

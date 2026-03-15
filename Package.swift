@@ -44,7 +44,7 @@ let package = Package(
         ),
         .systemLibrary(
             name: "Argon2C",
-            pkgConfig: "argon2",
+            pkgConfig: "libargon2",
             providers: [
                 .brew(["argon2"])
             ]

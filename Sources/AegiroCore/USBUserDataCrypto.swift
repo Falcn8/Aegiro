@@ -85,6 +85,17 @@ public enum USBUserDataCrypto {
         }
     }
 
+    private static func isCancellationError(_ error: Error) -> Bool {
+        String(describing: error).lowercased().contains("cancelled by user")
+    }
+
+    private static func cleanupCancelledNewVault(_ vaultURL: URL) {
+        let fm = FileManager.default
+        try? fm.removeItem(at: vaultURL)
+        let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
+        try? fm.removeItem(at: sidecar)
+    }
+
     // Keep USB/OS metadata intact so volume behavior is not damaged.
     private static let excludedRootEntryNames: Set<String> = [
         ".spotlight-v100",
@@ -233,75 +244,82 @@ public enum USBUserDataCrypto {
                                              message: "Preparing \(scan.scannedFileCount) user file(s) for encryption..."))
         try throwIfCancelled(isCancelled)
 
-        try FileManager.default.createDirectory(at: normalizedVaultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let createdVault: Bool
-        if FileManager.default.fileExists(atPath: normalizedVaultURL.path) {
-            _ = try AegiroVault.open(at: normalizedVaultURL)
-            createdVault = false
-        } else {
-            _ = try AegiroVault.create(at: normalizedVaultURL, passphrase: trimmedPassphrase, touchID: false)
-            createdVault = true
-        }
-
-        let imported = try Importer.sidecarImport(vaultURL: normalizedVaultURL,
-                                                  passphrase: trimmedPassphrase,
-                                                  files: scan.files,
-                                                  progress: { importedCount, totalCount, path in
-                                                      let name = URL(fileURLWithPath: path).lastPathComponent
-                                                      progress?(USBUserDataEncryptProgress(stage: .encrypting,
-                                                                                           processedFileCount: importedCount,
-                                                                                           totalFileCount: totalCount,
-                                                                                           currentPath: path,
-                                                                                           message: "Encrypting \(importedCount)/\(totalCount): \(name)"))
-                                                  },
-                                                  preparationProgress: { preparedCount, totalCount, path in
-                                                      let name = URL(fileURLWithPath: path).lastPathComponent
-                                                      progress?(USBUserDataEncryptProgress(stage: .preparing,
-                                                                                           processedFileCount: preparedCount,
-                                                                                           totalFileCount: totalCount,
-                                                                                           currentPath: path,
-                                                                                           message: "Preparing \(preparedCount)/\(totalCount): \(name)"))
-                                                  },
-                                                  isCancelled: isCancelled).imported
-
-        var deletedOriginalCount = 0
-        var deletionErrors: [String] = []
-        if deleteOriginals && !scan.files.isEmpty {
-            guard imported == scan.scannedFileCount else {
-                throw AEGError.integrity("Imported \(imported) of \(scan.scannedFileCount) files. Original files were left untouched.")
+        var createdVault = false
+        do {
+            try FileManager.default.createDirectory(at: normalizedVaultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if FileManager.default.fileExists(atPath: normalizedVaultURL.path) {
+                _ = try AegiroVault.open(at: normalizedVaultURL)
+                createdVault = false
+            } else {
+                _ = try AegiroVault.create(at: normalizedVaultURL, passphrase: trimmedPassphrase, touchID: false)
+                createdVault = true
             }
-            progress?(USBUserDataEncryptProgress(stage: .deletingOriginals,
-                                                 processedFileCount: 0,
-                                                 totalFileCount: scan.files.count,
-                                                 currentPath: nil,
-                                                 message: "Deleting original files..."))
-            let deletion = deleteSourceFiles(scan.files,
-                                             sourceRootURL: scan.sourceRootURL) { deletedCount, totalCount, path in
-                let name = URL(fileURLWithPath: path).lastPathComponent
+
+            let imported = try Importer.sidecarImport(vaultURL: normalizedVaultURL,
+                                                      passphrase: trimmedPassphrase,
+                                                      files: scan.files,
+                                                      progress: { importedCount, totalCount, path in
+                                                          let name = URL(fileURLWithPath: path).lastPathComponent
+                                                          progress?(USBUserDataEncryptProgress(stage: .encrypting,
+                                                                                               processedFileCount: importedCount,
+                                                                                               totalFileCount: totalCount,
+                                                                                               currentPath: path,
+                                                                                               message: "Encrypting \(importedCount)/\(totalCount): \(name)"))
+                                                      },
+                                                      preparationProgress: { preparedCount, totalCount, path in
+                                                          let name = URL(fileURLWithPath: path).lastPathComponent
+                                                          progress?(USBUserDataEncryptProgress(stage: .preparing,
+                                                                                               processedFileCount: preparedCount,
+                                                                                               totalFileCount: totalCount,
+                                                                                               currentPath: path,
+                                                                                               message: "Preparing \(preparedCount)/\(totalCount): \(name)"))
+                                                      },
+                                                      isCancelled: isCancelled).imported
+
+            var deletedOriginalCount = 0
+            var deletionErrors: [String] = []
+            if deleteOriginals && !scan.files.isEmpty {
+                guard imported == scan.scannedFileCount else {
+                    throw AEGError.integrity("Imported \(imported) of \(scan.scannedFileCount) files. Original files were left untouched.")
+                }
                 progress?(USBUserDataEncryptProgress(stage: .deletingOriginals,
-                                                     processedFileCount: deletedCount,
-                                                     totalFileCount: totalCount,
-                                                     currentPath: path,
-                                                     message: "Deleting \(deletedCount)/\(totalCount): \(name)"))
+                                                     processedFileCount: 0,
+                                                     totalFileCount: scan.files.count,
+                                                     currentPath: nil,
+                                                     message: "Deleting original files..."))
+                let deletion = deleteSourceFiles(scan.files,
+                                                 sourceRootURL: scan.sourceRootURL) { deletedCount, totalCount, path in
+                    let name = URL(fileURLWithPath: path).lastPathComponent
+                    progress?(USBUserDataEncryptProgress(stage: .deletingOriginals,
+                                                         processedFileCount: deletedCount,
+                                                         totalFileCount: totalCount,
+                                                         currentPath: path,
+                                                         message: "Deleting \(deletedCount)/\(totalCount): \(name)"))
+                }
+                deletedOriginalCount = deletion.deleted
+                deletionErrors = deletion.errors
             }
-            deletedOriginalCount = deletion.deleted
-            deletionErrors = deletion.errors
+
+            progress?(USBUserDataEncryptProgress(stage: .completed,
+                                                 processedFileCount: imported,
+                                                 totalFileCount: scan.scannedFileCount,
+                                                 currentPath: nil,
+                                                 message: "Encryption complete: \(imported)/\(scan.scannedFileCount) file(s)."))
+
+            return USBUserDataEncryptResult(vaultURL: normalizedVaultURL,
+                                            createdVault: createdVault,
+                                            scannedFileCount: scan.scannedFileCount,
+                                            encryptedFileCount: imported,
+                                            skippedPathCount: scan.skippedPathCount,
+                                            deletedOriginalCount: deletedOriginalCount,
+                                            deletionErrors: deletionErrors,
+                                            dryRun: false)
+        } catch {
+            if createdVault && isCancellationError(error) {
+                cleanupCancelledNewVault(normalizedVaultURL)
+            }
+            throw error
         }
-
-        progress?(USBUserDataEncryptProgress(stage: .completed,
-                                             processedFileCount: imported,
-                                             totalFileCount: scan.scannedFileCount,
-                                             currentPath: nil,
-                                             message: "Encryption complete: \(imported)/\(scan.scannedFileCount) file(s)."))
-
-        return USBUserDataEncryptResult(vaultURL: normalizedVaultURL,
-                                        createdVault: createdVault,
-                                        scannedFileCount: scan.scannedFileCount,
-                                        encryptedFileCount: imported,
-                                        skippedPathCount: scan.skippedPathCount,
-                                        deletedOriginalCount: deletedOriginalCount,
-                                        deletionErrors: deletionErrors,
-                                        dryRun: false)
     }
 
     private static func shouldSkipFile(_ fileURL: URL, relativeComponents: [String]) -> Bool {

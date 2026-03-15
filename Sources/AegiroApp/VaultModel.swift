@@ -490,8 +490,8 @@ final class VaultModel: ObservableObject {
     func cancelUSBDataEncryption() {
         guard usbDataEncryptionActive else { return }
         usbDataEncryptionCancellationFlag?.cancel()
-        usbDataEncryptionProgressMessage = "Cancelling..."
-        status = "Cancelling USB user-data encryption..."
+        usbDataEncryptionProgressMessage = "Cancelling and cleaning partial output..."
+        status = "Cancelling USB user-data encryption and cleaning partial output..."
     }
 
     private func startDiskEncryptionProgressMonitoring(diskIdentifier: String) {
@@ -644,7 +644,7 @@ final class VaultModel: ObservableObject {
                     let errorText = String(describing: error).lowercased()
                     if errorText.contains("cancelled by user") {
                         self.usbDataEncryptionProgressMessage = "Encryption cancelled."
-                        self.status = "USB user-data encryption cancelled."
+                        self.status = "USB user-data encryption cancelled. Partial new vault output was cleaned."
                         completion?(false)
                         return
                     }

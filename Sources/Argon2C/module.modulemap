@@ -1,5 +1,5 @@
 
 module Argon2C [system] {
-  header "argon2.h"
+  header "shim.h"
   link "argon2"
 }

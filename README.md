@@ -1,6 +1,6 @@
-<h1 align="center">
+<!-- <h1 align="center">
   Aegiro
-</h1>
+</h1> -->
 
 <p align="center">
   <img src="assets/aegiro-banner.png" alt="Aegiro release banner">

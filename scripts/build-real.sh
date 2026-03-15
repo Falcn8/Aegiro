@@ -11,7 +11,7 @@ if ! pkg-config --exists liboqs 2>/dev/null; then
     exit 1
   fi
 fi
-if ! pkg-config --exists argon2 2>/dev/null; then
+if ! pkg-config --exists libargon2 2>/dev/null; then
   if [[ ! -f /opt/homebrew/include/argon2.h ]]; then
     echo "Missing argon2 headers (brew install argon2)" >&2
     exit 1
@@ -22,13 +22,13 @@ PC_DIR="$ROOT_DIR/ThirdParty/pkgconfig"
 mkdir -p "$PC_DIR"
 
 # Write .pc shims (override brew to ensure link flags)
-cat >"$PC_DIR/argon2.pc" <<'PC'
+cat >"$PC_DIR/libargon2.pc" <<'PC'
 prefix=/opt/homebrew
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 
-Name: argon2
+Name: libargon2
 Description: Argon2 password hashing
 Version: 0
 Libs: -L${libdir} -largon2

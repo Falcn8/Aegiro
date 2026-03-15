@@ -1555,10 +1555,16 @@ private struct USBEncryptionWorkspacePage: View {
         }
     }
 
+    private enum WorkspaceStage {
+        case selectOption
+        case configureOption
+    }
+
     @EnvironmentObject private var model: VaultModel
 
     @State private var selectedVolume = ""
-    @State private var selectedOption: EncryptionOption = .apfsDisk
+    @State private var selectedOption: EncryptionOption?
+    @State private var stage: WorkspaceStage = .selectOption
 
     @State private var recoveryPassphrase = ""
     @State private var recoveryPath = ""
@@ -1624,18 +1630,20 @@ private struct USBEncryptionWorkspacePage: View {
     }
 
     private var isVaultFileEncryptingSelectedMount: Bool {
-        guard let mount = selectedMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines), !mount.isEmpty else {
+        let mount = normalizedMountPath(selectedMountPoint)
+        guard !mount.isEmpty else {
             return false
         }
-        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let target = normalizedMountPath(model.usbDataEncryptionTargetMountPoint)
         return model.usbDataEncryptionActive && target == mount
     }
 
     private var hasVaultFileProgressForSelectedMount: Bool {
-        guard let mount = selectedMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines), !mount.isEmpty else {
+        let mount = normalizedMountPath(selectedMountPoint)
+        guard !mount.isEmpty else {
             return false
         }
-        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let target = normalizedMountPath(model.usbDataEncryptionTargetMountPoint)
         guard target == mount else { return false }
         if model.usbDataEncryptionActive { return true }
         if model.usbDataEncryptionTotalFiles > 0 { return true }
@@ -1670,6 +1678,9 @@ private struct USBEncryptionWorkspacePage: View {
     }
 
     private var selectedOptionButtonTitle: String {
+        guard let selectedOption else {
+            return "Select Encryption Option"
+        }
         switch selectedOption {
         case .apfsDisk:
             switch apfsAction {
@@ -1695,6 +1706,7 @@ private struct USBEncryptionWorkspacePage: View {
     }
 
     private var canRunSelectedOption: Bool {
+        guard let selectedOption else { return false }
         switch selectedOption {
         case .apfsDisk:
             return optionIsAvailable(.apfsDisk)
@@ -1715,6 +1727,18 @@ private struct USBEncryptionWorkspacePage: View {
         case .usbContainer:
             return true
         }
+    }
+
+    private var canOpenSelectedOptionConfiguration: Bool {
+        guard let selectedOption else { return false }
+        return optionIsAvailable(selectedOption)
+    }
+
+    private var configureButtonTitle: String {
+        guard let selectedOption else {
+            return "Select Encryption Option"
+        }
+        return "Configure \(selectedOption.title)"
     }
 
     private var selectedVolumeSummary: String {
@@ -1751,18 +1775,36 @@ private struct USBEncryptionWorkspacePage: View {
                         .buttonStyle(.bordered)
                     }
 
-                    volumeSelectionCard
-                    encryptionOptionCard
-                    selectedOptionFormCard
+                    if stage == .selectOption {
+                        volumeSelectionCard
+                        encryptionOptionCard
 
-                    HStack {
-                        Spacer()
-                        Button(selectedOptionButtonTitle) {
-                            runSelectedOption()
+                        HStack {
+                            Spacer()
+                            Button(configureButtonTitle) {
+                                openSelectedOptionConfiguration()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(AegiroPalette.accentIndigo)
+                            .disabled(!canOpenSelectedOptionConfiguration)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(AegiroPalette.accentIndigo)
-                        .disabled(!canRunSelectedOption)
+                    } else {
+                        configurationHeaderCard
+                        selectedOptionFormCard
+
+                        HStack {
+                            Button("Back") {
+                                stage = .selectOption
+                            }
+                            .buttonStyle(.bordered)
+                            Spacer()
+                            Button(selectedOptionButtonTitle) {
+                                runSelectedOption()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(AegiroPalette.accentIndigo)
+                            .disabled(!canRunSelectedOption)
+                        }
                     }
                 }
                 .padding(24)
@@ -1773,6 +1815,7 @@ private struct USBEncryptionWorkspacePage: View {
             .background(AegiroPalette.backgroundMain)
         }
         .onAppear {
+            stage = .selectOption
             model.refreshAPFSVolumeOptions()
             model.clearUSBDataEncryptionProgressIfIdle()
             applyAutoSelectionIfNeeded(force: true)
@@ -1793,6 +1836,29 @@ private struct USBEncryptionWorkspacePage: View {
             syncDefaultsForSelection(force: false)
             ensureSelectedOptionIsValid()
         }
+    }
+
+    private var configurationHeaderCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let selectedOption {
+                Text(selectedOption.title)
+                    .font(AegiroTypography.body(14, weight: .semibold))
+                    .foregroundStyle(AegiroPalette.textPrimary)
+                Text(selectedVolumeSummary)
+                    .font(AegiroTypography.body(11, weight: .regular))
+                    .foregroundStyle(hasValidSelection ? AegiroPalette.textSecondary : AegiroPalette.warningAmber)
+            } else {
+                Text("Select an encryption option first.")
+                    .font(AegiroTypography.body(12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
+        }
+        .padding(12)
+        .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+        )
     }
 
     private var volumeSelectionCard: some View {
@@ -1845,13 +1911,19 @@ private struct USBEncryptionWorkspacePage: View {
 
     private var selectedOptionFormCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            switch selectedOption {
-            case .apfsDisk:
-                apfsOptionForm
-            case .vaultFile:
-                vaultFileOptionForm
-            case .usbContainer:
-                usbContainerOptionForm
+            if let selectedOption {
+                switch selectedOption {
+                case .apfsDisk:
+                    apfsOptionForm
+                case .vaultFile:
+                    vaultFileOptionForm
+                case .usbContainer:
+                    usbContainerOptionForm
+                }
+            } else {
+                Text("Select an encryption option to configure command inputs.")
+                    .font(AegiroTypography.body(12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
             }
         }
         .padding(12)
@@ -1866,6 +1938,7 @@ private struct USBEncryptionWorkspacePage: View {
         let isSelected = selectedOption == option
         let isAvailable = optionIsAvailable(option)
         let isRecommended = recommendedOption == option && isAvailable
+        let isRecommendedHighlight = isRecommended && selectedOption == nil
 
         return Button {
             guard isAvailable else { return }
@@ -1904,11 +1977,16 @@ private struct USBEncryptionWorkspacePage: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected && isAvailable ? AegiroPalette.accentIndigo.opacity(0.18) : AegiroPalette.backgroundMain.opacity(0.65))
+                    .fill((isSelected && isAvailable) || isRecommendedHighlight
+                          ? AegiroPalette.accentIndigo.opacity(0.18)
+                          : AegiroPalette.backgroundMain.opacity(0.65))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(isSelected && isAvailable ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+                    .stroke((isSelected && isAvailable) || isRecommendedHighlight
+                            ? AegiroPalette.accentIndigo
+                            : AegiroPalette.borderSubtle,
+                            lineWidth: 1)
             )
             .opacity(isAvailable ? 1 : 0.75)
         }
@@ -2140,36 +2218,21 @@ private struct USBEncryptionWorkspacePage: View {
     }
 
     private func ensureSelectedOptionIsValid() {
-        if optionIsAvailable(selectedOption) {
-            return
+        if let selectedOption, !optionIsAvailable(selectedOption) {
+            self.selectedOption = nil
         }
-        if let recommendedOption, optionIsAvailable(recommendedOption) {
-            selectedOption = recommendedOption
-            return
+        if selectedOption == nil {
+            stage = .selectOption
         }
-        if optionIsAvailable(.vaultFile) {
-            selectedOption = .vaultFile
-            return
-        }
-        if optionIsAvailable(.apfsDisk) {
-            selectedOption = .apfsDisk
-            return
-        }
-        selectedOption = .usbContainer
     }
 
     private func applyAutoSelectionIfNeeded(force: Bool) {
         let trimmed = selectedTrimmed
+        guard !trimmed.isEmpty else { return }
         let isKnown = externalAPFSOptions.contains(where: { $0.identifier == trimmed })
             || model.mountedNonAPFSVolumes.contains(where: { $0.mountPoint == trimmed })
-        guard force || !isKnown else { return }
-
-        if let preferredAPFS = preferredAPFSVolumeIdentifier(from: model.apfsVolumeOptions) {
-            selectedVolume = preferredAPFS
-            return
-        }
-        if let firstNonAPFS = model.mountedNonAPFSVolumes.first?.mountPoint {
-            selectedVolume = firstNonAPFS
+        if force || !isKnown {
+            selectedVolume = ""
         }
     }
 
@@ -2187,6 +2250,10 @@ private struct USBEncryptionWorkspacePage: View {
     }
 
     private func runSelectedOption() {
+        guard let selectedOption else {
+            model.status = "Select an encryption option first."
+            return
+        }
         switch selectedOption {
         case .apfsDisk:
             runAPFSAction()
@@ -2195,6 +2262,19 @@ private struct USBEncryptionWorkspacePage: View {
         case .usbContainer:
             onOpenUSBContainer()
         }
+    }
+
+    private func openSelectedOptionConfiguration() {
+        guard let selectedOption else {
+            model.status = "Select an encryption option first."
+            return
+        }
+        guard optionIsAvailable(selectedOption) else {
+            model.status = unavailableHint(for: selectedOption) ?? "Selected option is not available for this volume."
+            return
+        }
+        syncDefaultsForSelection(force: true)
+        stage = .configureOption
     }
 
     private func runAPFSAction() {
@@ -2325,6 +2405,13 @@ private struct USBEncryptionWorkspacePage: View {
         let safe = trimmed.isEmpty ? "external-disk" : trimmed.replacingOccurrences(of: "/", with: "_")
         let baseDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true)
         return baseDir.appendingPathComponent("\(safe).aegiro-diskkey.json").path
+    }
+
+    private func normalizedMountPath(_ value: String?) -> String {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return "" }
+        let expanded = NSString(string: trimmed).expandingTildeInPath
+        return URL(fileURLWithPath: expanded, isDirectory: true).standardizedFileURL.path
     }
 
     private func syncRecoveryPathWithDisk(_ diskID: String, force: Bool) {
@@ -3352,11 +3439,6 @@ private struct USBUserDataEncryptSheet: View {
 
                 HStack {
                     Spacer()
-                    Button("Refresh Volumes") {
-                        model.refreshAPFSVolumeOptions()
-                    }
-                    .buttonStyle(.bordered)
-
                     Button("Cancel") {
                         dismiss()
                     }
@@ -4651,6 +4733,10 @@ private struct APFSVolumeOptionsPanel: View {
         selectedDiskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var selectedNormalizedPath: String {
+        normalizedPath(selectedTrimmed)
+    }
+
     private var mountedExternalOptions: [APFSVolumeOption] {
         mountedExternalAPFSVolumes(from: externalOptions)
     }
@@ -4770,7 +4856,9 @@ private struct APFSVolumeOptionsPanel: View {
                                 .buttonStyle(.plain)
                             case .nonAPFS(let volume):
                                 if let onSelectNonAPFSVolume {
+                                    let isSelected = normalizedPath(volume.mountPoint) == selectedNormalizedPath
                                     Button {
+                                        selectedDiskIdentifier = volume.mountPoint
                                         onSelectNonAPFSVolume(volume)
                                     } label: {
                                         HStack(alignment: .top, spacing: 10) {
@@ -4781,23 +4869,28 @@ private struct APFSVolumeOptionsPanel: View {
                                                         .foregroundStyle(AegiroPalette.textPrimary)
                                                     badge(text: "Not APFS", color: AegiroPalette.warningAmber)
                                                 }
-                                            Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
-                                                .font(AegiroTypography.body(11, weight: .regular))
-                                                .foregroundStyle(AegiroPalette.textSecondary)
+                                                Text("\(volume.filesystemType.uppercased()) • \(volume.deviceIdentifier)")
+                                                    .font(AegiroTypography.body(11, weight: .regular))
+                                                    .foregroundStyle(AegiroPalette.textSecondary)
+                                            }
+                                            Spacer(minLength: 8)
+                                            if isSelected {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundStyle(AegiroPalette.securityGreen)
+                                                    .font(AegiroTypography.body(15, weight: .semibold))
+                                            }
                                         }
-                                        Spacer(minLength: 8)
                                     }
                                     .padding(10)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(
-                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .fill(AegiroPalette.backgroundCard)
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
-                                        )
-                                    }
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(isSelected ? AegiroPalette.accentIndigo.opacity(0.18) : AegiroPalette.backgroundCard)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .stroke(isSelected ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+                                    )
                                     .buttonStyle(.plain)
                                 } else {
                                     HStack(alignment: .top, spacing: 10) {
@@ -4889,6 +4982,12 @@ private struct APFSVolumeOptionsPanel: View {
         case .none:
             return nil
         }
+    }
+
+    private func normalizedPath(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        return URL(fileURLWithPath: NSString(string: trimmed).expandingTildeInPath, isDirectory: true).standardizedFileURL.path
     }
 
     private func badge(text: String, color: Color) -> some View {
