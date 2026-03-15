@@ -1521,7 +1521,7 @@ private struct USBEncryptionWorkspacePage: View {
             case .apfsDisk:
                 return "APFS Volume Encrypt / Decrypt"
             case .vaultFile:
-                return "Vault Pack (`usb-vault-pack`)"
+                return "Vault Pack (usb-vault-pack)"
             case .usbContainer:
                 return "USB Container (Create / Open / Close)"
             }
@@ -1530,11 +1530,11 @@ private struct USBEncryptionWorkspacePage: View {
         var summary: String {
             switch self {
             case .apfsDisk:
-                return "`apfs-volume-encrypt` / `apfs-volume-decrypt` for APFS volumes with PQC recovery bundle."
+                return "apfs-volume-encrypt / apfs-volume-decrypt for APFS volumes with PQC recovery bundle."
             case .vaultFile:
-                return "`usb-vault-pack` to encrypt user files into `.agvt` without reformatting."
+                return "usb-vault-pack to encrypt user files into .agvt without reformatting."
             case .usbContainer:
-                return "`usb-container-create` / `usb-container-open` / `usb-container-close` for encrypted sparsebundle workflow."
+                return "usb-container-create / usb-container-open / usb-container-close for encrypted sparsebundle workflow."
             }
         }
     }
@@ -1917,7 +1917,7 @@ private struct USBEncryptionWorkspacePage: View {
 
     private var apfsOptionForm: some View {
         VStack(alignment: .leading, spacing: 10) {
-            formLabel("APFS Volume (`apfs-volume-encrypt` / `apfs-volume-decrypt`)")
+            formLabel("APFS Volume (apfs-volume-encrypt / apfs-volume-decrypt)")
             if let apfs = selectedAPFSVolume {
                 Text("Selected APFS volume: \(apfs.name) (\(apfs.identifier))")
                     .font(AegiroTypography.body(12, weight: .medium))
@@ -1969,7 +1969,7 @@ private struct USBEncryptionWorkspacePage: View {
 
     private var vaultFileOptionForm: some View {
         VStack(alignment: .leading, spacing: 10) {
-            formLabel("Vault Pack (`usb-vault-pack`)")
+            formLabel("Vault Pack (usb-vault-pack)")
             if let mount = selectedMountPoint {
                 Text("Target mount: \(mount)")
                     .font(AegiroTypography.body(12, weight: .medium))
@@ -2015,7 +2015,7 @@ private struct USBEncryptionWorkspacePage: View {
             Toggle("Delete original files after successful encryption", isOn: $deleteOriginals)
                 .disabled(vaultFileDryRun)
 
-            Text("Single command flow: `usb-vault-pack`. Recommended for non-APFS drives when you want file-level vault packing.")
+            Text("Single command flow: usb-vault-pack. Recommended for non-APFS drives when you want file-level vault packing.")
                 .font(AegiroTypography.body(10, weight: .regular))
                 .foregroundStyle(AegiroPalette.textMuted)
 
@@ -2052,10 +2052,10 @@ private struct USBEncryptionWorkspacePage: View {
             Text("This flow maps to three commands:")
                 .font(AegiroTypography.body(12, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
-            Text("`usb-container-create` / `usb-container-open` / `usb-container-close`")
+            Text("usb-container-create / usb-container-open / usb-container-close")
                 .font(AegiroTypography.mono(11, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
-            Text("Use it when you want an encrypted APFS container file (`.sparsebundle`) on any writable external filesystem.")
+            Text("Use it when you want an encrypted APFS container file (.sparsebundle) on any writable external filesystem.")
                 .font(AegiroTypography.body(11, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -2786,7 +2786,7 @@ struct DiskEncryptSheet: View {
                 Toggle("Dry run only", isOn: $dryRun)
                 Toggle("Overwrite existing recovery bundle", isOn: $overwrite)
 
-                Text("APFS reports block/volume encryption progress only. Per-file counts are not available from `diskutil`.")
+                Text("APFS reports block/volume encryption progress only. Per-file counts are not available from diskutil.")
                     .font(AegiroTypography.body(10, weight: .regular))
                     .foregroundStyle(AegiroPalette.textMuted)
             case .nonAPFS:
@@ -3628,7 +3628,7 @@ private struct USBContainerSheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("Use the same app flow as `usb-container-create`, `usb-container-open`, and `usb-container-close`.")
+            Text("Use the same app flow as usb-container-create, usb-container-open, and usb-container-close.")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -3678,7 +3678,7 @@ private struct USBContainerSheet: View {
 
     private var createForm: some View {
         VStack(alignment: .leading, spacing: 10) {
-            formLabel("Container Image (`.sparsebundle`)")
+            formLabel("Container Image (.sparsebundle)")
             HStack(spacing: 8) {
                 TextField("/Volumes/MyUSB/aegiro-portable.sparsebundle", text: $createImagePath)
                     .textFieldStyle(.roundedBorder)
@@ -3724,7 +3724,7 @@ private struct USBContainerSheet: View {
 
     private var mountForm: some View {
         VStack(alignment: .leading, spacing: 10) {
-            formLabel("Container Image (`.sparsebundle`)")
+            formLabel("Container Image (.sparsebundle)")
             HStack(spacing: 8) {
                 TextField("/Volumes/MyUSB/aegiro-portable.sparsebundle", text: $mountImagePath)
                     .textFieldStyle(.roundedBorder)
@@ -3976,7 +3976,7 @@ private struct BackupSheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("CLI parity for `backup --vault <path> --out <path.aegirobackup> [--passphrase ...]`.")
+            Text("CLI parity for backup --vault <path> --out <path.aegirobackup> [--passphrase ...].")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -4133,7 +4133,7 @@ private struct VerifySheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("CLI parity for `verify --vault <path>`.")
+            Text("CLI parity for verify --vault <path>.")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -4248,7 +4248,7 @@ private struct StatusSheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("CLI parity for `status --vault <path> [--passphrase ...] [--json]`.")
+            Text("CLI parity for status --vault <path> [--passphrase ...] [--json].")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -4385,7 +4385,7 @@ private struct ScanSheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("CLI parity for `scan <paths...>`.")
+            Text("CLI parity for scan <paths...>.")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -4516,7 +4516,7 @@ private struct ShredSheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("CLI parity for `shred <paths...>`. This permanently destroys selected files.")
+            Text("CLI parity for shred <paths...>. This permanently destroys selected files.")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
