@@ -79,6 +79,12 @@ public struct USBUserDataEncryptProgress: Sendable {
 }
 
 public enum USBUserDataCrypto {
+    private static func throwIfCancelled(_ isCancelled: (() -> Bool)?) throws {
+        if isCancelled?() == true {
+            throw AEGError.io("USB vault-pack cancelled by user.")
+        }
+    }
+
     // Keep USB/OS metadata intact so volume behavior is not damaged.
     private static let excludedRootEntryNames: Set<String> = [
         ".spotlight-v100",
@@ -183,13 +189,16 @@ public enum USBUserDataCrypto {
                                         passphrase: String,
                                         deleteOriginals: Bool,
                                         dryRun: Bool,
-                                        progress: ((USBUserDataEncryptProgress) -> Void)? = nil) throws -> USBUserDataEncryptResult {
+                                        progress: ((USBUserDataEncryptProgress) -> Void)? = nil,
+                                        isCancelled: (() -> Bool)? = nil) throws -> USBUserDataEncryptResult {
+        try throwIfCancelled(isCancelled)
         progress?(USBUserDataEncryptProgress(stage: .scanning,
                                              processedFileCount: 0,
                                              totalFileCount: 0,
                                              currentPath: nil,
                                              message: "Scanning source files..."))
         let scan = try scanUserFiles(sourceRootURL: sourceRootURL)
+        try throwIfCancelled(isCancelled)
         let normalizedVaultURL = vaultURL.standardizedFileURL
         progress?(USBUserDataEncryptProgress(stage: .encrypting,
                                              processedFileCount: 0,
@@ -222,6 +231,7 @@ public enum USBUserDataCrypto {
                                              totalFileCount: scan.scannedFileCount,
                                              currentPath: nil,
                                              message: "Preparing \(scan.scannedFileCount) user file(s) for encryption..."))
+        try throwIfCancelled(isCancelled)
 
         try FileManager.default.createDirectory(at: normalizedVaultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let createdVault: Bool
@@ -251,7 +261,8 @@ public enum USBUserDataCrypto {
                                                                                            totalFileCount: totalCount,
                                                                                            currentPath: path,
                                                                                            message: "Preparing \(preparedCount)/\(totalCount): \(name)"))
-                                                  }).imported
+                                                  },
+                                                  isCancelled: isCancelled).imported
 
         var deletedOriginalCount = 0
         var deletionErrors: [String] = []

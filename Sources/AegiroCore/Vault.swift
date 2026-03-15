@@ -201,11 +201,19 @@ private func normalizedPath(_ url: URL) -> String {
 }
 
 public enum Importer {
+    private static func throwIfCancelled(_ isCancelled: (() -> Bool)?) throws {
+        if isCancelled?() == true {
+            throw AEGError.io("USB vault-pack cancelled by user.")
+        }
+    }
+
     public static func sidecarImport(vaultURL: URL,
                                      passphrase: String,
                                      files: [URL],
                                      progress: ((Int, Int, String) -> Void)? = nil,
-                                     preparationProgress: ((Int, Int, String) -> Void)? = nil) throws -> (imported: Int, sidecar: URL) {
+                                     preparationProgress: ((Int, Int, String) -> Void)? = nil,
+                                     isCancelled: (() -> Bool)? = nil) throws -> (imported: Int, sidecar: URL) {
+        try throwIfCancelled(isCancelled)
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
@@ -216,7 +224,8 @@ public enum Importer {
                                           vaultURL: vaultURL,
                                           sidecarURL: sidecar,
                                           head: head,
-                                          preparationProgress: preparationProgress)
+                                          preparationProgress: preparationProgress,
+                                          isCancelled: isCancelled)
         let imported = try mergeImportedPlainItems(vaultURL: vaultURL,
                                                    data: data,
                                                    head: head,
@@ -224,7 +233,8 @@ public enum Importer {
                                                    dek: dek,
                                                    aad: aad,
                                                    items: items,
-                                                   progress: progress)
+                                                   progress: progress,
+                                                   isCancelled: isCancelled)
         try? FileManager.default.removeItem(at: sidecar)
         return (imported, sidecar)
     }
@@ -233,7 +243,9 @@ public enum Importer {
                                           vaultURL: URL,
                                           sidecarURL: URL,
                                           head: VaultHeader,
-                                          preparationProgress: ((Int, Int, String) -> Void)? = nil) throws -> [PlainImportItem] {
+                                          preparationProgress: ((Int, Int, String) -> Void)? = nil,
+                                          isCancelled: (() -> Bool)? = nil) throws -> [PlainImportItem] {
+        try throwIfCancelled(isCancelled)
         let vaultPath = normalizedPath(vaultURL)
         let sidecarPath = normalizedPath(sidecarURL)
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
@@ -257,6 +269,7 @@ public enum Importer {
         var items: [PlainImportItem] = []
         items.reserveCapacity(total)
         for (index, candidate) in candidates.enumerated() {
+            try throwIfCancelled(isCancelled)
             let plain = try Data(contentsOf: candidate.sourceURL)
             items.append(PlainImportItem(path: candidate.sourcePath,
                                          plain: plain,
@@ -351,7 +364,11 @@ private func mergeImportedPlainItems(vaultURL: URL,
                                      dek: SymmetricKey,
                                      aad: Data,
                                      items: [PlainImportItem],
-                                     progress: ((Int, Int, String) -> Void)? = nil) throws -> Int {
+                                     progress: ((Int, Int, String) -> Void)? = nil,
+                                     isCancelled: (() -> Bool)? = nil) throws -> Int {
+    if isCancelled?() == true {
+        throw AEGError.io("USB vault-pack cancelled by user.")
+    }
     guard !items.isEmpty else { return 0 }
 
     let idxBlobOld = data.subdata(in: layout.idxRange)
@@ -396,6 +413,9 @@ private func mergeImportedPlainItems(vaultURL: URL,
     let totalItems = orderedItems.count
     var importedCount = 0
     for item in orderedItems {
+        if isCancelled?() == true {
+            throw AEGError.io("USB vault-pack cancelled by user.")
+        }
         let plain = item.plain
         let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
         var fileChunkIndex: UInt64 = 0
@@ -403,6 +423,9 @@ private func mergeImportedPlainItems(vaultURL: URL,
         var cursorPlain = 0
         var perFileCount = 0
         while remaining > 0 {
+            if isCancelled?() == true {
+                throw AEGError.io("USB vault-pack cancelled by user.")
+            }
             let n = min(remaining, chunkSize)
             let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
             let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)

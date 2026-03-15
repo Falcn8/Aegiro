@@ -6,6 +6,24 @@ import UniformTypeIdentifiers
 import Security
 @preconcurrency import LocalAuthentication
 
+private final class USBDataEncryptionCancellationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+
+    func isCancelled() -> Bool {
+        lock.lock()
+        let value = cancelled
+        lock.unlock()
+        return value
+    }
+}
+
 @MainActor
 final class VaultModel: ObservableObject {
     @Published var vaultURL: URL?
@@ -46,6 +64,7 @@ final class VaultModel: ObservableObject {
     private var globalMonitors: [Any] = []
     private var localMonitors: [Any] = []
     private var autoLockDeadline: Date?
+    private var usbDataEncryptionCancellationFlag: USBDataEncryptionCancellationFlag?
 
     init() {
         let defaults = UserDefaults.standard
@@ -465,6 +484,14 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionProcessedFiles = 0
         usbDataEncryptionTotalFiles = 0
         usbDataEncryptionStage = .completed
+        usbDataEncryptionCancellationFlag = nil
+    }
+
+    func cancelUSBDataEncryption() {
+        guard usbDataEncryptionActive else { return }
+        usbDataEncryptionCancellationFlag?.cancel()
+        usbDataEncryptionProgressMessage = "Cancelling..."
+        status = "Cancelling USB user-data encryption..."
     }
 
     private func startDiskEncryptionProgressMonitoring(diskIdentifier: String) {
@@ -545,6 +572,8 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionProcessedFiles = 0
         usbDataEncryptionTotalFiles = 0
         usbDataEncryptionStage = .scanning
+        let cancellationFlag = USBDataEncryptionCancellationFlag()
+        usbDataEncryptionCancellationFlag = cancellationFlag
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
@@ -552,7 +581,8 @@ final class VaultModel: ObservableObject {
                                                                     vaultURL: vault,
                                                                     passphrase: pass,
                                                                     deleteOriginals: deleteOriginals,
-                                                                    dryRun: dryRun) { progress in
+                                                                    dryRun: dryRun,
+                                                                    progress: { progress in
                     DispatchQueue.main.async {
                         guard let self else { return }
                         self.usbDataEncryptionStage = progress.stage
@@ -561,11 +591,15 @@ final class VaultModel: ObservableObject {
                         self.usbDataEncryptionProgressFraction = progress.fraction
                         self.usbDataEncryptionProgressMessage = progress.message
                     }
-                }
+                },
+                                                                    isCancelled: {
+                    cancellationFlag.isCancelled()
+                })
                 DispatchQueue.main.async {
                     guard let self else { return }
                     self.usbDataEncryptionActive = false
                     self.usbDataEncryptionStage = .completed
+                    self.usbDataEncryptionCancellationFlag = nil
                     if result.dryRun {
                         self.usbDataEncryptionProcessedFiles = result.scannedFileCount
                         self.usbDataEncryptionTotalFiles = result.scannedFileCount
@@ -606,7 +640,16 @@ final class VaultModel: ObservableObject {
                     guard let self else { return }
                     self.usbDataEncryptionActive = false
                     self.usbDataEncryptionStage = .completed
-                    if self.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    self.usbDataEncryptionCancellationFlag = nil
+                    let errorText = String(describing: error).lowercased()
+                    if errorText.contains("cancelled by user") {
+                        self.usbDataEncryptionProgressMessage = "Encryption cancelled."
+                        self.status = "USB user-data encryption cancelled."
+                        completion?(false)
+                        return
+                    }
+                    if self.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || self.usbDataEncryptionProgressMessage == "Cancelling..." {
                         self.usbDataEncryptionProgressMessage = "Encryption failed."
                     }
                     self.status = "USB user-data encryption failed: \(error)"

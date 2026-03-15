@@ -2036,6 +2036,12 @@ private struct USBEncryptionWorkspacePage: View {
                              message: model.usbDataEncryptionProgressMessage,
                              fraction: model.usbDataEncryptionProgressFraction,
                              detail: vaultFileProgressDetail)
+                if isVaultFileEncryptingSelectedMount {
+                    Button("Cancel Encryption") {
+                        model.cancelUSBDataEncryption()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
     }
