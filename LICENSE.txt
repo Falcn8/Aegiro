@@ -1,1 +1,83 @@
-Apache-2.0 (abridged header for demo — please replace with full text before shipping).
+AEGIRO COLLABORATIVE SOURCE-AVAILABLE LICENSE (ACSAL) v1.0
+
+Copyright (c) 2026 AegiroMaintainer. All rights reserved.
+
+1. Definitions
+
+"Licensor" means the copyright owner of this software, AegiroMaintainer.
+
+"Software" means the Aegiro project and all source code, binaries,
+documentation, and related materials in this repository.
+
+"Contribution" means any code, documentation, assets, patches, pull requests,
+or other materials submitted to the Software by any contributor.
+
+2. Limited License Grant
+
+Subject to this license, you are granted a limited, revocable,
+non-exclusive, non-transferable, non-sublicensable license to:
+
+- view and copy the Software;
+- run the Software for personal or internal use;
+- modify the Software privately;
+- create and maintain GitHub forks solely to develop and submit
+  Contributions back to the Licensor's upstream repository.
+
+3. Redistribution and Republishing Prohibited
+
+You may not publish, distribute, or republish the Software or any derivative
+work, in source or binary form, on any platform except as needed for a GitHub
+fork used for collaboration under Section 2.
+
+Without limitation, the following are prohibited:
+
+- listing or publishing the Software or derivatives on any app store;
+- distributing packaged binaries or installers, including DMG, PKG, ZIP, TAR,
+  Homebrew formulas, or similar artifacts;
+- rehosting or mirroring the Software on third-party distribution channels;
+- selling, sublicensing, renting, leasing, or commercially exploiting the
+  Software or derivatives.
+
+4. Contribution Assignment
+
+By submitting a Contribution, you agree that:
+
+- you irrevocably assign to the Licensor all right, title, and interest in
+  and to that Contribution, including all worldwide intellectual property
+  rights;
+- to the extent an assignment is not fully enforceable in your jurisdiction,
+  you grant the Licensor an exclusive, perpetual, irrevocable, worldwide,
+  royalty-free, transferable, and sublicensable license to use, modify,
+  distribute, and relicense the Contribution for any purpose;
+- you will execute any additional documents reasonably requested by the
+  Licensor to confirm or perfect the assignment or license above.
+
+5. Ownership
+
+The Software is licensed, not sold. All rights not expressly granted are
+reserved by the Licensor. No ownership rights are granted to users, fork
+owners, or contributors.
+
+6. Trademark
+
+This license does not grant any rights to use the Licensor's names, logos, or
+trademarks except for accurate attribution.
+
+7. Termination
+
+Any breach of this license automatically terminates your rights under it. Upon
+termination, you must stop using the Software and delete all copies in your
+possession or control.
+
+8. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+9. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR SHALL NOT BE LIABLE FOR
+ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT, OR
+OTHERWISE, ARISING FROM OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.

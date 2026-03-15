@@ -124,4 +124,8 @@ Jump between project markdown pages:
 
 ## License
 
-See [LICENSE.txt](LICENSE.txt).
+This project uses a custom source-available license in [LICENSE.txt](LICENSE.txt).
+
+- GitHub collaboration and pull requests are allowed.
+- Redistribution or republication (including App Store listings and DMG/binary distribution) is not allowed.
+- Contributions are assigned to the project owner under the license terms.
