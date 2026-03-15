@@ -49,7 +49,7 @@ Main window uses a three-zone shell:
 1. First run (`FirstRunView`)
 - Centered hero card.
 - Create Vault, Open Existing, and USB Encryption actions.
-- Inline create form (name/location/passphrase/confirm/Touch ID).
+- Inline create form (name/location/passphrase/confirm).
 - Uses branded `LandingHero` image as full-screen background with dark overlay.
 - Crypto reassurance copy: Argon2id, AES-256-GCM, and post-quantum cryptography.
 
@@ -70,7 +70,7 @@ Main window uses a three-zone shell:
 - Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet plus a dedicated USB Encryption page (outside the vault shell) for external volume encryption workflows.
-- Security card now includes `Check Integrity`, `Backup`, and Touch ID enable action.
+- Security card now includes `Check Integrity` and `Backup`.
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
 - Sheets include mounted non-APFS volumes inline in the same list; in USB-focused flows these rows are selectable across the full row hit area (not text-only), and in APFS-only flows they remain informational.
 - Added "Encrypt USB Data" sheet for mounted non-APFS volumes: encrypts only user files into a `.agvt` vault file on the USB, skips known filesystem metadata, and can optionally delete originals after successful import.
@@ -92,7 +92,6 @@ Main window uses a three-zone shell:
 - Dark settings card.
 - Default vault folder selector.
 - Auto-lock presets + slider.
-- Touch ID toggle.
 
 ## Behavior Standards
 
@@ -102,7 +101,6 @@ Main window uses a three-zone shell:
 - Drag-and-drop imports only when vault is unlocked.
 - Toast status feedback appears for key operations.
 - Each command-parity sheet keeps output visible in a copyable, monospaced area.
-- If keychain entitlements are missing in a dev build, Touch ID controls are disabled with explicit guidance text.
 - Passphrase policy: required minimum stays `8+` chars with uppercase, lowercase, and a number; the meter marks `Strong` at `12+` chars with `3+` character types, or `20+` chars.
 
 ## Implementation Map
@@ -117,6 +115,6 @@ Main window uses a three-zone shell:
 
 - App builds (`swift build --target AegiroApp`).
 - First run can create/open vaults.
-- Lock/unlock flow works with passphrase and Touch ID when enabled.
+- Lock/unlock flow works with passphrase.
 - Import/export/quick look still function in redesigned shell.
 - Drag-and-drop import works for local files.

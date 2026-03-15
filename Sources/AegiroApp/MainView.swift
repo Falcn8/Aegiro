@@ -433,17 +433,6 @@ struct MainView: View {
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("Security")
 
-                actionButton(title: "Add Touch ID", icon: "touchid") {
-                    model.addTouchIDForUnlockedVault()
-                }
-                .disabled(model.vaultURL == nil || model.locked || model.allowTouchID || !model.biometricKeychainAvailable)
-
-                if let issue = model.biometricKeychainIssue {
-                    Text(issue)
-                        .font(AegiroTypography.body(11, weight: .regular))
-                        .foregroundStyle(AegiroPalette.warningAmber)
-                }
-
                 actionButton(title: "Check Integrity", icon: "checkmark.shield") {
                     showDoctorSheet = true
                 }
@@ -989,21 +978,6 @@ struct MainView: View {
             SecureField("Passphrase", text: $unlockPass)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(unlockIfPossible)
-
-            if model.allowTouchID && model.supportsBiometricUnlock && model.biometricKeychainAvailable {
-                Button {
-                    model.unlockWithBiometrics()
-                } label: {
-                    Label("Use Touch ID", systemImage: "touchid")
-                }
-                .buttonStyle(.bordered)
-            }
-
-            if let issue = model.biometricKeychainIssue {
-                Text(issue)
-                    .font(AegiroTypography.body(12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.warningAmber)
-            }
 
             HStack {
                 Spacer()
@@ -1849,6 +1823,9 @@ private struct USBEncryptionWorkspacePage: View {
             syncDefaultsForSelection(force: false)
             ensureSelectedOptionIsValid()
         }
+        .onChange(of: sourcePath) { _ in
+            syncDefaultHiddenExclusionsForSource()
+        }
     }
 
     private var configurationHeaderCard: some View {
@@ -2225,7 +2202,8 @@ private struct USBEncryptionWorkspacePage: View {
                         Button("Cancel Encryption") {
                             model.cancelUSBDataEncryption()
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.borderedProminent)
+                        .tint(AegiroPalette.dangerRed)
                     }
                     Spacer()
                     Button("Back to Configuration") {
@@ -2602,6 +2580,42 @@ private struct USBEncryptionWorkspacePage: View {
         }
     }
 
+    private func syncDefaultHiddenExclusionsForSource() {
+        let trimmedSource = sourcePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSource.isEmpty else { return }
+        let sourceRoot = URL(fileURLWithPath: NSString(string: trimmedSource).expandingTildeInPath, isDirectory: true)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let preserved = resolvedVaultPackExcludedPaths(for: sourceRoot)
+        let defaults = defaultHiddenExclusionPaths(for: sourceRoot)
+        vaultPackExcludedPaths = Array(Set(preserved + defaults)).sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+    }
+
+    private func defaultHiddenExclusionPaths(for sourceRoot: URL) -> [String] {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: sourceRoot.path, isDirectory: &isDir), isDir.boolValue else {
+            return []
+        }
+        let urls = (try? FileManager.default.contentsOfDirectory(at: sourceRoot,
+                                                                 includingPropertiesForKeys: [.isHiddenKey],
+                                                                 options: [])) ?? []
+        var hiddenPaths = Set<String>()
+        for url in urls {
+            let name = url.lastPathComponent
+            if name.hasPrefix(".") {
+                hiddenPaths.insert(url.standardizedFileURL.resolvingSymlinksInPath().path)
+                continue
+            }
+            let isHidden = (try? url.resourceValues(forKeys: [.isHiddenKey]).isHidden) ?? false
+            if isHidden == true {
+                hiddenPaths.insert(url.standardizedFileURL.resolvingSymlinksInPath().path)
+            }
+        }
+        return hiddenPaths.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
     private func resolvedVaultPackExcludedPaths(for sourceRoot: URL) -> [String] {
         let rootPath = sourceRoot.standardizedFileURL.resolvingSymlinksInPath().path
         let rootPrefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
@@ -2682,6 +2696,7 @@ private struct USBEncryptionWorkspacePage: View {
             vaultPath = suggestedVault
         }
         lastSuggestedVaultPath = suggestedVault
+        syncDefaultHiddenExclusionsForSource()
     }
 
     private func defaultVaultPath(for mountPoint: String) -> String {
@@ -2699,7 +2714,6 @@ private struct CreateVaultSheet: View {
     @State private var parentPath: String = defaultVaultURL().deletingLastPathComponent().path
     @State private var passphrase = ""
     @State private var confirmPassphrase = ""
-    @State private var allowTouchID = true
 
     var onDone: () -> Void
 
@@ -2748,15 +2762,6 @@ private struct CreateVaultSheet: View {
             formLabel("Confirm Passphrase")
             SecureField("Repeat passphrase", text: $confirmPassphrase)
                 .textFieldStyle(.roundedBorder)
-
-            Toggle("Enable Touch ID", isOn: $allowTouchID)
-                .disabled(!model.supportsBiometricUnlock || !model.biometricKeychainAvailable)
-
-            if let issue = model.biometricKeychainIssue {
-                Text(issue)
-                    .font(AegiroTypography.body(12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.warningAmber)
-            }
 
             if passphrase != confirmPassphrase && !confirmPassphrase.isEmpty {
                 Text("Passphrases do not match.")
@@ -2811,8 +2816,7 @@ private struct CreateVaultSheet: View {
         }
         model.createVault(
             at: URL(fileURLWithPath: effectivePath),
-            passphrase: passphrase,
-            touchID: allowTouchID && model.supportsBiometricUnlock && model.biometricKeychainAvailable
+            passphrase: passphrase
         )
         if model.vaultURL != nil {
             onDone()

@@ -52,21 +52,6 @@ struct PreferencesView: View {
                     applyTTL()
                 }
                 .tint(AegiroPalette.accentIndigo)
-
-                Divider()
-
-                Toggle("Enable Touch ID", isOn: $model.allowTouchID)
-                    .disabled(!model.supportsBiometricUnlock || !model.biometricKeychainAvailable)
-
-                if let issue = model.biometricKeychainIssue {
-                    Text(issue)
-                        .font(AegiroTypography.body(12, weight: .regular))
-                        .foregroundStyle(AegiroPalette.warningAmber)
-                } else if !model.supportsBiometricUnlock {
-                    Text("Touch ID is unavailable in the current vault configuration.")
-                        .font(AegiroTypography.body(12, weight: .regular))
-                        .foregroundStyle(AegiroPalette.textMuted)
-                }
             }
             .padding(16)
             .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))

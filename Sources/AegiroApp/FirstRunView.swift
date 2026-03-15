@@ -12,7 +12,6 @@ struct FirstRunView: View {
     @State private var parentPath: String = defaultVaultURL().deletingLastPathComponent().path
     @State private var passphrase = ""
     @State private var confirmPassphrase = ""
-    @State private var touchIDEnabled = true
     @State private var errorText: String?
 
     private var canCreate: Bool {
@@ -51,9 +50,6 @@ struct FirstRunView: View {
             .padding(.bottom, 24)
         }
         .frame(minWidth: 1080, minHeight: 720)
-        .onAppear {
-            touchIDEnabled = model.supportsBiometricUnlock && model.biometricKeychainAvailable && model.allowTouchID
-        }
     }
 
     private var backgroundLayer: some View {
@@ -177,15 +173,6 @@ struct FirstRunView: View {
             SecureField("Repeat passphrase", text: $confirmPassphrase)
                 .textFieldStyle(.roundedBorder)
 
-            Toggle("Enable Touch ID", isOn: $touchIDEnabled)
-                .disabled(!model.supportsBiometricUnlock || !model.biometricKeychainAvailable)
-
-            if let issue = model.biometricKeychainIssue {
-                Text(issue)
-                    .font(AegiroTypography.body(12, weight: .regular))
-                    .foregroundStyle(AegiroPalette.warningAmber)
-            }
-
             if !passphrase.isEmpty && !passphraseStrength.isRequired {
                 Text("Passphrase must be 8+ chars and include uppercase, lowercase, and a number.")
                     .font(AegiroTypography.body(12, weight: .regular))
@@ -251,12 +238,9 @@ struct FirstRunView: View {
             errorText = "Passphrase is too weak. Use 8+ chars with uppercase, lowercase, and a number."
             return
         }
-        model.allowTouchID = touchIDEnabled && model.supportsBiometricUnlock && model.biometricKeychainAvailable
-        model.saveSettings()
         model.createVault(
             at: URL(fileURLWithPath: effectivePath),
-            passphrase: passphrase,
-            touchID: touchIDEnabled && model.supportsBiometricUnlock && model.biometricKeychainAvailable
+            passphrase: passphrase
         )
         if model.vaultURL != nil {
             onDone()
