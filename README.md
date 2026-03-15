@@ -3,6 +3,10 @@
 </h1>
 
 <p align="center">
+  <img src="assets/aegiro-banner.png" alt="Aegiro release banner">
+</p>
+
+<p align="center">
   <strong>Local-only encrypted vault for macOS</strong><br>
   <sub>Argon2id • AES-256-GCM • Post-quantum key protection</sub>
 </p>
@@ -80,8 +84,6 @@ Use `./dist/aegiro-cli --help` for full options.
 ---
 
 ## Build
-
-### Default build (REAL_CRYPTO)
 
 ```bash
 brew install liboqs argon2 openssl@3

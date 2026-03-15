@@ -1,6 +1,6 @@
-# AGVT v2 Portable Encryption Format (Draft)
+# AGVT v2 Portable Encryption Format
 
-Status: Draft 0 (planning baseline)  
+Status: Release Baseline (v2)  
 Audience: Aegiro core/CLI implementers  
 Scope: Portable encrypted container format for macOS, Windows, Linux
 
@@ -268,13 +268,13 @@ Guardrails:
   - verifies entry count + byte totals + digest parity
 - Keep v1 read support for at least one major release after v2 ships.
 
-## 17. Open Decisions (to close before implementation freeze)
+## 17. Format Decisions
 
-- Final `magic` bytes and superblock checksum scope.
-- Whether profile `0x0001` ships in first release or stays parser-only.
-- Signature requirement policy (`required` vs `optional`) for portable baseline.
-- Compaction format (`gc`) and chunk dedup policy.
-- Whether to keep JSON in any critical path or move fully to binary/CBOR for index.
+- `magic` bytes and superblock checksum scope are fixed for AGVT v2.
+- Profile `0x0002` is the primary release target for this repository.
+- Signature verification is part of the portable integrity baseline.
+- Compaction and chunk handling behavior follow the current manifest/chunk map model.
+- Metadata encoding remains aligned with the implementation and versioned for future evolution.
 
 ## 18. Implementation Plan Anchored to This Repo
 
@@ -286,4 +286,4 @@ Guardrails:
 
 ---
 
-This draft is the contract for next implementation steps. Security-sensitive changes must update this file in the same commit as code changes.
+This specification is the contract for implementation and maintenance. Security-sensitive changes must update this file in the same commit as code changes.
