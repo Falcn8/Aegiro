@@ -77,6 +77,13 @@ Main window uses a three-zone shell:
 - Disk encryption sheet uses a two-step flow (select external volume, then details) with a Continue action.
 - Non-APFS encryption now shows live file progress (`processed / total`) while encrypting user data.
 - APFS encryption progress remains volume/block-level from `diskutil` (percent + status message), because file-level counts are not exposed.
+- Added an **Operations** sidebar card with app UI entry points for:
+  - USB container workflows (`usb-container-create`, `usb-container-mount`, `usb-container-unmount`)
+  - Vault backup (`backup`)
+  - Manifest verify (`verify`)
+  - CLI-style status rendering (`status`, including JSON output)
+  - Privacy scan (`scan`)
+  - Secure shred (`shred`)
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.
@@ -91,6 +98,7 @@ Main window uses a three-zone shell:
 - Search filters by name, path, mime/type, and tags.
 - Drag-and-drop imports only when vault is unlocked.
 - Toast status feedback appears for key operations.
+- Each command-parity sheet keeps output visible in a copyable, monospaced area.
 - If keychain entitlements are missing in a dev build, Touch ID controls are disabled with explicit guidance text.
 - Passphrase policy: required minimum stays `8+` chars with uppercase, lowercase, and a number; the meter marks `Strong` at `12+` chars with `3+` character types, or `20+` chars.
 

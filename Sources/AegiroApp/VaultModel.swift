@@ -612,6 +612,278 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func createUSBContainer(imageURL: URL,
+                            size: String,
+                            volumeName: String,
+                            recoveryPassphrase: String,
+                            recoveryURL: URL,
+                            overwrite: Bool,
+                            containerPassphrase: String?,
+                            dryRun: Bool,
+                            completion: ((Result<USBContainerCreateResult, Error>) -> Void)? = nil) {
+        let trimmedSize = size.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = volumeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSize.isEmpty else {
+            status = "Enter a container size (for example, 16g)"
+            completion?(.failure(NSError(domain: "VaultModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing container size"])))
+            return
+        }
+        guard !trimmedName.isEmpty else {
+            status = "Enter a container volume name"
+            completion?(.failure(NSError(domain: "VaultModel", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing container volume name"])))
+            return
+        }
+        guard !trimmedPass.isEmpty else {
+            status = "Enter a recovery passphrase"
+            completion?(.failure(NSError(domain: "VaultModel", code: 3, userInfo: [NSLocalizedDescriptionKey: "Missing recovery passphrase"])))
+            return
+        }
+
+        status = dryRun
+            ? "Validating USB container creation request..."
+            : "Creating encrypted USB container..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let result = try USBContainerCrypto.createEncryptedContainer(
+                    imageURL: imageURL,
+                    size: trimmedSize,
+                    volumeName: trimmedName,
+                    recoveryPassphrase: trimmedPass,
+                    recoveryURL: recoveryURL,
+                    overwrite: overwrite,
+                    containerPassphrase: containerPassphrase,
+                    dryRun: dryRun
+                )
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if result.dryRun {
+                        self.status = "Dry run complete. Recovery bundle: \(result.recoveryURL.path)"
+                    } else {
+                        self.status = "Created USB container image at \(result.imageURL.path). Recovery bundle: \(result.recoveryURL.path)"
+                    }
+                    completion?(.success(result))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "USB container create failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
+    func mountUSBContainer(imageURL: URL,
+                           recoveryPassphrase: String,
+                           recoveryURL: URL,
+                           containerPassphraseOverride: String?,
+                           dryRun: Bool,
+                           completion: ((Result<USBContainerMountResult, Error>) -> Void)? = nil) {
+        let recoveryPass = recoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let overridePass = containerPassphraseOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if recoveryPass.isEmpty && (overridePass?.isEmpty ?? true) {
+            status = "Enter a recovery passphrase or a direct container passphrase"
+            completion?(.failure(NSError(domain: "VaultModel", code: 4, userInfo: [NSLocalizedDescriptionKey: "Missing mount passphrase"])))
+            return
+        }
+
+        status = dryRun
+            ? "Validating USB container mount request..."
+            : "Mounting encrypted USB container..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let result = try USBContainerCrypto.mountEncryptedContainer(
+                    imageURL: imageURL,
+                    recoveryPassphrase: recoveryPass,
+                    recoveryURL: recoveryURL,
+                    containerPassphraseOverride: overridePass,
+                    dryRun: dryRun
+                )
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if result.dryRun {
+                        self.status = "Dry run complete: USB container mount validated."
+                    } else if let mountPoint = result.mountPoint {
+                        self.status = "Mounted container at \(mountPoint)"
+                    } else {
+                        self.status = "Mounted container image. Mount point unavailable."
+                    }
+                    completion?(.success(result))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "USB container mount failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
+    func unmountUSBContainer(target: String,
+                             force: Bool,
+                             dryRun: Bool,
+                             completion: ((Result<Void, Error>) -> Void)? = nil) {
+        let trimmedTarget = target.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTarget.isEmpty else {
+            status = "Enter a mount point or disk identifier to unmount"
+            completion?(.failure(NSError(domain: "VaultModel", code: 5, userInfo: [NSLocalizedDescriptionKey: "Missing unmount target"])))
+            return
+        }
+
+        status = dryRun
+            ? "Validating unmount target..."
+            : "Unmounting \(trimmedTarget)..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try USBContainerCrypto.unmountContainer(target: trimmedTarget, force: force, dryRun: dryRun)
+                DispatchQueue.main.async {
+                    self?.status = dryRun
+                        ? "Dry run complete: unmount target validated."
+                        : "Unmounted \(trimmedTarget)."
+                    completion?(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "USB container unmount failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
+    func exportBackup(vaultURL: URL,
+                      outURL: URL,
+                      passphrase: String,
+                      completion: ((Result<Void, Error>) -> Void)? = nil) {
+        status = "Exporting backup..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let vault = try AegiroVault.open(at: vaultURL)
+                try Backup.exportBackup(from: vault, to: outURL, passphrase: passphrase)
+                DispatchQueue.main.async {
+                    self?.status = "Backup exported to \(outURL.path) (directory created; zip externally)."
+                    completion?(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "Backup failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
+    func verifyManifest(vaultURL: URL,
+                        completion: ((Result<Bool, Error>) -> Void)? = nil) {
+        status = "Verifying manifest signature..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let manifest = try ManifestIO.load(from: vaultURL)
+                #if REAL_CRYPTO
+                let signer = Dilithium2()
+                #else
+                let signer = StubSig()
+                #endif
+                let ok = ManifestBuilder.verify(manifest, signer: signer)
+                DispatchQueue.main.async {
+                    self?.status = ok ? "Manifest signature: OK" : "Manifest signature: INVALID"
+                    completion?(.success(ok))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "Verify failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
+    func renderVaultStatus(vaultURL: URL,
+                           passphrase: String?,
+                           asJSON: Bool,
+                           completion: ((Result<String, Error>) -> Void)? = nil) {
+        status = "Loading vault status..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let trimmed = passphrase?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let info = try VaultStatus.get(vaultURL: vaultURL, passphrase: (trimmed?.isEmpty ?? true) ? nil : trimmed)
+                let output = try Self.makeStatusOutput(info: info, asJSON: asJSON)
+                DispatchQueue.main.async {
+                    self?.status = "Status loaded."
+                    completion?(.success(output))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "Status failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
+    func scanPrivacy(paths: [String],
+                     completion: (([PrivacyMatch]) -> Void)? = nil) {
+        let expanded = paths
+            .map { NSString(string: $0).expandingTildeInPath }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !expanded.isEmpty else {
+            status = "Select at least one path to scan"
+            completion?([])
+            return
+        }
+
+        status = "Scanning \(expanded.count) path(s)..."
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let matches = PrivacyMonitor.scan(paths: expanded)
+            DispatchQueue.main.async {
+                self?.status = matches.isEmpty
+                    ? "Scan complete: no privacy pattern matches."
+                    : "Scan complete: \(matches.count) potential privacy match(es)."
+                completion?(matches)
+            }
+        }
+    }
+
+    func shred(paths: [String],
+               completion: ((Result<[String], Error>) -> Void)? = nil) {
+        let expanded = paths
+            .map { NSString(string: $0).expandingTildeInPath }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !expanded.isEmpty else {
+            status = "Select at least one file to shred"
+            completion?(.success([]))
+            return
+        }
+
+        status = "Shredding \(expanded.count) file(s)..."
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                var shredded: [String] = []
+                for path in expanded {
+                    try Shredder.shred(path: path)
+                    shredded.append(path)
+                }
+                DispatchQueue.main.async {
+                    self?.status = "Shredded \(shredded.count) file(s)."
+                    completion?(.success(shredded))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "Shred failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
     func startAutoLockTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -898,5 +1170,46 @@ extension VaultModel {
             removeBiometricPassphrase()
         }
         status = "Preferences saved"
+    }
+
+    nonisolated private static func makeStatusOutput(info: VaultStatusInfo, asJSON: Bool) throws -> String {
+        if asJSON {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(info)
+            return String(data: data, encoding: .utf8) ?? "{}"
+        }
+
+        var lines: [String] = []
+        lines.append("Vault Info")
+        lines.append("File count: \(info.entries != nil ? String(info.entries!) : "unknown (locked)")")
+        lines.append("Vault size: \(formatByteCount(info.vaultSizeBytes)) (\(info.vaultSizeBytes) bytes)")
+        if let modified = info.vaultLastModified {
+            lines.append("Last edited: \(formatTimestamp(modified))")
+        } else {
+            lines.append("Last edited: unknown")
+        }
+        lines.append("")
+        lines.append("Status")
+        lines.append("Locked: \(info.locked ? "yes" : "no")")
+        lines.append("Sidecar pending: \(info.sidecarPending)")
+        lines.append("Manifest: \(info.manifestOK ? "OK" : "INVALID")")
+        lines.append("Touch ID: \(info.touchIDEnabled ? "enabled" : "disabled")")
+        return lines.joined(separator: "\n")
+    }
+
+    nonisolated private static func formatByteCount(_ bytes: UInt64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useBytes, .useKB, .useMB, .useGB, .useTB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
+    }
+
+    nonisolated private static func formatTimestamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
     }
 }

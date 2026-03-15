@@ -13,6 +13,12 @@ struct MainView: View {
     @State private var showDiskEncryptSheet = false
     @State private var showDiskUnlockSheet = false
     @State private var showUSBUserDataEncryptSheet = false
+    @State private var showUSBContainerSheet = false
+    @State private var showBackupSheet = false
+    @State private var showVerifySheet = false
+    @State private var showStatusSheet = false
+    @State private var showScanSheet = false
+    @State private var showShredSheet = false
     @State private var preferredUSBUserDataMountPoint: String?
     @State private var showDoctorSheet = false
     @State private var showFileInfoPopover = false
@@ -104,6 +110,42 @@ struct MainView: View {
         .sheet(isPresented: $showUSBUserDataEncryptSheet) {
             USBUserDataEncryptSheet(preferredMountPoint: preferredUSBUserDataMountPoint) {
                 showUSBUserDataEncryptSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showUSBContainerSheet) {
+            USBContainerSheet {
+                showUSBContainerSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showBackupSheet) {
+            BackupSheet {
+                showBackupSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showVerifySheet) {
+            VerifySheet {
+                showVerifySheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showStatusSheet) {
+            StatusSheet {
+                showStatusSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showScanSheet) {
+            ScanSheet {
+                showScanSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showShredSheet) {
+            ShredSheet {
+                showShredSheet = false
             }
             .environmentObject(model)
         }
@@ -270,6 +312,7 @@ struct MainView: View {
                 actionsCard
                 securityCard
                 externalDiskCard
+                operationsCard
             }
             .padding(12)
         }
@@ -394,6 +437,41 @@ struct MainView: View {
 
                 actionButton(title: "Decrypt Disk", icon: "lock.open") {
                     showDiskUnlockSheet = true
+                }
+            }
+        }
+    }
+
+    private var operationsCard: some View {
+        card {
+            VStack(alignment: .leading, spacing: 10) {
+                sectionTitle("Operations")
+
+                actionButton(title: "USB Container", icon: "shippingbox") {
+                    showUSBContainerSheet = true
+                }
+
+                actionButton(title: "Backup", icon: "externaldrive.badge.person.crop") {
+                    showBackupSheet = true
+                }
+                .disabled(model.vaultURL == nil)
+
+                actionButton(title: "Verify", icon: "checkmark.seal") {
+                    showVerifySheet = true
+                }
+                .disabled(model.vaultURL == nil)
+
+                actionButton(title: "Status", icon: "terminal") {
+                    showStatusSheet = true
+                }
+                .disabled(model.vaultURL == nil)
+
+                actionButton(title: "Scan", icon: "magnifyingglass.circle") {
+                    showScanSheet = true
+                }
+
+                actionButton(title: "Shred", icon: "trash.slash.fill") {
+                    showShredSheet = true
                 }
             }
         }
@@ -2600,6 +2678,1085 @@ private struct USBUserDataEncryptSheet: View {
             guard success else { return }
             onDone()
             dismiss()
+        }
+    }
+}
+
+private struct USBContainerSheet: View {
+    private enum Mode: String, CaseIterable, Identifiable {
+        case create
+        case mount
+        case unmount
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .create:
+                return "Create"
+            case .mount:
+                return "Mount"
+            case .unmount:
+                return "Unmount"
+            }
+        }
+    }
+
+    @EnvironmentObject private var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var mode: Mode = .create
+    @State private var isRunning = false
+    @State private var output: String = ""
+
+    @State private var createImagePath = ""
+    @State private var createSize = "16g"
+    @State private var createVolumeName = "Aegiro USB"
+    @State private var createRecoveryPassphrase = ""
+    @State private var createRecoveryPath = ""
+    @State private var createContainerPassphrase = ""
+    @State private var createDryRun = false
+    @State private var createForce = false
+
+    @State private var mountImagePath = ""
+    @State private var mountRecoveryPassphrase = ""
+    @State private var mountRecoveryPath = ""
+    @State private var mountContainerPassphrase = ""
+    @State private var mountDryRun = false
+
+    @State private var unmountTarget = ""
+    @State private var unmountForce = false
+    @State private var unmountDryRun = false
+
+    var onDone: () -> Void
+
+    private var canRun: Bool {
+        switch mode {
+        case .create:
+            return !createImagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !createSize.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !createVolumeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !createRecoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !createRecoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .mount:
+            let hasPass = !mountRecoveryPassphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !mountContainerPassphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return !mountImagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !mountRecoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && hasPass
+        case .unmount:
+            return !unmountTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private var submitTitle: String {
+        switch mode {
+        case .create:
+            return createDryRun ? "Validate Create" : "Create Container"
+        case .mount:
+            return mountDryRun ? "Validate Mount" : "Mount Container"
+        case .unmount:
+            return unmountDryRun ? "Validate Unmount" : "Unmount Container"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("USB Container")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("Use the same app flow as `usb-container-create`, `usb-container-mount`, and `usb-container-unmount`.")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            Picker("Mode", selection: $mode) {
+                ForEach(Mode.allCases) { value in
+                    Text(value.title).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            switch mode {
+            case .create:
+                createForm
+            case .mount:
+                mountForm
+            case .unmount:
+                unmountForm
+            }
+
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            outputCard
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    dismiss()
+                }
+                Button(submitTitle) {
+                    run()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
+                .disabled(!canRun || isRunning)
+            }
+        }
+        .padding(24)
+        .frame(width: 760)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            bootstrapDefaults()
+        }
+    }
+
+    private var createForm: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            formLabel("Container Image (`.sparsebundle`)")
+            HStack(spacing: 8) {
+                TextField("/Volumes/MyUSB/aegiro-portable.sparsebundle", text: $createImagePath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseCreateImagePath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Container Size")
+            TextField("16g", text: $createSize)
+                .textFieldStyle(.roundedBorder)
+
+            formLabel("Volume Name")
+            TextField("Aegiro USB", text: $createVolumeName)
+                .textFieldStyle(.roundedBorder)
+
+            formLabel("Recovery Passphrase")
+            SecureField("Required", text: $createRecoveryPassphrase)
+                .textFieldStyle(.roundedBorder)
+
+            formLabel("Recovery Bundle File")
+            HStack(spacing: 8) {
+                TextField("/Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json", text: $createRecoveryPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseCreateRecoveryPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Container Passphrase (Optional)")
+            SecureField("Leave empty to auto-generate", text: $createContainerPassphrase)
+                .textFieldStyle(.roundedBorder)
+
+            Toggle("Dry run only", isOn: $createDryRun)
+            Toggle("Overwrite existing image/recovery files", isOn: $createForce)
+        }
+        .onChange(of: createImagePath) { newValue in
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            if createRecoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                createRecoveryPath = defaultUSBContainerRecoveryPath(forImagePath: trimmed)
+            }
+        }
+    }
+
+    private var mountForm: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            formLabel("Container Image (`.sparsebundle`)")
+            HStack(spacing: 8) {
+                TextField("/Volumes/MyUSB/aegiro-portable.sparsebundle", text: $mountImagePath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseMountImagePath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Recovery Bundle File")
+            HStack(spacing: 8) {
+                TextField("/Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json", text: $mountRecoveryPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseMountRecoveryPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Recovery Passphrase")
+            SecureField("Required unless using direct container passphrase", text: $mountRecoveryPassphrase)
+                .textFieldStyle(.roundedBorder)
+
+            formLabel("Container Passphrase Override (Optional)")
+            SecureField("Optional direct passphrase", text: $mountContainerPassphrase)
+                .textFieldStyle(.roundedBorder)
+
+            Toggle("Dry run only", isOn: $mountDryRun)
+        }
+        .onChange(of: mountImagePath) { newValue in
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            if mountRecoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                mountRecoveryPath = defaultUSBContainerRecoveryPath(forImagePath: trimmed)
+            }
+        }
+    }
+
+    private var unmountForm: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            formLabel("Unmount Target")
+            TextField("/Volumes/AegiroUSB or disk9", text: $unmountTarget)
+                .textFieldStyle(.roundedBorder)
+
+            Toggle("Force unmount", isOn: $unmountForce)
+            Toggle("Dry run only", isOn: $unmountDryRun)
+        }
+    }
+
+    private var outputCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Output")
+            ScrollView {
+                Text(output.isEmpty ? "No output yet." : output)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(output.isEmpty ? AegiroPalette.textMuted : AegiroPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(minHeight: 110, maxHeight: 170)
+            .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func bootstrapDefaults() {
+        if createImagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let mount = model.mountedNonAPFSVolumes.first?.mountPoint {
+            createImagePath = URL(fileURLWithPath: mount, isDirectory: true)
+                .appendingPathComponent("aegiro-portable.sparsebundle")
+                .path
+            createRecoveryPath = defaultUSBContainerRecoveryPath(forImagePath: createImagePath)
+        }
+
+        if mountImagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            mountImagePath = createImagePath
+            if !mountImagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                mountRecoveryPath = defaultUSBContainerRecoveryPath(forImagePath: mountImagePath)
+            }
+        }
+    }
+
+    private func chooseCreateImagePath() {
+        let panel = NSSavePanel()
+        panel.title = "Choose Container Image Path"
+        panel.nameFieldStringValue = (createImagePath.isEmpty ? "aegiro-portable.sparsebundle" : createImagePath as NSString).lastPathComponent
+        panel.allowedContentTypes = [UTType(filenameExtension: "sparsebundle") ?? .data]
+        if panel.runModal() == .OK, var url = panel.url {
+            if url.pathExtension.lowercased() != "sparsebundle" {
+                url.appendPathExtension("sparsebundle")
+            }
+            createImagePath = url.path
+            createRecoveryPath = defaultUSBContainerRecoveryPath(forImagePath: url.path)
+        }
+    }
+
+    private func chooseCreateRecoveryPath() {
+        let panel = NSSavePanel()
+        panel.title = "Choose Recovery Bundle Path"
+        panel.nameFieldStringValue = (createRecoveryPath.isEmpty ? "aegiro-portable.aegiro-usbkey.json" : createRecoveryPath as NSString).lastPathComponent
+        panel.allowedContentTypes = [UTType.json]
+        if panel.runModal() == .OK, var url = panel.url {
+            if url.pathExtension.lowercased() != "json" {
+                url.appendPathExtension("json")
+            }
+            createRecoveryPath = url.path
+        }
+    }
+
+    private func chooseMountImagePath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Container Image"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        if panel.runModal() == .OK, let url = panel.url {
+            mountImagePath = url.path
+            if mountRecoveryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                mountRecoveryPath = defaultUSBContainerRecoveryPath(forImagePath: url.path)
+            }
+        }
+    }
+
+    private func chooseMountRecoveryPath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Recovery Bundle"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType.json]
+        if panel.runModal() == .OK, let url = panel.url {
+            mountRecoveryPath = url.path
+        }
+    }
+
+    private func defaultUSBContainerRecoveryPath(forImagePath path: String) -> String {
+        let imageURL = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath)
+        let base = imageURL.deletingPathExtension().lastPathComponent
+        return imageURL.deletingLastPathComponent()
+            .appendingPathComponent("\(base).aegiro-usbkey.json")
+            .path
+    }
+
+    private func run() {
+        output = ""
+        isRunning = true
+        switch mode {
+        case .create:
+            let imageURL = URL(fileURLWithPath: NSString(string: createImagePath).expandingTildeInPath)
+            let recoveryURL = URL(fileURLWithPath: NSString(string: createRecoveryPath).expandingTildeInPath)
+            let optionalContainerPass = createContainerPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            model.createUSBContainer(
+                imageURL: imageURL,
+                size: createSize,
+                volumeName: createVolumeName,
+                recoveryPassphrase: createRecoveryPassphrase,
+                recoveryURL: recoveryURL,
+                overwrite: createForce,
+                containerPassphrase: optionalContainerPass.isEmpty ? nil : optionalContainerPass,
+                dryRun: createDryRun
+            ) { result in
+                isRunning = false
+                switch result {
+                case .success(let value):
+                    output = value.dryRun
+                        ? "Dry run complete.\nRecovery bundle: \(value.recoveryURL.path)"
+                        : "Created container image: \(value.imageURL.path)\nRecovery bundle: \(value.recoveryURL.path)"
+                    onDone()
+                case .failure(let error):
+                    output = "Error: \(error)"
+                }
+            }
+        case .mount:
+            let imageURL = URL(fileURLWithPath: NSString(string: mountImagePath).expandingTildeInPath)
+            let recoveryURL = URL(fileURLWithPath: NSString(string: mountRecoveryPath).expandingTildeInPath)
+            let optionalOverride = mountContainerPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            model.mountUSBContainer(
+                imageURL: imageURL,
+                recoveryPassphrase: mountRecoveryPassphrase,
+                recoveryURL: recoveryURL,
+                containerPassphraseOverride: optionalOverride.isEmpty ? nil : optionalOverride,
+                dryRun: mountDryRun
+            ) { result in
+                isRunning = false
+                switch result {
+                case .success(let value):
+                    if value.dryRun {
+                        output = "Dry run complete: mount request validated."
+                    } else {
+                        var lines: [String] = []
+                        if let mountPoint = value.mountPoint {
+                            lines.append("Mounted at: \(mountPoint)")
+                        } else {
+                            lines.append("Mounted image (mount point unavailable).")
+                        }
+                        if let device = value.deviceIdentifier {
+                            lines.append("Device: \(device)")
+                        }
+                        output = lines.joined(separator: "\n")
+                    }
+                    onDone()
+                case .failure(let error):
+                    output = "Error: \(error)"
+                }
+            }
+        case .unmount:
+            model.unmountUSBContainer(target: unmountTarget, force: unmountForce, dryRun: unmountDryRun) { result in
+                isRunning = false
+                switch result {
+                case .success:
+                    output = unmountDryRun
+                        ? "Dry run complete: unmount target validated."
+                        : "Unmounted \(unmountTarget)."
+                    onDone()
+                case .failure(let error):
+                    output = "Error: \(error)"
+                }
+            }
+        }
+    }
+}
+
+private struct BackupSheet: View {
+    @EnvironmentObject private var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var vaultPath = ""
+    @State private var outPath = ""
+    @State private var passphrase = ""
+    @State private var isRunning = false
+    @State private var output = ""
+
+    var onDone: () -> Void
+
+    private var canRun: Bool {
+        !vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !outPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !isRunning
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Backup Vault")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("CLI parity for `backup --vault <path> --out <path.aegirobackup> [--passphrase ...]`.")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            formLabel("Vault File")
+            HStack(spacing: 8) {
+                TextField("/path/to/vault.agvt", text: $vaultPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseVaultPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Backup Output Path")
+            HStack(spacing: 8) {
+                TextField("/path/to/vault.aegirobackup", text: $outPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseOutputPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Passphrase (Optional)")
+            SecureField("Optional", text: $passphrase)
+                .textFieldStyle(.roundedBorder)
+
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            outputCard(output)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Run Backup") { runBackup() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.accentIndigo)
+                    .disabled(!canRun)
+            }
+        }
+        .padding(24)
+        .frame(width: 700)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            if vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                vaultPath = model.vaultURL?.path ?? ""
+            }
+            if outPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               !vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                outPath = defaultBackupPath(for: vaultPath)
+            }
+            if passphrase.isEmpty {
+                passphrase = model.passphrase
+            }
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func outputCard(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Output")
+            ScrollView {
+                Text(text.isEmpty ? "No output yet." : text)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(text.isEmpty ? AegiroPalette.textMuted : AegiroPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(minHeight: 95, maxHeight: 150)
+            .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+    }
+
+    private func chooseVaultPath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Vault"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "agvt") ?? .data]
+        if panel.runModal() == .OK, let url = panel.url {
+            vaultPath = url.path
+            if outPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                outPath = defaultBackupPath(for: url.path)
+            }
+        }
+    }
+
+    private func chooseOutputPath() {
+        let panel = NSSavePanel()
+        panel.title = "Choose Backup Output"
+        panel.nameFieldStringValue = (outPath.isEmpty ? "vault.aegirobackup" : outPath as NSString).lastPathComponent
+        panel.allowedContentTypes = [UTType(filenameExtension: "aegirobackup") ?? .data]
+        if panel.runModal() == .OK, var url = panel.url {
+            if url.pathExtension.lowercased() != "aegirobackup" {
+                url.appendPathExtension("aegirobackup")
+            }
+            outPath = url.path
+        }
+    }
+
+    private func defaultBackupPath(for vaultPath: String) -> String {
+        let vaultURL = URL(fileURLWithPath: NSString(string: vaultPath).expandingTildeInPath)
+        let baseName = vaultURL.deletingPathExtension().lastPathComponent
+        return vaultURL.deletingLastPathComponent()
+            .appendingPathComponent("\(baseName).aegirobackup")
+            .path
+    }
+
+    private func runBackup() {
+        output = ""
+        isRunning = true
+
+        let vaultURL = URL(fileURLWithPath: NSString(string: vaultPath).expandingTildeInPath)
+        let outURL = URL(fileURLWithPath: NSString(string: outPath).expandingTildeInPath)
+        model.exportBackup(vaultURL: vaultURL, outURL: outURL, passphrase: passphrase) { result in
+            isRunning = false
+            switch result {
+            case .success:
+                output = "Backup exported to \(outURL.path)\n(directory payload created; zip externally)."
+                onDone()
+            case .failure(let error):
+                output = "Error: \(error)"
+            }
+        }
+    }
+}
+
+private struct VerifySheet: View {
+    @EnvironmentObject private var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var vaultPath = ""
+    @State private var isRunning = false
+    @State private var output = ""
+
+    var onDone: () -> Void
+
+    private var canRun: Bool {
+        !vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isRunning
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Verify Vault")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("CLI parity for `verify --vault <path>`.")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            formLabel("Vault File")
+            HStack(spacing: 8) {
+                TextField("/path/to/vault.agvt", text: $vaultPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseVaultPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            outputCard(output)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Run Verify") { runVerify() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.accentIndigo)
+                    .disabled(!canRun)
+            }
+        }
+        .padding(24)
+        .frame(width: 620)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            if vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                vaultPath = model.vaultURL?.path ?? ""
+            }
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func outputCard(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Output")
+            ScrollView {
+                Text(text.isEmpty ? "No output yet." : text)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(text.isEmpty ? AegiroPalette.textMuted : AegiroPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(minHeight: 95, maxHeight: 140)
+            .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+    }
+
+    private func chooseVaultPath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Vault"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "agvt") ?? .data]
+        if panel.runModal() == .OK, let url = panel.url {
+            vaultPath = url.path
+        }
+    }
+
+    private func runVerify() {
+        output = ""
+        isRunning = true
+
+        let vaultURL = URL(fileURLWithPath: NSString(string: vaultPath).expandingTildeInPath)
+        model.verifyManifest(vaultURL: vaultURL) { result in
+            isRunning = false
+            switch result {
+            case .success(let ok):
+                output = ok ? "Manifest signature: OK" : "Manifest signature: INVALID"
+                onDone()
+            case .failure(let error):
+                output = "Error: \(error)"
+            }
+        }
+    }
+}
+
+private struct StatusSheet: View {
+    @EnvironmentObject private var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var vaultPath = ""
+    @State private var passphrase = ""
+    @State private var asJSON = false
+    @State private var isRunning = false
+    @State private var output = ""
+
+    var onDone: () -> Void
+
+    private var canRun: Bool {
+        !vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isRunning
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Vault Status")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("CLI parity for `status --vault <path> [--passphrase ...] [--json]`.")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            formLabel("Vault File")
+            HStack(spacing: 8) {
+                TextField("/path/to/vault.agvt", text: $vaultPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseVaultPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Passphrase (Optional)")
+            SecureField("Optional for unlocked file count", text: $passphrase)
+                .textFieldStyle(.roundedBorder)
+
+            Toggle("Render JSON output", isOn: $asJSON)
+
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            outputCard
+
+            HStack {
+                Button("Copy Output") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(output, forType: .string)
+                }
+                .buttonStyle(.bordered)
+                .disabled(output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Load Status") { runStatus() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.accentIndigo)
+                    .disabled(!canRun)
+            }
+        }
+        .padding(24)
+        .frame(width: 760)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            if vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                vaultPath = model.vaultURL?.path ?? ""
+            }
+            if passphrase.isEmpty {
+                passphrase = model.passphrase
+            }
+        }
+    }
+
+    private var outputCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Output")
+            ScrollView {
+                Text(output.isEmpty ? "No output yet." : output)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(output.isEmpty ? AegiroPalette.textMuted : AegiroPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(minHeight: 180, maxHeight: 300)
+            .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func chooseVaultPath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Vault"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "agvt") ?? .data]
+        if panel.runModal() == .OK, let url = panel.url {
+            vaultPath = url.path
+        }
+    }
+
+    private func runStatus() {
+        output = ""
+        isRunning = true
+
+        let vaultURL = URL(fileURLWithPath: NSString(string: vaultPath).expandingTildeInPath)
+        let pass = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        model.renderVaultStatus(vaultURL: vaultURL, passphrase: pass.isEmpty ? nil : pass, asJSON: asJSON) { result in
+            isRunning = false
+            switch result {
+            case .success(let text):
+                output = text
+                onDone()
+            case .failure(let error):
+                output = "Error: \(error)"
+            }
+        }
+    }
+}
+
+private struct ScanSheet: View {
+    @EnvironmentObject private var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var pathInput: String = ""
+    @State private var isRunning = false
+    @State private var output = ""
+
+    var onDone: () -> Void
+
+    private var parsedPaths: [String] {
+        pathInput
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var canRun: Bool {
+        !parsedPaths.isEmpty && !isRunning
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Privacy Scan")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("CLI parity for `scan <paths...>`.")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            formLabel("Paths (one per line)")
+            TextEditor(text: $pathInput)
+                .font(AegiroTypography.mono(11, weight: .regular))
+                .foregroundStyle(AegiroPalette.textPrimary)
+                .frame(minHeight: 90, maxHeight: 130)
+                .scrollContentBackground(.hidden)
+                .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                )
+
+            HStack(spacing: 8) {
+                Button("Add Paths...") { chooseScanPaths() }
+                    .buttonStyle(.bordered)
+                Button("Clear Paths") { pathInput = "" }
+                    .buttonStyle(.bordered)
+            }
+
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            outputCard
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Run Scan") { runScan() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.accentIndigo)
+                    .disabled(!canRun)
+            }
+        }
+        .padding(24)
+        .frame(width: 760)
+        .background(AegiroPalette.backgroundPanel)
+    }
+
+    private var outputCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Output")
+            ScrollView {
+                Text(output.isEmpty ? "No output yet." : output)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(output.isEmpty ? AegiroPalette.textMuted : AegiroPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(minHeight: 140, maxHeight: 230)
+            .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func chooseScanPaths() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Files or Folders to Scan"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK {
+            let joined = panel.urls.map(\.path).joined(separator: "\n")
+            if pathInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                pathInput = joined
+            } else {
+                pathInput += "\n" + joined
+            }
+        }
+    }
+
+    private func runScan() {
+        output = ""
+        isRunning = true
+        model.scanPrivacy(paths: parsedPaths) { matches in
+            isRunning = false
+            if matches.isEmpty {
+                output = "No privacy matches found."
+            } else {
+                output = matches
+                    .map { "\($0.path)\t\($0.reason)" }
+                    .joined(separator: "\n")
+            }
+            onDone()
+        }
+    }
+}
+
+private struct ShredSheet: View {
+    @EnvironmentObject private var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var pathInput: String = ""
+    @State private var confirmDestructive = false
+    @State private var isRunning = false
+    @State private var output = ""
+
+    var onDone: () -> Void
+
+    private var parsedPaths: [String] {
+        pathInput
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var canRun: Bool {
+        !parsedPaths.isEmpty && confirmDestructive && !isRunning
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Secure Shred")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("CLI parity for `shred <paths...>`. This permanently destroys selected files.")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            formLabel("Files To Shred (one per line)")
+            TextEditor(text: $pathInput)
+                .font(AegiroTypography.mono(11, weight: .regular))
+                .foregroundStyle(AegiroPalette.textPrimary)
+                .frame(minHeight: 90, maxHeight: 130)
+                .scrollContentBackground(.hidden)
+                .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                )
+
+            HStack(spacing: 8) {
+                Button("Add Files...") { chooseShredFiles() }
+                    .buttonStyle(.bordered)
+                Button("Clear Paths") { pathInput = "" }
+                    .buttonStyle(.bordered)
+            }
+
+            Toggle("I understand this cannot be undone", isOn: $confirmDestructive)
+                .foregroundStyle(confirmDestructive ? AegiroPalette.textPrimary : AegiroPalette.warningAmber)
+
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            outputCard
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Run Shred") { runShred() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.dangerRed)
+                    .disabled(!canRun)
+            }
+        }
+        .padding(24)
+        .frame(width: 760)
+        .background(AegiroPalette.backgroundPanel)
+    }
+
+    private var outputCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Output")
+            ScrollView {
+                Text(output.isEmpty ? "No output yet." : output)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(output.isEmpty ? AegiroPalette.textMuted : AegiroPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(minHeight: 120, maxHeight: 220)
+            .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func chooseShredFiles() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Files to Shred"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK {
+            let joined = panel.urls.map(\.path).joined(separator: "\n")
+            if pathInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                pathInput = joined
+            } else {
+                pathInput += "\n" + joined
+            }
+        }
+    }
+
+    private func runShred() {
+        output = ""
+        isRunning = true
+        model.shred(paths: parsedPaths) { result in
+            isRunning = false
+            switch result {
+            case .success(let shredded):
+                output = shredded.isEmpty
+                    ? "No files were shredded."
+                    : shredded.map { "Shredded \($0)" }.joined(separator: "\n")
+                onDone()
+            case .failure(let error):
+                output = "Error: \(error)"
+            }
         }
     }
 }
