@@ -318,7 +318,6 @@ struct MainView: View {
                 actionsCard
                 securityCard
                 externalDiskCard
-                operationsCard
             }
             .padding(12)
         }
@@ -430,6 +429,11 @@ struct MainView: View {
                     showDoctorSheet = true
                 }
                 .disabled(model.vaultURL == nil)
+
+                actionButton(title: "Backup", icon: "externaldrive.badge.person.crop") {
+                    showBackupSheet = true
+                }
+                .disabled(model.vaultURL == nil)
             }
         }
     }
@@ -450,41 +454,6 @@ struct MainView: View {
                 actionButton(title: "USB Encryption Page", icon: "externaldrive.connected.to.line.below") {
                     activePage = .usbEncryption
                     model.refreshAPFSVolumeOptions()
-                }
-            }
-        }
-    }
-
-    private var operationsCard: some View {
-        card {
-            VStack(alignment: .leading, spacing: 10) {
-                sectionTitle("Operations")
-
-                actionButton(title: "USB Container", icon: "shippingbox") {
-                    showUSBContainerSheet = true
-                }
-
-                actionButton(title: "Backup", icon: "externaldrive.badge.person.crop") {
-                    showBackupSheet = true
-                }
-                .disabled(model.vaultURL == nil)
-
-                actionButton(title: "Verify", icon: "checkmark.seal") {
-                    showVerifySheet = true
-                }
-                .disabled(model.vaultURL == nil)
-
-                actionButton(title: "Status", icon: "terminal") {
-                    showStatusSheet = true
-                }
-                .disabled(model.vaultURL == nil)
-
-                actionButton(title: "Scan", icon: "magnifyingglass.circle") {
-                    showScanSheet = true
-                }
-
-                actionButton(title: "Shred", icon: "trash.slash.fill") {
-                    showShredSheet = true
                 }
             }
         }

@@ -70,7 +70,7 @@ Main window uses a three-zone shell:
 - Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet and external disk encrypt/unlock sheets.
-- Security card keeps one integrity entry point (`Check Integrity`) that opens the doctor sheet, plus Touch ID enable action.
+- Security card now includes `Check Integrity`, `Backup`, and Touch ID enable action.
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
 - Sheets include mounted non-APFS volumes inline in the same list as gray, disabled rows so users can see them but cannot select them.
 - Added "Encrypt USB Data" sheet for mounted non-APFS volumes: encrypts only user files into a `.agvt` vault file on the USB, skips known filesystem metadata, and can optionally delete originals after successful import.
@@ -80,13 +80,6 @@ Main window uses a three-zone shell:
 - Added a dedicated **USB Encryption** workspace page inside the main content area.
 - The USB page has one volume picker for APFS and non-APFS USB volumes, then a format-aware encryption option selector with "Recommended" badges.
 - Users can run APFS volume encryption and vault-file encryption directly on that page (plus quick access to the USB Container tool).
-- Added an **Operations** sidebar card with app UI entry points for:
-  - USB container workflows (`usb-container-create`, `usb-container-open`, `usb-container-close`)
-  - Vault backup (`backup`)
-  - Manifest verify (`verify`)
-  - CLI-style status rendering (`status`, including JSON output)
-  - Privacy scan (`scan`)
-  - Secure shred (`shred`)
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.
