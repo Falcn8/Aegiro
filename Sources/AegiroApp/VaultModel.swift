@@ -24,6 +24,12 @@ private final class USBDataEncryptionCancellationFlag: @unchecked Sendable {
     }
 }
 
+struct USBDataEncryptionLogEntry: Identifiable, Sendable {
+    let id: Int
+    let timestamp: Date
+    let message: String
+}
+
 @MainActor
 final class VaultModel: ObservableObject {
     @Published var vaultURL: URL?
@@ -57,6 +63,7 @@ final class VaultModel: ObservableObject {
     @Published var usbDataEncryptionProcessedFiles: Int = 0
     @Published var usbDataEncryptionTotalFiles: Int = 0
     @Published var usbDataEncryptionStage: USBUserDataEncryptProgress.Stage = .completed
+    @Published var usbDataEncryptionLogs: [USBDataEncryptionLogEntry] = []
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var diskEncryptionProgressTimer: Timer?
@@ -65,6 +72,7 @@ final class VaultModel: ObservableObject {
     private var localMonitors: [Any] = []
     private var autoLockDeadline: Date?
     private var usbDataEncryptionCancellationFlag: USBDataEncryptionCancellationFlag?
+    private var usbDataEncryptionLogSequence: Int = 0
 
     init() {
         let defaults = UserDefaults.standard
@@ -487,11 +495,34 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionCancellationFlag = nil
     }
 
+    func clearUSBDataEncryptionLogs() {
+        usbDataEncryptionLogs = []
+    }
+
     func cancelUSBDataEncryption() {
         guard usbDataEncryptionActive else { return }
         usbDataEncryptionCancellationFlag?.cancel()
-        usbDataEncryptionProgressMessage = "Cancelling and cleaning partial output..."
+        usbDataEncryptionActive = false
+        usbDataEncryptionStage = .completed
+        usbDataEncryptionProgressFraction = nil
+        usbDataEncryptionProgressMessage = "Cancellation requested. Stopping current operation..."
+        appendUSBDataEncryptionLog("Cancellation requested by user.")
         status = "Cancelling USB user-data encryption and cleaning partial output..."
+    }
+
+    private func appendUSBDataEncryptionLog(_ message: String) {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if usbDataEncryptionLogs.last?.message == trimmed {
+            return
+        }
+        usbDataEncryptionLogSequence += 1
+        usbDataEncryptionLogs.append(USBDataEncryptionLogEntry(id: usbDataEncryptionLogSequence,
+                                                               timestamp: Date(),
+                                                               message: trimmed))
+        if usbDataEncryptionLogs.count > 4_000 {
+            usbDataEncryptionLogs.removeFirst(usbDataEncryptionLogs.count - 4_000)
+        }
     }
 
     private func startDiskEncryptionProgressMonitoring(diskIdentifier: String) {
@@ -545,11 +576,18 @@ final class VaultModel: ObservableObject {
                                    deleteOriginals: Bool,
                                    dryRun: Bool,
                                    targetMountPoint: String?,
+                                   excludedSourcePaths: [String] = [],
                                    completion: ((Bool) -> Void)? = nil) {
         let sourceRoot = sourceRootURL.standardizedFileURL
         let vault = vaultURL.standardizedFileURL
         let pass = vaultPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
         let mountPointTrimmed = targetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedExcludedSourcePaths = Array(Set(excludedSourcePaths.map {
+            URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath, isDirectory: true)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .path
+        })).sorted()
 
         guard dryRun || !pass.isEmpty else {
             status = "Enter a vault passphrase"
@@ -572,6 +610,20 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionProcessedFiles = 0
         usbDataEncryptionTotalFiles = 0
         usbDataEncryptionStage = .scanning
+        usbDataEncryptionLogs = []
+        appendUSBDataEncryptionLog(dryRun
+                                   ? "Starting scan for user files under \(sourceRoot.path)"
+                                   : "Starting encryption of user files under \(sourceRoot.path)")
+        appendUSBDataEncryptionLog("Vault output: \(vault.path)")
+        if FileManager.default.fileExists(atPath: vault.path) {
+            appendUSBDataEncryptionLog("Warning: target vault already exists. Matching paths will be replaced.")
+        }
+        if !normalizedExcludedSourcePaths.isEmpty {
+            appendUSBDataEncryptionLog("Excluded path count: \(normalizedExcludedSourcePaths.count)")
+            for path in normalizedExcludedSourcePaths {
+                appendUSBDataEncryptionLog("Exclude: \(path)")
+            }
+        }
         let cancellationFlag = USBDataEncryptionCancellationFlag()
         usbDataEncryptionCancellationFlag = cancellationFlag
 
@@ -582,14 +634,21 @@ final class VaultModel: ObservableObject {
                                                                     passphrase: pass,
                                                                     deleteOriginals: deleteOriginals,
                                                                     dryRun: dryRun,
+                                                                    excludingPaths: normalizedExcludedSourcePaths.map {
+                    URL(fileURLWithPath: $0, isDirectory: true)
+                },
                                                                     progress: { progress in
                     DispatchQueue.main.async {
                         guard let self else { return }
+                        if cancellationFlag.isCancelled() {
+                            return
+                        }
                         self.usbDataEncryptionStage = progress.stage
                         self.usbDataEncryptionProcessedFiles = progress.processedFileCount
                         self.usbDataEncryptionTotalFiles = progress.totalFileCount
                         self.usbDataEncryptionProgressFraction = progress.fraction
                         self.usbDataEncryptionProgressMessage = progress.message
+                        self.appendUSBDataEncryptionLog(progress.message)
                     }
                 },
                                                                     isCancelled: {
@@ -597,6 +656,16 @@ final class VaultModel: ObservableObject {
                 })
                 DispatchQueue.main.async {
                     guard let self else { return }
+                    if cancellationFlag.isCancelled() {
+                        self.usbDataEncryptionActive = false
+                        self.usbDataEncryptionStage = .completed
+                        self.usbDataEncryptionCancellationFlag = nil
+                        self.usbDataEncryptionProgressMessage = "Encryption cancelled."
+                        self.appendUSBDataEncryptionLog("Operation cancelled. Partial new vault output was cleaned when possible.")
+                        self.status = "USB user-data encryption cancelled. Partial new vault output was cleaned."
+                        completion?(false)
+                        return
+                    }
                     self.usbDataEncryptionActive = false
                     self.usbDataEncryptionStage = .completed
                     self.usbDataEncryptionCancellationFlag = nil
@@ -605,6 +674,7 @@ final class VaultModel: ObservableObject {
                         self.usbDataEncryptionTotalFiles = result.scannedFileCount
                         self.usbDataEncryptionProgressFraction = result.scannedFileCount > 0 ? 1.0 : nil
                         self.usbDataEncryptionProgressMessage = "Scan complete: \(result.scannedFileCount) user file(s)."
+                        self.appendUSBDataEncryptionLog("Scan complete: \(result.scannedFileCount) user file(s), \(result.skippedPathCount) skipped.")
                         self.status = "Scan complete: \(result.scannedFileCount) user file(s), \(result.skippedPathCount) skipped system path(s)."
                         completion?(true)
                         return
@@ -626,6 +696,10 @@ final class VaultModel: ObservableObject {
                     }
                     self.status = message
                     self.usbDataEncryptionProgressMessage = "Encryption complete: \(result.encryptedFileCount)/\(result.scannedFileCount) file(s)."
+                    self.appendUSBDataEncryptionLog("Encryption complete: \(result.encryptedFileCount)/\(result.scannedFileCount) file(s).")
+                    if deleteOriginals {
+                        self.appendUSBDataEncryptionLog("Original file deletion: \(result.deletedOriginalCount) removed, \(result.deletionErrors.count) errors.")
+                    }
 
                     if self.vaultURL == nil || self.vaultURL?.standardizedFileURL.path == result.vaultURL.path {
                         self.vaultURL = result.vaultURL
@@ -644,6 +718,7 @@ final class VaultModel: ObservableObject {
                     let errorText = String(describing: error).lowercased()
                     if errorText.contains("cancelled by user") {
                         self.usbDataEncryptionProgressMessage = "Encryption cancelled."
+                        self.appendUSBDataEncryptionLog("Operation cancelled. Partial new vault output was cleaned when possible.")
                         self.status = "USB user-data encryption cancelled. Partial new vault output was cleaned."
                         completion?(false)
                         return
@@ -652,6 +727,7 @@ final class VaultModel: ObservableObject {
                         || self.usbDataEncryptionProgressMessage == "Cancelling..." {
                         self.usbDataEncryptionProgressMessage = "Encryption failed."
                     }
+                    self.appendUSBDataEncryptionLog("Operation failed: \(error)")
                     self.status = "USB user-data encryption failed: \(error)"
                     completion?(false)
                 }

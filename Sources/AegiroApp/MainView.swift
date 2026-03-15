@@ -647,18 +647,18 @@ struct MainView: View {
                 .font(AegiroTypography.body(14, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
             HStack(spacing: 10) {
-                Button("Open Existing") {
-                    activePage = .vault
-                    model.openVaultWithPanel()
-                }
-                .buttonStyle(.bordered)
-
                 Button("Create Vault") {
                     activePage = .vault
                     showCreateVaultSheet = true
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
+
+                Button("Open Existing") {
+                    activePage = .vault
+                    model.openVaultWithPanel()
+                }
+                .buttonStyle(.bordered)
 
                 Button("USB Encryption") {
                     activePage = .usbEncryption
@@ -1558,6 +1558,7 @@ private struct USBEncryptionWorkspacePage: View {
     private enum WorkspaceStage {
         case selectOption
         case configureOption
+        case progress
     }
 
     @EnvironmentObject private var model: VaultModel
@@ -1579,6 +1580,7 @@ private struct USBEncryptionWorkspacePage: View {
     @State private var confirmVaultPassphrase = ""
     @State private var deleteOriginals = false
     @State private var vaultFileDryRun = false
+    @State private var vaultPackExcludedPaths: [String] = []
     @State private var lastSuggestedSourcePath = ""
     @State private var lastSuggestedVaultPath = ""
 
@@ -1653,6 +1655,9 @@ private struct USBEncryptionWorkspacePage: View {
     private var vaultFileProgressDetail: String {
         switch model.usbDataEncryptionStage {
         case .scanning:
+            if model.usbDataEncryptionProcessedFiles > 0 {
+                return "Scanning... found \(model.usbDataEncryptionProcessedFiles) file(s)"
+            }
             return "Scanning source files..."
         case .preparing:
             if model.usbDataEncryptionTotalFiles > 0 {
@@ -1675,6 +1680,14 @@ private struct USBEncryptionWorkspacePage: View {
             }
             return "Completed"
         }
+    }
+
+    private var existingVaultPathWarning: String? {
+        let trimmedVault = vaultPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedVault.isEmpty else { return nil }
+        let normalizedVaultPath = URL(fileURLWithPath: NSString(string: trimmedVault).expandingTildeInPath).standardizedFileURL.path
+        guard FileManager.default.fileExists(atPath: normalizedVaultPath) else { return nil }
+        return "Warning: \(normalizedVaultPath) already exists. Vault Pack updates the existing vault and replaces entries that have matching source paths."
     }
 
     private var selectedOptionButtonTitle: String {
@@ -1788,7 +1801,7 @@ private struct USBEncryptionWorkspacePage: View {
                             .tint(AegiroPalette.accentIndigo)
                             .disabled(!canOpenSelectedOptionConfiguration)
                         }
-                    } else {
+                    } else if stage == .configureOption {
                         configurationHeaderCard
                         selectedOptionFormCard
 
@@ -1805,6 +1818,8 @@ private struct USBEncryptionWorkspacePage: View {
                             .tint(AegiroPalette.accentIndigo)
                             .disabled(!canRunSelectedOption)
                         }
+                    } else {
+                        progressStageContent
                     }
                 }
                 .padding(24)
@@ -2077,6 +2092,11 @@ private struct USBEncryptionWorkspacePage: View {
                 }
                 .buttonStyle(.bordered)
             }
+            if let existingVaultPathWarning {
+                Text(existingVaultPathWarning)
+                    .font(AegiroTypography.body(11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.warningAmber)
+            }
 
             formLabel("Vault Passphrase")
             SecureField(vaultFileDryRun ? "Optional for scan-only" : "8+ chars with upper/lower letters and numbers", text: $vaultPassphrase)
@@ -2092,6 +2112,48 @@ private struct USBEncryptionWorkspacePage: View {
             Toggle("Dry run only (scan user files without encrypting)", isOn: $vaultFileDryRun)
             Toggle("Delete original files after successful encryption", isOn: $deleteOriginals)
                 .disabled(vaultFileDryRun)
+
+            formLabel("Do Not Encrypt (Optional)")
+            VStack(alignment: .leading, spacing: 6) {
+                if vaultPackExcludedPaths.isEmpty {
+                    Text("No exclusions selected. Use this to skip USB/system folders or any paths you do not want encrypted.")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textMuted)
+                } else {
+                    ForEach(vaultPackExcludedPaths, id: \.self) { path in
+                        HStack(spacing: 8) {
+                            Text(path)
+                                .font(AegiroTypography.mono(11, weight: .regular))
+                                .foregroundStyle(AegiroPalette.textSecondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button {
+                                vaultPackExcludedPaths.removeAll { $0 == path }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(AegiroPalette.textMuted)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                HStack(spacing: 8) {
+                    Button("Add Files/Folders...") {
+                        chooseVaultPackExcludedPaths()
+                    }
+                    .buttonStyle(.bordered)
+                    if !vaultPackExcludedPaths.isEmpty {
+                        Button("Clear Exclusions") {
+                            vaultPackExcludedPaths.removeAll()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                Text("Only exclusions inside Source Folder are applied.")
+                    .font(AegiroTypography.body(10, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+            }
 
             Text("Single command flow: usb-vault-pack. Recommended for non-APFS drives when you want file-level vault packing.")
                 .font(AegiroTypography.body(10, weight: .regular))
@@ -2141,6 +2203,92 @@ private struct USBEncryptionWorkspacePage: View {
                 onOpenUSBContainer()
             }
             .buttonStyle(.bordered)
+        }
+    }
+
+    private var progressStageContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            configurationHeaderCard
+            if selectedOption == .vaultFile {
+                progressCard(title: "Vault-File Encryption Progress",
+                             message: model.usbDataEncryptionProgressMessage,
+                             fraction: model.usbDataEncryptionProgressFraction,
+                             detail: vaultFileProgressDetail)
+                usbEncryptionDebugLogCard
+
+                HStack {
+                    if model.usbDataEncryptionActive {
+                        Button("Cancel Encryption") {
+                            model.cancelUSBDataEncryption()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    Spacer()
+                    Button("Back to Configuration") {
+                        stage = .configureOption
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.usbDataEncryptionActive)
+                }
+            } else {
+                Text("No active USB vault-pack progress for the selected option.")
+                    .font(AegiroTypography.body(12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+                HStack {
+                    Spacer()
+                    Button("Back to Configuration") {
+                        stage = .configureOption
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding(12)
+        .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+        )
+    }
+
+    private var usbEncryptionDebugLogCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Live Debug Info")
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if model.usbDataEncryptionLogs.isEmpty {
+                            Text("Waiting for logs...")
+                                .font(AegiroTypography.body(11, weight: .regular))
+                                .foregroundStyle(AegiroPalette.textMuted)
+                        } else {
+                            ForEach(model.usbDataEncryptionLogs) { entry in
+                                Text("[\(entry.timestamp.formatted(date: .omitted, time: .standard))] \(entry.message)")
+                                    .font(AegiroTypography.mono(11, weight: .regular))
+                                    .foregroundStyle(AegiroPalette.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(entry.id)
+                            }
+                        }
+                    }
+                    .padding(8)
+                }
+                .frame(minHeight: 180, maxHeight: 280)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AegiroPalette.backgroundMain.opacity(0.72))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+                )
+                .onAppear {
+                    scrollToLatestUSBDataLog(using: proxy, animated: false)
+                }
+                .onChange(of: model.usbDataEncryptionLogs.count) { _ in
+                    scrollToLatestUSBDataLog(using: proxy, animated: true)
+                }
+            }
         }
     }
 
@@ -2220,6 +2368,9 @@ private struct USBEncryptionWorkspacePage: View {
     private func ensureSelectedOptionIsValid() {
         if let selectedOption, !optionIsAvailable(selectedOption) {
             self.selectedOption = nil
+        }
+        if selectedOption == nil, let recommendedOption, optionIsAvailable(recommendedOption) {
+            selectedOption = recommendedOption
         }
         if selectedOption == nil {
             stage = .selectOption
@@ -2343,12 +2494,26 @@ private struct USBEncryptionWorkspacePage: View {
             }
         }
 
+        let requestedExcluded = Set(vaultPackExcludedPaths.map {
+            URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath, isDirectory: true)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .path
+        })
+        let appliedExcluded = resolvedVaultPackExcludedPaths(for: source)
+        let ignoredExcludedCount = max(0, requestedExcluded.count - Set(appliedExcluded).count)
+        if ignoredExcludedCount > 0 {
+            model.status = "Ignoring \(ignoredExcludedCount) exclusion path(s) outside the selected source folder."
+        }
+
+        stage = .progress
         model.encryptNonAPFSUSBUserData(sourceRootURL: source,
                                         vaultURL: vault,
                                         vaultPassphrase: vaultPassphrase,
                                         deleteOriginals: deleteOriginals && !vaultFileDryRun,
                                         dryRun: vaultFileDryRun,
-                                        targetMountPoint: mount)
+                                        targetMountPoint: mount,
+                                        excludedSourcePaths: appliedExcluded)
     }
 
     private func chooseRecoveryPath() {
@@ -2397,6 +2562,56 @@ private struct USBEncryptionWorkspacePage: View {
                 url.appendPathExtension("agvt")
             }
             vaultPath = url.path
+        }
+    }
+
+    private func chooseVaultPackExcludedPaths() {
+        guard let mount = selectedMountPoint else {
+            model.status = "Select a mounted USB volume first"
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.title = "Choose Files or Folders to Exclude"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = true
+        let preferredRoot = sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? mount : sourcePath
+        panel.directoryURL = URL(fileURLWithPath: NSString(string: preferredRoot).expandingTildeInPath, isDirectory: true)
+        if panel.runModal() == .OK {
+            let normalized = panel.urls.map {
+                $0.standardizedFileURL.resolvingSymlinksInPath().path
+            }
+            vaultPackExcludedPaths = Array(Set(vaultPackExcludedPaths + normalized)).sorted {
+                $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+            }
+        }
+    }
+
+    private func resolvedVaultPackExcludedPaths(for sourceRoot: URL) -> [String] {
+        let rootPath = sourceRoot.standardizedFileURL.resolvingSymlinksInPath().path
+        let rootPrefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        var kept = Set<String>()
+        for path in vaultPackExcludedPaths {
+            let normalized = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath, isDirectory: true)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .path
+            if normalized == rootPath || normalized.hasPrefix(rootPrefix) {
+                kept.insert(normalized)
+            }
+        }
+        return kept.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func scrollToLatestUSBDataLog(using proxy: ScrollViewProxy, animated: Bool) {
+        guard let id = model.usbDataEncryptionLogs.last?.id else { return }
+        if animated {
+            withAnimation(.easeOut(duration: 0.15)) {
+                proxy.scrollTo(id, anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo(id, anchor: .bottom)
         }
     }
 
@@ -4852,6 +5067,7 @@ private struct APFSVolumeOptionsPanel: View {
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                                             .stroke(isSelected ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
                                     )
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                             case .nonAPFS(let volume):
@@ -4880,17 +5096,18 @@ private struct APFSVolumeOptionsPanel: View {
                                                     .font(AegiroTypography.body(15, weight: .semibold))
                                             }
                                         }
+                                        .padding(10)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .fill(isSelected ? AegiroPalette.accentIndigo.opacity(0.18) : AegiroPalette.backgroundCard)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .stroke(isSelected ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+                                        )
+                                        .contentShape(Rectangle())
                                     }
-                                    .padding(10)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(isSelected ? AegiroPalette.accentIndigo.opacity(0.18) : AegiroPalette.backgroundCard)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .stroke(isSelected ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
-                                    )
                                     .buttonStyle(.plain)
                                 } else {
                                     HStack(alignment: .top, spacing: 10) {

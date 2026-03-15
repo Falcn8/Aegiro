@@ -272,7 +272,7 @@ public enum Importer {
         items.reserveCapacity(total)
         for (index, candidate) in candidates.enumerated() {
             try throwIfCancelled(isCancelled)
-            let plain = try Data(contentsOf: candidate.sourceURL)
+            let plain = try readCancellablePlainData(from: candidate.sourceURL, isCancelled: isCancelled)
             items.append(PlainImportItem(path: candidate.sourcePath,
                                          plain: plain,
                                          nameHash: candidate.nameHash,
@@ -280,6 +280,29 @@ public enum Importer {
             preparationProgress?(index + 1, total, candidate.sourcePath)
         }
         return items
+    }
+
+    private static func readCancellablePlainData(from sourceURL: URL,
+                                                 isCancelled: (() -> Bool)?) throws -> Data {
+        try throwIfCancelled(isCancelled)
+        let handle = try FileHandle(forReadingFrom: sourceURL)
+        defer { try? handle.close() }
+
+        var output = Data()
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: sourceURL.path),
+           let size = attrs[.size] as? NSNumber {
+            output.reserveCapacity(size.intValue)
+        }
+
+        let chunkSize = 64 * 1024
+        while true {
+            try throwIfCancelled(isCancelled)
+            guard let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty else {
+                break
+            }
+            output.append(chunk)
+        }
+        return output
     }
 }
 
@@ -391,12 +414,15 @@ private func mergeImportedPlainItems(vaultURL: URL,
     let existingChunks = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
     let existingArea = data.subdata(in: layout.chunkAreaStart..<data.count)
 
-    let chunkSize = 1024 * 1024
+    let chunkSize = 128 * 1024
     var chunkArea = Data()
     var chunkInfos: [ChunkInfo] = []
     chunkArea.reserveCapacity(existingArea.count)
 
     for c in existingChunks where !replacingPaths.contains(c.name) {
+        if isCancelled?() == true {
+            throw AEGError.io("USB vault-pack cancelled by user.")
+        }
         let start = Int(c.relOffset)
         let end = start + c.length
         guard start >= 0, end <= existingArea.count else { continue }
@@ -461,16 +487,25 @@ private func mergeImportedPlainItems(vaultURL: URL,
         counts[chunk.name, default: 0] += 1
     }
     for i in index.entries.indices {
+        if isCancelled?() == true {
+            throw AEGError.io("USB vault-pack cancelled by user.")
+        }
         let logical = index.entries[i].logicalPath
         index.entries[i].chunkCount = chunkCounts[logical] ?? 0
         index.entries[i].sidecarName = nil
     }
 
     // Build new index/blob and chunk map.
+    if isCancelled?() == true {
+        throw AEGError.io("USB vault-pack cancelled by user.")
+    }
     let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
     let chunkMap = try JSONEncoder().encode(chunkInfos)
 
     // Re-sign manifest using signer SK (wrapped under DEK).
+    if isCancelled?() == true {
+        throw AEGError.io("USB vault-pack cancelled by user.")
+    }
     let signerWrap = data.subdata(in: layout.signerWrapRange)
     let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
     #if REAL_CRYPTO
@@ -482,6 +517,9 @@ private func mergeImportedPlainItems(vaultURL: URL,
     let manBlob = try JSONEncoder().encode(manifest)
 
     // Reconstruct vault file in-memory (header + wraps + idx + manifest + chunk map + chunk area).
+    if isCancelled?() == true {
+        throw AEGError.io("USB vault-pack cancelled by user.")
+    }
     let pqCt = data.subdata(in: layout.pqCtRange)
     let pqWrap = data.subdata(in: layout.pqWrapRange)
 
@@ -510,6 +548,9 @@ private func mergeImportedPlainItems(vaultURL: URL,
     out.append(chunkMap)
     out.append(chunkArea)
 
+    if isCancelled?() == true {
+        throw AEGError.io("USB vault-pack cancelled by user.")
+    }
     try out.write(to: vaultURL, options: .atomic)
     return importedCount
 }

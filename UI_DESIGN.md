@@ -72,7 +72,7 @@ Main window uses a three-zone shell:
 - Unlock sheet plus a dedicated USB Encryption page (outside the vault shell) for external volume encryption workflows.
 - Security card now includes `Check Integrity`, `Backup`, and Touch ID enable action.
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
-- Sheets include mounted non-APFS volumes inline in the same list as gray, disabled rows so users can see them but cannot select them.
+- Sheets include mounted non-APFS volumes inline in the same list; in USB-focused flows these rows are selectable across the full row hit area (not text-only), and in APFS-only flows they remain informational.
 - Added "Encrypt USB Data" sheet for mounted non-APFS volumes: encrypts only user files into a `.agvt` vault file on the USB, skips known filesystem metadata, and can optionally delete originals after successful import.
 - Disk encryption sheet uses a two-step flow (select external volume, then details) with a Continue action.
 - Non-APFS encryption now shows live file progress (`processed / total`) while encrypting user data.
@@ -82,6 +82,9 @@ Main window uses a three-zone shell:
   - `apfs-volume-encrypt` / `apfs-volume-decrypt`
   - `usb-vault-pack`
   - `usb-container-create` / `usb-container-open` / `usb-container-close`
+- Vault Pack configuration includes a "Do Not Encrypt" file/folder exclusion picker so users can explicitly skip paths they do not want encrypted.
+- Pressing Vault Pack Encrypt/Scan opens a dedicated progress screen with live logs, auto-scroll to newest entries, and inline cancel control.
+- If the target `.agvt` already exists, USB Encryption shows an overlap warning before run.
 
 3. Preferences (`PreferencesView`)
 - Dark settings card.

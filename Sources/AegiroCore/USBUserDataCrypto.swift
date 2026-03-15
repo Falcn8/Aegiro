@@ -104,9 +104,31 @@ public enum USBUserDataCrypto {
         ".temporaryitems",
         ".documentrevisions-v100",
         ".trash",
+        ".trash-1000",
+        ".trash-501",
+        ".trash-0",
+        ".recycle",
+        "recycler",
         "system volume information",
         "$recycle.bin",
-        "found.000"
+        "found.000",
+        "lost.dir",
+        "autorun.inf",
+        "desktop.ini",
+        "thumbs.db",
+        "launchu3.exe",
+        "launchpad.zip",
+        "start_here_win.exe",
+        "start_here_mac.app"
+    ]
+
+    private static let excludedRootEntryPrefixes: [String] = [
+        ".spotlight",
+        ".fseventsd",
+        ".trash",
+        ".temporaryitems",
+        ".documentrevisions",
+        "found."
     ]
 
     private static let excludedFileNames: Set<String> = [
@@ -131,7 +153,11 @@ public enum USBUserDataCrypto {
         "aegirovault"
     ]
 
-    public static func scanUserFiles(sourceRootURL: URL) throws -> USBUserDataScanResult {
+    public static func scanUserFiles(sourceRootURL: URL,
+                                     excludingPaths: [URL] = [],
+                                     isCancelled: (() -> Bool)? = nil,
+                                     scanProgress: ((Int, String?) -> Void)? = nil) throws -> USBUserDataScanResult {
+        try throwIfCancelled(isCancelled)
         let sourceRoot = sourceRootURL.standardizedFileURL.resolvingSymlinksInPath()
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: sourceRoot.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -149,20 +175,32 @@ public enum USBUserDataCrypto {
         var files: [URL] = []
         var skipped = Set<String>()
         let rootPrefix = sourceRoot.path.hasSuffix("/") ? sourceRoot.path : sourceRoot.path + "/"
+        let userExcludedRelativePaths = normalizedExcludedRelativePaths(sourceRootURL: sourceRoot, excludingPaths: excludingPaths)
 
         while let item = enumerator.nextObject() as? URL {
+            try throwIfCancelled(isCancelled)
             let candidate = item.standardizedFileURL
             guard candidate.path.hasPrefix(rootPrefix) else { continue }
             let relativePath = String(candidate.path.dropFirst(rootPrefix.count))
             guard !relativePath.isEmpty else { continue }
+            let values = try? candidate.resourceValues(forKeys: keys)
+            let itemIsDirectory = values?.isDirectory == true
 
             let relativeComponents = relativePath
                 .split(separator: "/", omittingEmptySubsequences: true)
                 .map(String.init)
             guard let first = relativeComponents.first else { continue }
 
-            if excludedRootEntryNames.contains(first.lowercased()) {
-                if (try? candidate.resourceValues(forKeys: keys).isDirectory) == true {
+            if shouldSkipRootEntry(first) {
+                if itemIsDirectory {
+                    enumerator.skipDescendants()
+                }
+                skipped.insert(candidate.path)
+                continue
+            }
+
+            if shouldSkipUserExcludedPath(relativePath: relativePath, excludedRelativePaths: userExcludedRelativePaths) {
+                if itemIsDirectory {
                     enumerator.skipDescendants()
                 }
                 skipped.insert(candidate.path)
@@ -174,19 +212,19 @@ public enum USBUserDataCrypto {
                 continue
             }
 
-            let values = try? candidate.resourceValues(forKeys: keys)
             if values?.isSymbolicLink == true {
-                if values?.isDirectory == true {
+                if itemIsDirectory {
                     enumerator.skipDescendants()
                 }
                 skipped.insert(candidate.path)
                 continue
             }
-            if values?.isDirectory == true {
+            if itemIsDirectory {
                 continue
             }
             if values?.isRegularFile == true {
                 files.append(candidate)
+                scanProgress?(files.count, candidate.path)
             }
         }
 
@@ -200,6 +238,7 @@ public enum USBUserDataCrypto {
                                         passphrase: String,
                                         deleteOriginals: Bool,
                                         dryRun: Bool,
+                                        excludingPaths: [URL] = [],
                                         progress: ((USBUserDataEncryptProgress) -> Void)? = nil,
                                         isCancelled: (() -> Bool)? = nil) throws -> USBUserDataEncryptResult {
         try throwIfCancelled(isCancelled)
@@ -208,7 +247,18 @@ public enum USBUserDataCrypto {
                                              totalFileCount: 0,
                                              currentPath: nil,
                                              message: "Scanning source files..."))
-        let scan = try scanUserFiles(sourceRootURL: sourceRootURL)
+        let scan = try scanUserFiles(sourceRootURL: sourceRootURL,
+                                     excludingPaths: excludingPaths,
+                                     isCancelled: isCancelled,
+                                     scanProgress: { discoveredCount, currentPath in
+            let latest = currentPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? ""
+            let suffix = latest.isEmpty ? "" : " Latest: \(latest)"
+            progress?(USBUserDataEncryptProgress(stage: .scanning,
+                                                 processedFileCount: discoveredCount,
+                                                 totalFileCount: 0,
+                                                 currentPath: currentPath,
+                                                 message: "Scanning... found \(discoveredCount) file(s).\(suffix)"))
+        })
         try throwIfCancelled(isCancelled)
         let normalizedVaultURL = vaultURL.standardizedFileURL
         progress?(USBUserDataEncryptProgress(stage: .encrypting,
@@ -338,10 +388,53 @@ public enum USBUserDataCrypto {
             return true
         }
         // Extra defense for root-level system folders that can vary in case.
-        if let first = relativeComponents.first, excludedRootEntryNames.contains(first.lowercased()) {
+        if let first = relativeComponents.first, shouldSkipRootEntry(first) {
             return true
         }
         return false
+    }
+
+    private static func shouldSkipRootEntry(_ name: String) -> Bool {
+        let lower = name.lowercased()
+        if excludedRootEntryNames.contains(lower) {
+            return true
+        }
+        if excludedRootEntryPrefixes.contains(where: { lower.hasPrefix($0) }) {
+            return true
+        }
+        return false
+    }
+
+    private static func shouldSkipUserExcludedPath(relativePath: String,
+                                                   excludedRelativePaths: [String]) -> Bool {
+        guard !excludedRelativePaths.isEmpty else { return false }
+        let lowerPath = relativePath.lowercased()
+        for excluded in excludedRelativePaths {
+            if excluded.isEmpty || lowerPath == excluded || lowerPath.hasPrefix(excluded + "/") {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func normalizedExcludedRelativePaths(sourceRootURL: URL,
+                                                        excludingPaths: [URL]) -> [String] {
+        guard !excludingPaths.isEmpty else { return [] }
+        let sourceRootPath = sourceRootURL.standardizedFileURL.resolvingSymlinksInPath().path
+        let sourceRootPrefix = sourceRootPath.hasSuffix("/") ? sourceRootPath : sourceRootPath + "/"
+        var relativePaths = Set<String>()
+        for excludedURL in excludingPaths {
+            let normalized = excludedURL.standardizedFileURL.resolvingSymlinksInPath().path
+            if normalized == sourceRootPath {
+                relativePaths.insert("")
+                continue
+            }
+            guard normalized.hasPrefix(sourceRootPrefix) else { continue }
+            let relative = String(normalized.dropFirst(sourceRootPrefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !relative.isEmpty else { continue }
+            relativePaths.insert(relative.lowercased())
+        }
+        return relativePaths.sorted()
     }
 
     private static func deleteSourceFiles(_ files: [URL],
