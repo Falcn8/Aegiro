@@ -12,7 +12,7 @@ commits, patches, documentation, issue attachments, or other materials.
 ## 2) Assignment of Rights
 
 To the maximum extent permitted by law, you irrevocably assign to AegiroMaintainer
-(`security-contact@aegiro.invalid`) all right, title, and interest in and to your
+(`hexa [at] duck [dot] com`) all right, title, and interest in and to your
 Contribution, including all intellectual property rights, worldwide.
 
 If any assignment above is not fully enforceable, you grant AegiroMaintainer an

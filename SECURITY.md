@@ -10,7 +10,7 @@ Please do not report security vulnerabilities in public GitHub issues.
 
 Report privately by email:
 
-- `security-contact@aegiro.invalid`
+- `hexa [at] duck [dot] com` (replace `[at]` and `[dot]`)
 
 Include:
 
