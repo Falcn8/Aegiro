@@ -566,15 +566,19 @@ final class VaultModel: ObservableObject {
                     guard let self else { return }
                     self.usbDataEncryptionActive = false
                     self.usbDataEncryptionStage = .completed
-                    self.usbDataEncryptionProcessedFiles = result.encryptedFileCount
-                    self.usbDataEncryptionTotalFiles = result.scannedFileCount
-                    self.usbDataEncryptionProgressFraction = result.scannedFileCount > 0 ? 1.0 : nil
                     if result.dryRun {
+                        self.usbDataEncryptionProcessedFiles = result.scannedFileCount
+                        self.usbDataEncryptionTotalFiles = result.scannedFileCount
+                        self.usbDataEncryptionProgressFraction = result.scannedFileCount > 0 ? 1.0 : nil
                         self.usbDataEncryptionProgressMessage = "Scan complete: \(result.scannedFileCount) user file(s)."
                         self.status = "Scan complete: \(result.scannedFileCount) user file(s), \(result.skippedPathCount) skipped system path(s)."
                         completion?(true)
                         return
                     }
+
+                    self.usbDataEncryptionProcessedFiles = result.encryptedFileCount
+                    self.usbDataEncryptionTotalFiles = result.scannedFileCount
+                    self.usbDataEncryptionProgressFraction = result.scannedFileCount > 0 ? 1.0 : nil
 
                     var message = "Encrypted \(result.encryptedFileCount) user file(s) into \(result.vaultURL.path)."
                     if deleteOriginals {

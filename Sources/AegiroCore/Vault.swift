@@ -204,14 +204,19 @@ public enum Importer {
     public static func sidecarImport(vaultURL: URL,
                                      passphrase: String,
                                      files: [URL],
-                                     progress: ((Int, Int, String) -> Void)? = nil) throws -> (imported: Int, sidecar: URL) {
+                                     progress: ((Int, Int, String) -> Void)? = nil,
+                                     preparationProgress: ((Int, Int, String) -> Void)? = nil) throws -> (imported: Int, sidecar: URL) {
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try Exporter.deriveDEK(data: data, passphrase: passphrase)
         let aad = vaultAAD
-        let items = try directImportItems(files: files, vaultURL: vaultURL, sidecarURL: sidecar, head: head)
+        let items = try directImportItems(files: files,
+                                          vaultURL: vaultURL,
+                                          sidecarURL: sidecar,
+                                          head: head,
+                                          preparationProgress: preparationProgress)
         let imported = try mergeImportedPlainItems(vaultURL: vaultURL,
                                                    data: data,
                                                    head: head,
@@ -224,24 +229,42 @@ public enum Importer {
         return (imported, sidecar)
     }
 
-    private static func directImportItems(files: [URL], vaultURL: URL, sidecarURL: URL, head: VaultHeader) throws -> [PlainImportItem] {
+    private static func directImportItems(files: [URL],
+                                          vaultURL: URL,
+                                          sidecarURL: URL,
+                                          head: VaultHeader,
+                                          preparationProgress: ((Int, Int, String) -> Void)? = nil) throws -> [PlainImportItem] {
         let vaultPath = normalizedPath(vaultURL)
         let sidecarPath = normalizedPath(sidecarURL)
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
-        var bySource: [String: PlainImportItem] = [:]
-        var order = 0
+        var candidates: [(sourcePath: String, sourceURL: URL, nameHash: Data)] = []
+        var seenSources = Set<String>()
         for f in files {
             let sourcePath = normalizedPath(f)
             if sourcePath == vaultPath || sourcePath == sidecarPath || sourcePath.hasPrefix(sidecarPrefix) {
                 continue
             }
-            let plain = try Data(contentsOf: f)
+            if seenSources.contains(sourcePath) {
+                continue
+            }
             let name = (sourcePath as NSString).lastPathComponent
             let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
-            bySource[sourcePath] = PlainImportItem(path: sourcePath, plain: plain, nameHash: h, order: order)
-            order += 1
+            candidates.append((sourcePath: sourcePath, sourceURL: f, nameHash: h))
+            seenSources.insert(sourcePath)
         }
-        return bySource.values.sorted { $0.order < $1.order }
+
+        let total = candidates.count
+        var items: [PlainImportItem] = []
+        items.reserveCapacity(total)
+        for (index, candidate) in candidates.enumerated() {
+            let plain = try Data(contentsOf: candidate.sourceURL)
+            items.append(PlainImportItem(path: candidate.sourcePath,
+                                         plain: plain,
+                                         nameHash: candidate.nameHash,
+                                         order: index))
+            preparationProgress?(index + 1, total, candidate.sourcePath)
+        }
+        return items
     }
 }
 

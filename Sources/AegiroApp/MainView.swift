@@ -1631,6 +1631,44 @@ private struct USBEncryptionWorkspacePage: View {
         return model.usbDataEncryptionActive && target == mount
     }
 
+    private var hasVaultFileProgressForSelectedMount: Bool {
+        guard let mount = selectedMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines), !mount.isEmpty else {
+            return false
+        }
+        let target = model.usbDataEncryptionTargetMountPoint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard target == mount else { return false }
+        if model.usbDataEncryptionActive { return true }
+        if model.usbDataEncryptionTotalFiles > 0 { return true }
+        return !model.usbDataEncryptionProgressMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var vaultFileProgressDetail: String {
+        switch model.usbDataEncryptionStage {
+        case .scanning:
+            return "Scanning source files..."
+        case .preparing:
+            if model.usbDataEncryptionTotalFiles > 0 {
+                return "Preparing \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
+            }
+            return "Preparing file list..."
+        case .encrypting:
+            if model.usbDataEncryptionTotalFiles > 0 {
+                return "\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
+            }
+            return "Preparing file list..."
+        case .deletingOriginals:
+            if model.usbDataEncryptionTotalFiles > 0 {
+                return "Deleting originals: \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
+            }
+            return "Deleting original files..."
+        case .completed:
+            if model.usbDataEncryptionTotalFiles > 0 {
+                return "\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
+            }
+            return "Completed"
+        }
+    }
+
     private var selectedOptionButtonTitle: String {
         switch selectedOption {
         case .apfsDisk:
@@ -1718,14 +1756,7 @@ private struct USBEncryptionWorkspacePage: View {
                     selectedOptionFormCard
 
                     HStack {
-                        Button("Refresh Volumes") {
-                            model.refreshAPFSVolumeOptions()
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(model.apfsVolumeOptionsLoading)
-
                         Spacer()
-
                         Button(selectedOptionButtonTitle) {
                             runSelectedOption()
                         }
@@ -2000,14 +2031,11 @@ private struct USBEncryptionWorkspacePage: View {
                     .foregroundStyle(AegiroPalette.warningAmber)
             }
 
-            if isVaultFileEncryptingSelectedMount {
-                let detail = model.usbDataEncryptionTotalFiles > 0
-                    ? "\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
-                    : "Preparing file list..."
+            if hasVaultFileProgressForSelectedMount {
                 progressCard(title: "Vault-File Encryption Progress",
                              message: model.usbDataEncryptionProgressMessage,
                              fraction: model.usbDataEncryptionProgressFraction,
-                             detail: detail)
+                             detail: vaultFileProgressDetail)
             }
         }
     }

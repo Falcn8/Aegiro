@@ -47,6 +47,7 @@ public struct USBUserDataEncryptResult: Sendable {
 public struct USBUserDataEncryptProgress: Sendable {
     public enum Stage: String, Sendable {
         case scanning
+        case preparing
         case encrypting
         case deletingOriginals
         case completed
@@ -216,6 +217,12 @@ public enum USBUserDataCrypto {
             throw AEGError.io("Missing vault passphrase")
         }
 
+        progress?(USBUserDataEncryptProgress(stage: .preparing,
+                                             processedFileCount: 0,
+                                             totalFileCount: scan.scannedFileCount,
+                                             currentPath: nil,
+                                             message: "Preparing \(scan.scannedFileCount) user file(s) for encryption..."))
+
         try FileManager.default.createDirectory(at: normalizedVaultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let createdVault: Bool
         if FileManager.default.fileExists(atPath: normalizedVaultURL.path) {
@@ -228,14 +235,23 @@ public enum USBUserDataCrypto {
 
         let imported = try Importer.sidecarImport(vaultURL: normalizedVaultURL,
                                                   passphrase: trimmedPassphrase,
-                                                  files: scan.files) { importedCount, totalCount, path in
-            let name = URL(fileURLWithPath: path).lastPathComponent
-            progress?(USBUserDataEncryptProgress(stage: .encrypting,
-                                                 processedFileCount: importedCount,
-                                                 totalFileCount: totalCount,
-                                                 currentPath: path,
-                                                 message: "Encrypting \(importedCount)/\(totalCount): \(name)"))
-        }.imported
+                                                  files: scan.files,
+                                                  progress: { importedCount, totalCount, path in
+                                                      let name = URL(fileURLWithPath: path).lastPathComponent
+                                                      progress?(USBUserDataEncryptProgress(stage: .encrypting,
+                                                                                           processedFileCount: importedCount,
+                                                                                           totalFileCount: totalCount,
+                                                                                           currentPath: path,
+                                                                                           message: "Encrypting \(importedCount)/\(totalCount): \(name)"))
+                                                  },
+                                                  preparationProgress: { preparedCount, totalCount, path in
+                                                      let name = URL(fileURLWithPath: path).lastPathComponent
+                                                      progress?(USBUserDataEncryptProgress(stage: .preparing,
+                                                                                           processedFileCount: preparedCount,
+                                                                                           totalFileCount: totalCount,
+                                                                                           currentPath: path,
+                                                                                           message: "Preparing \(preparedCount)/\(totalCount): \(name)"))
+                                                  }).imported
 
         var deletedOriginalCount = 0
         var deletionErrors: [String] = []
