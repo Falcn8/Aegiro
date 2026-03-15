@@ -139,8 +139,10 @@ open -n dist/AegiroApp.app
 # Backup export
 .build/release/aegiro-cli backup --vault ~/AegiroVaults/alpha.agvt --out ~/Backups/alpha_2025-10-04.aegirobackup
 
-# Privacy scan + suggest moves
-.build/release/aegiro-cli scan --targets ~/Downloads ~/Desktop
+# Privacy scan (names + text content up to 2MB per file by default)
+.build/release/aegiro-cli scan ~/Downloads ~/Desktop
+# Names-only scan
+.build/release/aegiro-cli scan --names-only ~/Downloads ~/Desktop
 
 # Secure shred
 .build/release/aegiro-cli shred ~/Downloads/secret.zip

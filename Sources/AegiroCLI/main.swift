@@ -227,9 +227,31 @@ struct CLI {
             try Backup.exportBackup(from: v, to: URL(fileURLWithPath: NSString(string: o).expandingTildeInPath), passphrase: pass)
             print("Backup exported to \(o) (directory created; zip externally).")
         case "scan":
-            let paths = Array(args.dropFirst())
-            guard !paths.isEmpty else { hint("No paths provided to scan.", tip: "Use: scan <paths...>") }
-            let matches = PrivacyMonitor.scan(paths: paths.map { NSString(string: $0).expandingTildeInPath })
+            var includeContents = true
+            var maxFileBytes = 2_000_000
+            var paths: [String] = []
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--names-only":
+                    includeContents = false
+                case "--max-file-bytes":
+                    guard let raw = it.next(), let parsed = Int(raw), parsed > 0 else {
+                        hint("Invalid --max-file-bytes value.", tip: "Use: --max-file-bytes <positive-int>")
+                    }
+                    maxFileBytes = parsed
+                default:
+                    paths.append(a)
+                }
+            }
+            guard !paths.isEmpty else {
+                hint("No paths provided to scan.", tip: "Use: scan [--names-only] [--max-file-bytes <n>] <paths...>")
+            }
+            let options = PrivacyScanOptions(includeFileContents: includeContents, maxFileBytes: maxFileBytes)
+            let matches = PrivacyMonitor.scan(paths: paths.map { NSString(string: $0).expandingTildeInPath }, options: options)
+            if matches.isEmpty {
+                print("No privacy matches found.")
+            }
             for m in matches {
                 print("\(m.path)\t\(m.reason)")
             }
@@ -553,7 +575,7 @@ Usage:
   preview --vault <path> --passphrase "<pass>" <filter>
   doctor --vault <path> [--passphrase "<pass>"] [--fix]  (deep checks require passphrase)
   backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]
-  scan <paths...>
+  scan [--names-only] [--max-file-bytes <n>] <paths...>
   shred <paths...>
   apfs-volume-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
   apfs-volume-decrypt --disk <diskXsY> --recovery <path.json> --passphrase "<recovery-pass>" [--dry-run]

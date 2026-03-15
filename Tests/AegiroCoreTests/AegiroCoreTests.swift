@@ -25,9 +25,40 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(set.count, 10000)
     }
 
-    func testPrivacyScan() {
-        let matches = PrivacyMonitor.scan(paths: ["/tmp/passport_scan.pdf"])
-        XCTAssert(matches.count >= 0)
+    func testPrivacyScanDetectsNameAndContentPatterns() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-scan-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let passportNamedFile = tmp.appendingPathComponent("passport_photo.jpg")
+        let contentFile = tmp.appendingPathComponent("notes.txt")
+
+        try Data("image".utf8).write(to: passportNamedFile)
+        try Data("Contact: jane@example.com SSN: 123-45-6789".utf8).write(to: contentFile)
+
+        let matches = PrivacyMonitor.scan(paths: [tmp.path])
+        let reasons = Set(matches.map {
+            "\(URL(fileURLWithPath: $0.path).standardizedFileURL.path)|\($0.reason)"
+        })
+        let expectedPassportPath = passportNamedFile.standardizedFileURL.path
+        let expectedContentPath = contentFile.standardizedFileURL.path
+
+        XCTAssertTrue(reasons.contains("\(expectedPassportPath)|name:passport"))
+        XCTAssertTrue(reasons.contains("\(expectedContentPath)|content:ssn-pattern"))
+        XCTAssertTrue(reasons.contains("\(expectedContentPath)|content:email-pattern"))
+    }
+
+    func testPrivacyScanNamesOnlySkipsContentChecks() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-scan-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let contentFile = tmp.appendingPathComponent("report.txt")
+        try Data("Card: 4111 1111 1111 1111".utf8).write(to: contentFile)
+
+        let options = PrivacyScanOptions(includeFileContents: false)
+        let matches = PrivacyMonitor.scan(paths: [contentFile.path], options: options)
+        XCTAssertTrue(matches.isEmpty)
     }
 
     func testImportPreservesExistingEntriesAcrossCycles() throws {
