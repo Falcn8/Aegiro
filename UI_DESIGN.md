@@ -77,6 +77,9 @@ Main window uses a three-zone shell:
 - Disk encryption sheet uses a two-step flow (select external volume, then details) with a Continue action.
 - Non-APFS encryption now shows live file progress (`processed / total`) while encrypting user data.
 - APFS encryption progress remains volume/block-level from `diskutil` (percent + status message), because file-level counts are not exposed.
+- Added a dedicated **USB Encryption** workspace page inside the main content area.
+- The USB page has one volume picker for APFS and non-APFS USB volumes, then a format-aware encryption option selector with "Recommended" badges.
+- Users can run APFS volume encryption and vault-file encryption directly on that page (plus quick access to the USB Container tool).
 - Added an **Operations** sidebar card with app UI entry points for:
   - USB container workflows (`usb-container-create`, `usb-container-open`, `usb-container-close`)
   - Vault backup (`backup`)
