@@ -32,7 +32,7 @@ bash scripts/build-real.sh
 ## What’s here
 
 - **AegiroCore** (Swift library): Vault header/index/manifest per spec, chunked AES-256-GCM I/O, nonce scheme, wrappers for KDF & PQC, secure preview temp policy, shredder, privacy monitor, “secure lock” scriptables, zero-telemetry guard.
-- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `delete`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`, `disk-encrypt`, `disk-unlock`.
+- **AegiroCLI** (Swift exec): End-to-end CLI: `create`, `import`, `delete`, `lock`, `unlock`, `list`, `export`, `preview`, `doctor`, `backup`, `verify`, `status`, `scan`, `shred`, `disk-encrypt`, `disk-unlock`, `usb-container-*`, `usb-data-encrypt`.
 - **AegiroApp** (SwiftUI stubs): First-run flow, main UI, menubar helper, Settings — wired to core APIs (dev-mode). XPC/LaunchAgent stubs included.
 - **Entitlements & Hardened Runtime**: prefilled.
 - **Tests**: Acceptance checks (some are integration stubs pending REAL_CRYPTO).
@@ -162,6 +162,10 @@ open -n dist/AegiroApp.app
 .build/release/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<recovery-pass>" --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json
 .build/release/aegiro-cli usb-container-mount --image /Volumes/MyUSB/aegiro-portable.sparsebundle --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json --passphrase "<recovery-pass>"
 .build/release/aegiro-cli usb-container-unmount --target "/Volumes/AegiroUSB"
+
+# Non-APFS USB user-data flow into .agvt vault file
+.build/release/aegiro-cli usb-data-encrypt --source /Volumes/MyUSB --vault /Volumes/MyUSB/data.agvt --passphrase "<vault-pass>"
+.build/release/aegiro-cli usb-data-encrypt --source /Volumes/MyUSB --vault /Volumes/MyUSB/data.agvt --dry-run
 ```
 
 Example text output:
@@ -227,9 +231,10 @@ Diagram view (including before/after drive file trees) is in **[USB_ENCRYPTION_D
 - This is the safe path for non-APFS USB formats (for example, exFAT): you keep the host filesystem and store an encrypted APFS container file on it.
 - Unlike `disk-encrypt`, this does not encrypt the physical USB block device in place.
 
-## Non-APFS USB User-Data Encryption (App UI)
+## Non-APFS USB User-Data Encryption (App + CLI)
 
-- App sidebar now includes **Encrypt USB Data** for mounted non-APFS volumes.
+- App sidebar includes **Encrypt USB Data** for mounted non-APFS volumes.
+- CLI equivalent: `usb-data-encrypt --source <folder> --vault <path.agvt> [--passphrase "<pass>"] [--dry-run] [--delete-originals]`.
 - It encrypts user files into a `.agvt` vault file on the same USB without reformatting the drive.
 - Known volume/system metadata paths are skipped by default (for example: `.Spotlight-V100`, `.fseventsd`, `.Trashes`, `.DS_Store`, `System Volume Information`).
 - Optional: delete original files after successful encryption.

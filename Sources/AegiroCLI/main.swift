@@ -475,6 +475,63 @@ struct CLI {
             } else {
                 print("Unmounted \(t).")
             }
+        case "usb-data-encrypt":
+            var source: String?
+            var vault: String?
+            var passphrase: String = ""
+            var dryRun = false
+            var deleteOriginals = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--source": source = it.next()
+                case "--vault": vault = it.next()
+                case "--passphrase": passphrase = it.next() ?? ""
+                case "--dry-run": dryRun = true
+                case "--delete-originals": deleteOriginals = true
+                default: break
+                }
+            }
+            guard let source, let vault else {
+                hint("Missing required options for usb-data-encrypt.", tip: "Use: usb-data-encrypt --source <folder> --vault <path.agvt> [--passphrase \"<pass>\"] [--dry-run] [--delete-originals]")
+            }
+            if !dryRun && passphrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                hint("Missing passphrase for usb-data-encrypt.", tip: "Use --passphrase for encryption mode, or --dry-run for scan-only.")
+            }
+            if dryRun && deleteOriginals {
+                hint("--delete-originals cannot be used with --dry-run.", tip: "Remove --delete-originals or run without --dry-run.")
+            }
+
+            let sourceURL = URL(fileURLWithPath: NSString(string: source).expandingTildeInPath, isDirectory: true).standardizedFileURL
+            let vaultURL = URL(fileURLWithPath: NSString(string: vault).expandingTildeInPath).standardizedFileURL
+            let pass = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: sourceURL,
+                                                                vaultURL: vaultURL,
+                                                                passphrase: pass,
+                                                                deleteOriginals: deleteOriginals,
+                                                                dryRun: dryRun) { progress in
+                let stage = progress.stage.rawValue
+                print("[\(stage)] \(progress.message)")
+            }
+
+            if result.dryRun {
+                print("Scan complete: \(result.scannedFileCount) user file(s), \(result.skippedPathCount) skipped system path(s).")
+            } else {
+                print("Encrypted \(result.encryptedFileCount) user file(s) into \(result.vaultURL.path).")
+                if result.createdVault {
+                    print("Created vault file: \(result.vaultURL.path)")
+                }
+                if deleteOriginals {
+                    print("Deleted \(result.deletedOriginalCount) original file(s).")
+                    if !result.deletionErrors.isEmpty {
+                        print("Deletion errors:")
+                        for error in result.deletionErrors {
+                            print("- \(error)")
+                        }
+                    }
+                }
+            }
         default:
             hint("Unknown command: \(cmd)", tip: "Run --help to see available commands.")
         }
@@ -503,6 +560,7 @@ Usage:
   usb-container-create --image <path.sparsebundle> --size <size> --passphrase "<recovery-pass>" [--recovery <path.json>] [--name "<volume>"] [--container-passphrase "<pass>"] [--dry-run] [--force]
   usb-container-mount --image <path.sparsebundle> --passphrase "<recovery-pass>" [--recovery <path.json>] [--container-passphrase "<pass>"] [--dry-run]
   usb-container-unmount --target <mount-point|diskX> [--force] [--dry-run]
+  usb-data-encrypt --source <folder> --vault <path.agvt> [--passphrase "<pass>"] [--dry-run] [--delete-originals]
   verify --vault <path>                    Verify manifest signature
   status --vault <path> [--passphrase "<pass>"] [--json]
 
