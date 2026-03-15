@@ -110,6 +110,8 @@ Jump between project markdown pages:
 - [USB Encryption Schematics](USB_ENCRYPTION_SCHEMATICS.md)
 - [USB Encryption Diagrams](USB_ENCRYPTION_DIAGRAMS.md)
 - [App UI Design](UI_DESIGN.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Contributor CLA](CLA.md)
 - [Agent Workflow Rules](AGENTS.md)
 
 ---
