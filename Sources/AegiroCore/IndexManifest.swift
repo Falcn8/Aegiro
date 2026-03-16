@@ -68,22 +68,59 @@ public struct ManifestBuilder {
 }
 
 public enum ManifestIO {
+    private static func readExactBytes(from handle: FileHandle, offset: UInt64, count: Int) throws -> Data {
+        try handle.seek(toOffset: offset)
+        guard let data = try handle.read(upToCount: count), data.count == count else {
+            throw NSError(domain: "ManifestIO", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unexpected end of vault while loading manifest"])
+        }
+        return data
+    }
+
+    private static func readUInt32LE(from handle: FileHandle, offset: UInt64) throws -> UInt32 {
+        let data = try readExactBytes(from: handle, offset: offset, count: 4)
+        return data.withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+    }
+
     public static func load(from vaultURL: URL) throws -> Manifest {
-        let data = try Data(contentsOf: vaultURL)
-        let (head, hdrLen) = try parseHeaderAndOffset(data)
-        // leverage Vault.swift layout helper by duplicating minimal offsets logic here
-        var cursor = hdrLen
+        let handle = try FileHandle(forReadingFrom: vaultURL)
+        defer { try? handle.close() }
+
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: vaultURL.path)[.size] as? NSNumber)?.uint64Value ?? 0
+        guard fileSize > 12 else {
+            throw NSError(domain: "ManifestIO", code: -2, userInfo: [NSLocalizedDescriptionKey: "Vault file is too small"])
+        }
+
+        let probeSizes: [Int] = [8 * 1024, 64 * 1024, 512 * 1024, 2 * 1024 * 1024]
+        var parsedHeader: (VaultHeader, Int)?
+        for size in probeSizes {
+            let readCount = Int(min(UInt64(size), fileSize))
+            guard readCount > 0 else { break }
+            let prefix = try readExactBytes(from: handle, offset: 0, count: readCount)
+            if let result = try? parseHeaderAndOffset(prefix) {
+                parsedHeader = result
+                break
+            }
+            if UInt64(readCount) >= fileSize {
+                break
+            }
+        }
+
+        guard let (_, hdrLen) = parsedHeader else {
+            throw NSError(domain: "ManifestIO", code: -3, userInfo: [NSLocalizedDescriptionKey: "Could not parse vault header"])
+        }
+
+        var cursor = UInt64(hdrLen)
         cursor += 60
-        let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        cursor += 4 + Int(ctLen)
+        let ctLen = UInt64(try readUInt32LE(from: handle, offset: cursor))
+        cursor += 4 + ctLen
         cursor += 60
-        let signerLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        cursor += 4 + Int(signerLen)
-        let idxLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        cursor += 4 + Int(idxLen)
-        let manLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+        let signerLen = UInt64(try readUInt32LE(from: handle, offset: cursor))
+        cursor += 4 + signerLen
+        let idxLen = UInt64(try readUInt32LE(from: handle, offset: cursor))
+        cursor += 4 + idxLen
+        let manLen = Int(try readUInt32LE(from: handle, offset: cursor))
         cursor += 4
-        let manBlob = data.subdata(in: cursor..<(cursor + Int(manLen)))
+        let manBlob = try readExactBytes(from: handle, offset: cursor, count: manLen)
         return try JSONDecoder().decode(Manifest.self, from: manBlob)
     }
 }
