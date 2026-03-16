@@ -644,9 +644,8 @@ final class VaultModel: ObservableObject {
         }
     }
 
-    func loadNextVaultEntriesPageIfNeeded(afterEntryID entryID: String) {
+    func loadNextVaultEntriesPageIfNeeded() {
         guard !locked, !passphrase.isEmpty, !vaultEntriesLoading, !vaultEntriesPageLoading, vaultEntriesHasMore else { return }
-        guard let lastID = entries.last?.id, lastID == entryID else { return }
         loadNextVaultEntriesPage(continueUntilComplete: false)
     }
 

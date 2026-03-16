@@ -1481,7 +1481,8 @@ struct MainView: View {
             model.loadRemainingVaultEntriesInBackground()
             return
         }
-        model.loadNextVaultEntriesPageIfNeeded(afterEntryID: entry.id)
+        guard filteredEntries.last?.id == entry.id else { return }
+        model.loadNextVaultEntriesPageIfNeeded()
     }
 
     private func scheduleFilteredEntriesRebuild(debounce: Bool = false) {
