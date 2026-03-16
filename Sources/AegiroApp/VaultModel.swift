@@ -69,6 +69,10 @@ final class VaultModel: ObservableObject {
     private var usbDataEncryptionCancellationFlag: USBDataEncryptionCancellationFlag?
     private var usbDataEncryptionLogSequence: Int = 0
     private var entriesLoadGeneration: Int = 0
+    private var cachedEntriesRevisionKey: String?
+    private var cachedEntries: [VaultIndexEntry] = []
+    private var cachedStatusRevisionKey: String?
+    private var cachedStatusInfo: VaultStatusInfo?
 
     init() {
         let defaults = UserDefaults.standard
@@ -87,6 +91,7 @@ final class VaultModel: ObservableObject {
             let v = try AegiroVault.create(at: url, passphrase: passphrase, touchID: false)
             self.vaultURL = v.url
             self.passphrase = passphrase
+            self.locked = false
             self.status = "Vault created"
             UserDefaults.standard.set(v.url.path, forKey: "lastVaultPath")
             UserDefaults.standard.set(true, forKey: "onboardingCompleted")
@@ -100,6 +105,10 @@ final class VaultModel: ObservableObject {
         do {
             _ = try AegiroVault.open(at: url)
             self.vaultURL = url
+            self.passphrase = ""
+            self.locked = true
+            self.entries = []
+            self.vaultFileCount = nil
             UserDefaults.standard.set(url.path, forKey: "lastVaultPath")
             UserDefaults.standard.set(true, forKey: "onboardingCompleted")
             self.status = "Vault loaded"
@@ -113,15 +122,27 @@ final class VaultModel: ObservableObject {
         touchActivity()
         guard let url = vaultURL else { return }
         do {
-            let info = try VaultStatus.get(vaultURL: url, passphrase: passphrase.isEmpty ? nil : passphrase)
-            self.locked = info.locked
-            self.vaultFileCount = info.entries
+            let statusRevisionKey = makeStatusRevisionKey(vaultURL: url)
+            let info: VaultStatusInfo
+            if let statusRevisionKey,
+               cachedStatusRevisionKey == statusRevisionKey,
+               let cachedStatusInfo {
+                info = cachedStatusInfo
+            } else {
+                info = try VaultStatus.get(vaultURL: url, passphrase: nil)
+                cachedStatusInfo = info
+                cachedStatusRevisionKey = statusRevisionKey
+            }
+            if passphrase.isEmpty {
+                self.locked = true
+            }
             self.vaultSizeBytes = info.vaultSizeBytes
             self.vaultLastEdited = info.vaultLastModified
             self.sidecarPending = info.sidecarPending
             self.manifestOK = info.manifestOK
-            if !info.locked, !passphrase.isEmpty {
-                requestVaultEntriesRefresh(vaultURL: url, passphrase: passphrase)
+            if !self.locked, !passphrase.isEmpty {
+                let revisionKey = makeEntriesRevisionKey(vaultURL: url, vaultLastModified: info.vaultLastModified)
+                requestVaultEntriesRefresh(vaultURL: url, passphrase: passphrase, revisionKey: revisionKey)
                 if autoLockDeadline == nil {
                     resetAutoLockDeadline()
                 } else {
@@ -130,11 +151,14 @@ final class VaultModel: ObservableObject {
             } else {
                 invalidateVaultEntriesRefresh()
                 self.entries = []
+                self.vaultFileCount = nil
                 autoLockDeadline = nil
                 autoLockRemaining = 0
             }
         } catch {
             invalidateVaultEntriesRefresh()
+            cachedStatusInfo = nil
+            cachedStatusRevisionKey = nil
             self.status = "Status failed: \(error)"
         }
     }
@@ -496,10 +520,48 @@ final class VaultModel: ObservableObject {
         vaultEntriesLoading = false
     }
 
-    private func requestVaultEntriesRefresh(vaultURL: URL, passphrase: String) {
+    private func makeEntriesRevisionKey(vaultURL: URL, vaultLastModified: Date?) -> String {
+        let modifiedEpoch = vaultLastModified?.timeIntervalSince1970 ?? 0
+        return "\(vaultURL.standardizedFileURL.path)|\(modifiedEpoch)"
+    }
+
+    private func makeStatusRevisionKey(vaultURL: URL) -> String? {
+        let fm = FileManager.default
         let normalizedVaultURL = vaultURL.standardizedFileURL
+        guard let vaultAttrs = try? fm.attributesOfItem(atPath: normalizedVaultURL.path) else {
+            return nil
+        }
+        let vaultSize = (vaultAttrs[.size] as? NSNumber)?.uint64Value ?? 0
+        let vaultMod = (vaultAttrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+
+        let sidecarIndexURL = normalizedVaultURL
+            .deletingPathExtension()
+            .appendingPathExtension("aegirofiles")
+            .appendingPathComponent("index.json")
+        let sidecarStamp: String
+        if let sidecarAttrs = try? fm.attributesOfItem(atPath: sidecarIndexURL.path) {
+            let sidecarSize = (sidecarAttrs[.size] as? NSNumber)?.uint64Value ?? 0
+            let sidecarMod = (sidecarAttrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+            sidecarStamp = "\(sidecarSize)|\(sidecarMod)"
+        } else {
+            sidecarStamp = "none"
+        }
+
+        return "\(normalizedVaultURL.path)|\(vaultSize)|\(vaultMod)|\(sidecarStamp)"
+    }
+
+    private func requestVaultEntriesRefresh(vaultURL: URL, passphrase: String, revisionKey: String) {
         entriesLoadGeneration += 1
         let generation = entriesLoadGeneration
+
+        if cachedEntriesRevisionKey == revisionKey {
+            entries = cachedEntries
+            vaultFileCount = cachedEntries.count
+            vaultEntriesLoading = false
+            return
+        }
+
+        let normalizedVaultURL = vaultURL.standardizedFileURL
         vaultEntriesLoading = true
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -515,8 +577,12 @@ final class VaultModel: ObservableObject {
                 switch result {
                 case .success(let loaded):
                     self.entries = loaded
+                    self.vaultFileCount = loaded.count
+                    self.cachedEntries = loaded
+                    self.cachedEntriesRevisionKey = revisionKey
                 case .failure(let error):
                     self.entries = []
+                    self.vaultFileCount = nil
                     self.status = "List failed: \(error)"
                 }
             }
