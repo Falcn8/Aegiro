@@ -729,13 +729,57 @@ public enum Locker {
 }
 
 public enum Exporter {
+    private struct ListCacheEntry {
+        let entries: [VaultIndexEntry]
+        let insertedAt: Date
+    }
+
+    private static let listCacheLimit = 4
+    private static let listCacheLock = NSLock()
+    private static var listCache: [String: ListCacheEntry] = [:]
+    private static var listCacheOrder: [String] = []
+
     static func deriveDEK(data: Data, passphrase: String) throws -> SymmetricKey {
         let (head, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
         return try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
     }
 
-    public static func list(vaultURL: URL, passphrase: String) throws -> [VaultIndexEntry] {
+    private static func listCacheKey(vaultURL: URL, passphrase: String) -> String? {
+        let normalizedVaultURL = vaultURL.standardizedFileURL
+        let attrs = try? FileManager.default.attributesOfItem(atPath: normalizedVaultURL.path)
+        let mod = (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let size = (attrs?[.size] as? NSNumber)?.uint64Value ?? 0
+        let passHash = SHA256.hash(data: Data(passphrase.utf8)).map { String(format: "%02x", $0) }.joined()
+        return "\(normalizedVaultURL.path)|\(size)|\(mod)|\(passHash)"
+    }
+
+    private static func cachedEntries(for key: String) -> [VaultIndexEntry]? {
+        listCacheLock.lock()
+        defer { listCacheLock.unlock() }
+        guard let cached = listCache[key] else { return nil }
+        if let orderIndex = listCacheOrder.firstIndex(of: key) {
+            listCacheOrder.remove(at: orderIndex)
+        }
+        listCacheOrder.append(key)
+        return cached.entries
+    }
+
+    private static func cacheEntries(_ entries: [VaultIndexEntry], for key: String) {
+        listCacheLock.lock()
+        defer { listCacheLock.unlock() }
+        listCache[key] = ListCacheEntry(entries: entries, insertedAt: Date())
+        if let orderIndex = listCacheOrder.firstIndex(of: key) {
+            listCacheOrder.remove(at: orderIndex)
+        }
+        listCacheOrder.append(key)
+        while listCacheOrder.count > listCacheLimit {
+            let evicted = listCacheOrder.removeFirst()
+            listCache.removeValue(forKey: evicted)
+        }
+    }
+
+    private static func loadAllEntries(vaultURL: URL, passphrase: String) throws -> [VaultIndexEntry] {
         let data = try Data(contentsOf: vaultURL)
         let (_, hdrLen) = try parseHeaderAndOffset(data)
         let layout = computeLayout(data, afterHeader: hdrLen)
@@ -744,6 +788,33 @@ public enum Exporter {
         let idxBlob = data.subdata(in: layout.idxRange)
         let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
         return index.entries
+    }
+
+    public static func list(vaultURL: URL, passphrase: String) throws -> [VaultIndexEntry] {
+        if let key = listCacheKey(vaultURL: vaultURL, passphrase: passphrase),
+           let cached = cachedEntries(for: key) {
+            return cached
+        }
+        let entries = try loadAllEntries(vaultURL: vaultURL, passphrase: passphrase)
+        if let key = listCacheKey(vaultURL: vaultURL, passphrase: passphrase) {
+            cacheEntries(entries, for: key)
+        }
+        return entries
+    }
+
+    public static func listPage(vaultURL: URL,
+                                passphrase: String,
+                                offset: Int,
+                                limit: Int) throws -> VaultIndexPage {
+        let all = try list(vaultURL: vaultURL, passphrase: passphrase)
+        let safeOffset = max(0, offset)
+        let safeLimit = max(1, limit)
+        let start = min(safeOffset, all.count)
+        let end = min(all.count, start + safeLimit)
+        return VaultIndexPage(entries: Array(all[start..<end]),
+                              totalCount: all.count,
+                              nextOffset: end,
+                              hasMore: end < all.count)
     }
 
     public static func export(vaultURL: URL, passphrase: String, filters: [String], outDir: URL) throws -> [(String, URL, Int)] {

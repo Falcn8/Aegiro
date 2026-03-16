@@ -25,6 +25,13 @@ public struct VaultIndex: Codable {
     public var thumbnails: [String: Data] // nameHash(hex) -> small image data
 }
 
+public struct VaultIndexPage: Codable {
+    public var entries: [VaultIndexEntry]
+    public var totalCount: Int
+    public var nextOffset: Int
+    public var hasMore: Bool
+}
+
 public struct Manifest: Codable {
     public var indexRootHash: Data // SHA256(JSON of index)
     public var chunkMapHash: Data  // SHA256(concat of chunk ids & sizes)
