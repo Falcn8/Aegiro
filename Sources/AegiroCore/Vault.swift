@@ -141,28 +141,10 @@ public final class AegiroVault {
     }
 
     public static func open(at url: URL) throws -> AegiroVault {
-        let data = try Data(contentsOf: url)
-        let (head, hdrLen) = try parseHeaderAndOffset(data)
-        var cursor = hdrLen
-        cursor += 60 // pdk
-        let ctLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        cursor += 4
-        cursor += Int(ctLen)
-        cursor += 60 // pqWrap
-        let signerWrapLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        cursor += 4
-        cursor += Int(signerWrapLen)
-        let idxLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        cursor += 4
-        let idxBlob = data.subdata(in: cursor..<(cursor + Int(idxLen)))
-        cursor += Int(idxLen)
-        let manLen = data.subdata(in: cursor..<(cursor+4)).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
-        cursor += 4
-        let manBlob = data.subdata(in: cursor..<(cursor + Int(manLen)))
-
-        // Note: index is encrypted; we return stub index until unlocked with passphrase
-        let manifest = try JSONDecoder().decode(Manifest.self, from: manBlob)
-        let v = AegiroVault(url: url, header: head, index: VaultIndex(entries: [], thumbnails: [:]), manifest: manifest)
+        let components = try readVaultReadComponents(vaultURL: url, includeIndex: false, includeManifest: true)
+        // Note: index is encrypted; we return stub index until unlocked with passphrase.
+        let manifest = try JSONDecoder().decode(Manifest.self, from: components.manBlob)
+        let v = AegiroVault(url: url, header: components.header, index: VaultIndex(entries: [], thumbnails: [:]), manifest: manifest)
         return v
     }
 }
@@ -194,6 +176,97 @@ func parseHeaderAndOffset(_ data: Data) throws -> (VaultHeader, Int) {
         endIdx += 1
     }
     throw NSError(domain: "VaultHeader", code: -12)
+}
+
+private struct VaultReadComponents {
+    let header: VaultHeader
+    let pdkWrap: Data
+    let pqAccessBlob: Data
+    let pqWrap: Data
+    let idxBlob: Data
+    let manBlob: Data
+}
+
+private func readExactBytes(from handle: FileHandle, offset: UInt64, count: Int) throws -> Data {
+    guard count >= 0 else {
+        throw NSError(domain: "VaultRead", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid read length"])
+    }
+    try handle.seek(toOffset: offset)
+    guard let data = try handle.read(upToCount: count), data.count == count else {
+        throw NSError(domain: "VaultRead", code: -2, userInfo: [NSLocalizedDescriptionKey: "Unexpected end of file while reading vault"])
+    }
+    return data
+}
+
+private func readUInt32LE(from handle: FileHandle, offset: UInt64) throws -> UInt32 {
+    let data = try readExactBytes(from: handle, offset: offset, count: 4)
+    return data.withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
+}
+
+private func readVaultReadComponents(vaultURL: URL,
+                                     includeIndex: Bool,
+                                     includeManifest: Bool) throws -> VaultReadComponents {
+    let handle = try FileHandle(forReadingFrom: vaultURL)
+    defer { try? handle.close() }
+    let fileSize = (try? FileManager.default.attributesOfItem(atPath: vaultURL.path)[.size] as? NSNumber)?.uint64Value ?? 0
+    guard fileSize > 12 else {
+        throw NSError(domain: "VaultRead", code: -3, userInfo: [NSLocalizedDescriptionKey: "Vault file is too small"])
+    }
+
+    let probeSizes: [Int] = [8 * 1024, 64 * 1024, 512 * 1024, 2 * 1024 * 1024]
+    var parsedHeader: (VaultHeader, Int)?
+    for size in probeSizes {
+        let readCount = Int(min(UInt64(size), fileSize))
+        guard readCount > 0 else { break }
+        let prefix = try readExactBytes(from: handle, offset: 0, count: readCount)
+        if let result = try? parseHeaderAndOffset(prefix) {
+            parsedHeader = result
+            break
+        }
+        if UInt64(readCount) >= fileSize {
+            break
+        }
+    }
+
+    guard let (header, headerLen) = parsedHeader else {
+        throw NSError(domain: "VaultRead", code: -4, userInfo: [NSLocalizedDescriptionKey: "Could not parse vault header"])
+    }
+
+    var cursor = UInt64(headerLen)
+
+    let pdkWrap = try readExactBytes(from: handle, offset: cursor, count: 60)
+    cursor += 60
+
+    let pqCiphertextLength = Int(try readUInt32LE(from: handle, offset: cursor))
+    cursor += 4
+    let pqAccessBlob = try readExactBytes(from: handle, offset: cursor, count: pqCiphertextLength)
+    cursor += UInt64(pqCiphertextLength)
+
+    let pqWrap = try readExactBytes(from: handle, offset: cursor, count: 60)
+    cursor += 60
+
+    let signerWrapLength = Int(try readUInt32LE(from: handle, offset: cursor))
+    cursor += 4 + UInt64(signerWrapLength)
+
+    let idxLength = Int(try readUInt32LE(from: handle, offset: cursor))
+    cursor += 4
+    let idxBlob = includeIndex
+        ? try readExactBytes(from: handle, offset: cursor, count: idxLength)
+        : Data()
+    cursor += UInt64(idxLength)
+
+    let manifestLength = Int(try readUInt32LE(from: handle, offset: cursor))
+    cursor += 4
+    let manBlob = includeManifest
+        ? try readExactBytes(from: handle, offset: cursor, count: manifestLength)
+        : Data()
+
+    return VaultReadComponents(header: header,
+                               pdkWrap: pdkWrap,
+                               pqAccessBlob: pqAccessBlob,
+                               pqWrap: pqWrap,
+                               idxBlob: idxBlob,
+                               manBlob: manBlob)
 }
 
 private func normalizedPath(_ url: URL) -> String {
@@ -566,8 +639,22 @@ private func derivePassphraseKey(passphrase: String, salt: Data) throws -> Symme
 }
 
 private func unlockDEK(data: Data, head: VaultHeader, layout: VaultLayout, passphrase: String) throws -> SymmetricKey {
-    let pdk = try derivePassphraseKey(passphrase: passphrase, salt: head.kdf_salt)
     let pdkWrap = data.subdata(in: layout.pdkWrapRange)
+    let accessBlob = data.subdata(in: layout.pqCtRange)
+    let pqWrap = data.subdata(in: layout.pqWrapRange)
+    return try unlockDEK(head: head,
+                         pdkWrap: pdkWrap,
+                         pqAccessBlob: accessBlob,
+                         pqWrap: pqWrap,
+                         passphrase: passphrase)
+}
+
+private func unlockDEK(head: VaultHeader,
+                       pdkWrap: Data,
+                       pqAccessBlob: Data,
+                       pqWrap: Data,
+                       passphrase: String) throws -> SymmetricKey {
+    let pdk = try derivePassphraseKey(passphrase: passphrase, salt: head.kdf_salt)
     let pdkPlain = try AEAD.decrypt(key: pdk, nonce: try AES.GCM.Nonce(data: pdkWrap.prefix(12)), combined: pdkWrap, aad: vaultAAD)
 
     // Legacy vaults: DEK was wrapped directly under passphrase-derived key.
@@ -580,10 +667,9 @@ private func unlockDEK(data: Data, head: VaultHeader, layout: VaultLayout, passp
     }
     let accessKey = SymmetricKey(data: pdkPlain)
 
-    let accessBlob = data.subdata(in: layout.pqCtRange)
     let accessBundle: PQAccessBundleV1
     do {
-        accessBundle = try JSONDecoder().decode(PQAccessBundleV1.self, from: accessBlob)
+        accessBundle = try JSONDecoder().decode(PQAccessBundleV1.self, from: pqAccessBlob)
     } catch {
         throw AEGError.integrity("PQC access bundle decode failed: \(error)")
     }
@@ -602,7 +688,6 @@ private func unlockDEK(data: Data, head: VaultHeader, layout: VaultLayout, passp
     #endif
     let ss = try kem.decap(accessBundle.kemCiphertext, sk: kemSk)
     let pqKey = SymmetricKey(data: ss)
-    let pqWrap = data.subdata(in: layout.pqWrapRange)
     let dekRaw = try AEAD.decrypt(key: pqKey,
                                   nonce: try AES.GCM.Nonce(data: pqWrap.prefix(12)),
                                   combined: pqWrap,
@@ -670,14 +755,11 @@ private func inferUnlockMode(data: Data, head: VaultHeader, layout: VaultLayout,
 
 public enum Locker {
     public static func unlockInfo(vaultURL: URL, passphrase: String) throws -> Int {
-        let data = try Data(contentsOf: vaultURL)
-        let (head, hdrLen) = try parseHeaderAndOffset(data)
-        let layout = computeLayout(data, afterHeader: hdrLen)
-        let dek = try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
-        let aad = vaultAAD
-        let idxBlob = data.subdata(in: layout.idxRange)
-        let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
-        return index.entries.count
+        let firstPage = try Exporter.listPage(vaultURL: vaultURL,
+                                              passphrase: passphrase,
+                                              offset: 0,
+                                              limit: 1)
+        return firstPage.totalCount
     }
 
     public static func lockFromSidecar(vaultURL: URL, passphrase: String) throws -> Int {
@@ -780,13 +862,15 @@ public enum Exporter {
     }
 
     private static func loadAllEntries(vaultURL: URL, passphrase: String) throws -> [VaultIndexEntry] {
-        let data = try Data(contentsOf: vaultURL)
-        let (_, hdrLen) = try parseHeaderAndOffset(data)
-        let layout = computeLayout(data, afterHeader: hdrLen)
-        let dek = try deriveDEK(data: data, passphrase: passphrase)
-        let aad = vaultAAD
-        let idxBlob = data.subdata(in: layout.idxRange)
-        let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
+        let components = try readVaultReadComponents(vaultURL: vaultURL,
+                                                     includeIndex: true,
+                                                     includeManifest: false)
+        let dek = try unlockDEK(head: components.header,
+                                pdkWrap: components.pdkWrap,
+                                pqAccessBlob: components.pqAccessBlob,
+                                pqWrap: components.pqWrap,
+                                passphrase: passphrase)
+        let index = try IndexCrypto.decryptIndex(components.idxBlob, key: dek, aad: vaultAAD)
         return index.entries
     }
 
@@ -869,12 +953,14 @@ public struct VaultStatusInfo: Codable {
 
 public enum VaultStatus {
     public static func get(vaultURL: URL, passphrase: String?) throws -> VaultStatusInfo {
-        let data = try Data(contentsOf: vaultURL)
         let attrs = (try? FileManager.default.attributesOfItem(atPath: vaultURL.path)) ?? [:]
-        let vaultSizeBytes = (attrs[.size] as? NSNumber)?.uint64Value ?? UInt64(data.count)
+        let vaultSizeBytes = (attrs[.size] as? NSNumber)?.uint64Value ?? 0
         let vaultLastModified = attrs[.modificationDate] as? Date
-        let (head, hdrLen) = try parseHeaderAndOffset(data)
-        let layout = computeLayout(data, afterHeader: hdrLen)
+        let needIndex = !(passphrase?.isEmpty ?? true)
+        let components = try readVaultReadComponents(vaultURL: vaultURL,
+                                                     includeIndex: needIndex,
+                                                     includeManifest: true)
+        let head = components.header
 
         // Sidecar count
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
@@ -885,8 +971,7 @@ public enum VaultStatus {
         }
 
         // Manifest verify
-        let manBlob = data.subdata(in: layout.manRange)
-        let manifest = try JSONDecoder().decode(Manifest.self, from: manBlob)
+        let manifest = try JSONDecoder().decode(Manifest.self, from: components.manBlob)
         #if REAL_CRYPTO
         let sig = Dilithium2()
         #else
@@ -898,10 +983,12 @@ public enum VaultStatus {
         var entriesCount: Int? = nil
         var locked = true
         if let pass = passphrase, !pass.isEmpty {
-            if let dek = try? unlockDEK(data: data, head: head, layout: layout, passphrase: pass) {
-                let aad = vaultAAD
-                let idxBlob = data.subdata(in: layout.idxRange)
-                if let index = try? IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad) {
+            if let dek = try? unlockDEK(head: head,
+                                        pdkWrap: components.pdkWrap,
+                                        pqAccessBlob: components.pqAccessBlob,
+                                        pqWrap: components.pqWrap,
+                                        passphrase: pass) {
+                if let index = try? IndexCrypto.decryptIndex(components.idxBlob, key: dek, aad: vaultAAD) {
                     entriesCount = index.entries.count
                     locked = false
                 }
