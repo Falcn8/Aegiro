@@ -59,6 +59,8 @@ final class VaultModel: ObservableObject {
     @Published var usbDataEncryptionStage: USBUserDataEncryptProgress.Stage = .completed
     @Published var usbDataEncryptionLogs: [USBDataEncryptionLogEntry] = []
     @Published var vaultEntriesLoading: Bool = false
+    @Published var vaultEntriesPageLoading: Bool = false
+    @Published var vaultEntriesHasMore: Bool = false
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var diskEncryptionProgressTimer: Timer?
@@ -69,10 +71,11 @@ final class VaultModel: ObservableObject {
     private var usbDataEncryptionCancellationFlag: USBDataEncryptionCancellationFlag?
     private var usbDataEncryptionLogSequence: Int = 0
     private var entriesLoadGeneration: Int = 0
-    private var cachedEntriesRevisionKey: String?
-    private var cachedEntries: [VaultIndexEntry] = []
+    private var vaultEntriesActiveRevisionKey: String?
+    private var vaultEntriesNextOffset: Int = 0
     private var cachedStatusRevisionKey: String?
     private var cachedStatusInfo: VaultStatusInfo?
+    private let vaultEntriesPageSize: Int = 300
 
     init() {
         let defaults = UserDefaults.standard
@@ -109,6 +112,7 @@ final class VaultModel: ObservableObject {
             self.locked = true
             self.entries = []
             self.vaultFileCount = nil
+            self.vaultEntriesHasMore = false
             UserDefaults.standard.set(url.path, forKey: "lastVaultPath")
             UserDefaults.standard.set(true, forKey: "onboardingCompleted")
             self.status = "Vault loaded"
@@ -142,7 +146,9 @@ final class VaultModel: ObservableObject {
             self.manifestOK = info.manifestOK
             if !self.locked, !passphrase.isEmpty {
                 let revisionKey = makeEntriesRevisionKey(vaultURL: url, vaultLastModified: info.vaultLastModified)
-                requestVaultEntriesRefresh(vaultURL: url, passphrase: passphrase, revisionKey: revisionKey)
+                if vaultEntriesActiveRevisionKey != revisionKey || vaultFileCount == nil {
+                    requestVaultEntriesRefresh(vaultURL: url, passphrase: passphrase, revisionKey: revisionKey)
+                }
                 if autoLockDeadline == nil {
                     resetAutoLockDeadline()
                 } else {
@@ -152,6 +158,7 @@ final class VaultModel: ObservableObject {
                 invalidateVaultEntriesRefresh()
                 self.entries = []
                 self.vaultFileCount = nil
+                self.vaultEntriesHasMore = false
                 autoLockDeadline = nil
                 autoLockRemaining = 0
             }
@@ -518,6 +525,10 @@ final class VaultModel: ObservableObject {
     private func invalidateVaultEntriesRefresh() {
         entriesLoadGeneration += 1
         vaultEntriesLoading = false
+        vaultEntriesPageLoading = false
+        vaultEntriesHasMore = false
+        vaultEntriesNextOffset = 0
+        vaultEntriesActiveRevisionKey = nil
     }
 
     private func makeEntriesRevisionKey(vaultURL: URL, vaultLastModified: Date?) -> String {
@@ -553,19 +564,22 @@ final class VaultModel: ObservableObject {
     private func requestVaultEntriesRefresh(vaultURL: URL, passphrase: String, revisionKey: String) {
         entriesLoadGeneration += 1
         let generation = entriesLoadGeneration
-
-        if cachedEntriesRevisionKey == revisionKey {
-            entries = cachedEntries
-            vaultFileCount = cachedEntries.count
-            vaultEntriesLoading = false
-            return
-        }
-
         let normalizedVaultURL = vaultURL.standardizedFileURL
+        vaultEntriesActiveRevisionKey = revisionKey
+        vaultEntriesNextOffset = 0
+        vaultEntriesHasMore = false
         vaultEntriesLoading = true
+        vaultEntriesPageLoading = false
+        entries = []
+        vaultFileCount = nil
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = Result { try Exporter.list(vaultURL: normalizedVaultURL, passphrase: passphrase) }
+            let result = Result {
+                try Exporter.listPage(vaultURL: normalizedVaultURL,
+                                      passphrase: passphrase,
+                                      offset: 0,
+                                      limit: self?.vaultEntriesPageSize ?? 300)
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.entriesLoadGeneration == generation else { return }
@@ -575,15 +589,74 @@ final class VaultModel: ObservableObject {
                 guard !self.locked, self.passphrase == passphrase else { return }
 
                 switch result {
-                case .success(let loaded):
-                    self.entries = loaded
-                    self.vaultFileCount = loaded.count
-                    self.cachedEntries = loaded
-                    self.cachedEntriesRevisionKey = revisionKey
+                case .success(let page):
+                    self.entries = page.entries
+                    self.vaultFileCount = page.totalCount
+                    self.vaultEntriesNextOffset = page.nextOffset
+                    self.vaultEntriesHasMore = page.hasMore
                 case .failure(let error):
                     self.entries = []
                     self.vaultFileCount = nil
+                    self.vaultEntriesHasMore = false
                     self.status = "List failed: \(error)"
+                }
+            }
+        }
+    }
+
+    func loadNextVaultEntriesPageIfNeeded(afterEntryID entryID: String) {
+        guard !locked, !passphrase.isEmpty, !vaultEntriesLoading, !vaultEntriesPageLoading, vaultEntriesHasMore else { return }
+        guard let lastID = entries.last?.id, lastID == entryID else { return }
+        loadNextVaultEntriesPage(continueUntilComplete: false)
+    }
+
+    func loadRemainingVaultEntriesInBackground() {
+        guard !locked, !passphrase.isEmpty, !vaultEntriesLoading, vaultEntriesHasMore else { return }
+        loadNextVaultEntriesPage(continueUntilComplete: true)
+    }
+
+    private func loadNextVaultEntriesPage(continueUntilComplete: Bool) {
+        guard !vaultEntriesPageLoading else { return }
+        guard let vaultURL, let revisionKey = vaultEntriesActiveRevisionKey else { return }
+        let normalizedVaultURL = vaultURL.standardizedFileURL
+        let generation = entriesLoadGeneration
+        let offset = vaultEntriesNextOffset
+        let pass = passphrase
+
+        vaultEntriesPageLoading = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result {
+                try Exporter.listPage(vaultURL: normalizedVaultURL,
+                                      passphrase: pass,
+                                      offset: offset,
+                                      limit: self?.vaultEntriesPageSize ?? 300)
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.entriesLoadGeneration == generation else { return }
+                self.vaultEntriesPageLoading = false
+
+                guard self.vaultURL?.standardizedFileURL.path == normalizedVaultURL.path else { return }
+                guard !self.locked, self.passphrase == pass else { return }
+                guard self.vaultEntriesActiveRevisionKey == revisionKey else { return }
+
+                switch result {
+                case .success(let page):
+                    if page.entries.isEmpty {
+                        self.vaultEntriesHasMore = false
+                        self.vaultEntriesNextOffset = page.nextOffset
+                        return
+                    }
+                    self.entries.append(contentsOf: page.entries)
+                    self.vaultFileCount = page.totalCount
+                    self.vaultEntriesNextOffset = page.nextOffset
+                    self.vaultEntriesHasMore = page.hasMore
+                    if continueUntilComplete && page.hasMore {
+                        self.loadNextVaultEntriesPage(continueUntilComplete: true)
+                    }
+                case .failure(let error):
+                    self.vaultEntriesHasMore = false
+                    self.status = "List page failed: \(error)"
                 }
             }
         }

@@ -236,6 +236,10 @@ struct MainView: View {
         }
         .onChange(of: searchText) { _ in
             scheduleFilteredEntriesRebuild(debounce: true)
+            let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                model.loadRemainingVaultEntriesInBackground()
+            }
         }
         .onChange(of: sortOption) { _ in
             scheduleFilteredEntriesRebuild()
@@ -746,6 +750,9 @@ struct MainView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredEntries) { entry in
                             listRow(entry)
+                                .onAppear {
+                                    triggerVaultPagination(after: entry)
+                                }
                                 .background(
                                     GeometryReader { proxy in
                                         Color.clear.preference(
@@ -755,6 +762,10 @@ struct MainView: View {
                                     }
                                 )
                         }
+                    }
+                    if model.vaultEntriesPageLoading {
+                        paginationProgressFooter
+                            .padding(.top, 8)
                     }
                 }
                 .padding(12)
@@ -832,6 +843,9 @@ struct MainView: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu { rowMenu(entry: entry) }
+                        .onAppear {
+                            triggerVaultPagination(after: entry)
+                        }
                         .background(
                             GeometryReader { proxy in
                                 Color.clear.preference(
@@ -843,6 +857,11 @@ struct MainView: View {
                     }
                 }
                 .padding(12)
+                if model.vaultEntriesPageLoading {
+                    paginationProgressFooter
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 12)
+                }
             }
 
             if let gridSelectionRect {
@@ -1441,6 +1460,28 @@ struct MainView: View {
             let result = sortOption.compare(lhs, rhs)
             return sortAscending ? result : !result
         }
+    }
+
+    private var paginationProgressFooter: some View {
+        HStack(spacing: 8) {
+            Spacer()
+            ProgressView()
+                .controlSize(.small)
+            Text("Loading more files...")
+                .font(AegiroTypography.body(11, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+            Spacer()
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func triggerVaultPagination(after entry: VaultIndexEntry) {
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            model.loadRemainingVaultEntriesInBackground()
+            return
+        }
+        model.loadNextVaultEntriesPageIfNeeded(afterEntryID: entry.id)
     }
 
     private func scheduleFilteredEntriesRebuild(debounce: Bool = false) {

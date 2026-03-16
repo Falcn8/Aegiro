@@ -58,6 +58,7 @@ Main window uses a three-zone shell:
 - No-vault empty state includes quick actions for Open Existing, Create Vault, and USB Encryption.
 - File list and grid modes.
 - Large vault unlock/load shows a dedicated loading state while the file list is resolved asynchronously.
+- Vault file lists stream in paged chunks (with "load more" prefetch while scrolling) for large-vault responsiveness.
 - Finder-style selection behavior:
   - Single click selects one file.
   - Clicking the same selected item again deselects it.
@@ -101,6 +102,7 @@ Main window uses a three-zone shell:
 - Locked state blocks file operations and shows clear unlock call-to-action.
 - Search filters by name, path, mime/type, and tags.
 - Search/sort projection is rebuilt asynchronously (with a short search debounce) to keep large-vault UI interactions responsive.
+- When search text is active, remaining pages are prefetched so search covers the full vault.
 - Drag-and-drop imports only when vault is unlocked.
 - Toast status feedback appears for key operations.
 - Each command-parity sheet keeps output visible in a copyable, monospaced area.
