@@ -2425,33 +2425,18 @@ private struct USBEncryptionWorkspacePage: View {
                     Text("1. Click \"Open Created Vault\" below.")
                         .font(AegiroTypography.body(11, weight: .regular))
                         .foregroundStyle(AegiroPalette.textSecondary)
-                    Text("2. Unlock with the passphrase you used for encryption.")
+                    Text("2. Unlock the vault in the app using the same passphrase you used for encryption.")
                         .font(AegiroTypography.body(11, weight: .regular))
                         .foregroundStyle(AegiroPalette.textSecondary)
-                    Text("3. Use Export in the vault page to decrypt files to a folder.")
+                    Text("3. In the vault page, select the files you want to recover.")
                         .font(AegiroTypography.body(11, weight: .regular))
                         .foregroundStyle(AegiroPalette.textSecondary)
-                    Text("CLI example:")
-                        .font(AegiroTypography.body(11, weight: .semibold))
-                        .foregroundStyle(AegiroPalette.textPrimary)
-                    Text(vaultPackSuccessCLIExample)
-                        .font(AegiroTypography.mono(11, weight: .regular))
-                        .foregroundStyle(AegiroPalette.textPrimary)
-                        .textSelection(.enabled)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(AegiroPalette.backgroundMain.opacity(0.9))
-                        )
-                    HStack {
-                        Spacer()
-                        Button("Copy CLI Command") {
-                            copyToClipboard(vaultPackSuccessCLIExample)
-                            model.status = "Copied decrypt/export CLI command."
-                        }
-                        .buttonStyle(.bordered)
-                    }
+                    Text("4. Click \"Export Selected\" and choose an output folder.")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                    Text("5. If you close this screen, use \"Open Existing\" in the app and select this vault file to reopen it.")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
                 }
                 .padding(10)
                 .background(
@@ -2499,12 +2484,6 @@ private struct USBEncryptionWorkspacePage: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
         )
-    }
-
-    private var vaultPackSuccessCLIExample: String {
-        guard let success = vaultPackSuccessState else { return "" }
-        let vaultPath = success.result.vaultURL.path.replacingOccurrences(of: "\"", with: "\\\"")
-        return "aegiro-cli export --vault \"\(vaultPath)\" --passphrase \"<your-passphrase>\" --out \"<output-folder>\""
     }
 
     private var usbEncryptionDebugLogCard: some View {
