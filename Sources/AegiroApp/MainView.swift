@@ -1629,6 +1629,14 @@ private struct USBEncryptionWorkspacePage: View {
         case selectOption
         case configureOption
         case progress
+        case success
+    }
+
+    private struct VaultPackSuccessState {
+        let result: USBUserDataEncryptResult
+        let sourceRootPath: String
+        let mountPoint: String
+        let completedAt: Date
     }
 
     @EnvironmentObject private var model: VaultModel
@@ -1653,6 +1661,7 @@ private struct USBEncryptionWorkspacePage: View {
     @State private var vaultPackExcludedPaths: [String] = []
     @State private var lastSuggestedSourcePath = ""
     @State private var lastSuggestedVaultPath = ""
+    @State private var vaultPackSuccessState: VaultPackSuccessState?
 
     var onBackToVault: () -> Void
     var onOpenUSBContainer: () -> Void
@@ -1712,22 +1721,21 @@ private struct USBEncryptionWorkspacePage: View {
 
     private var vaultFileProgressDetail: String {
         switch model.usbDataEncryptionStage {
-        case .scanning, .preparing:
-            if model.usbDataEncryptionTotalFiles > 0 {
-                if model.usbDataEncryptionProcessedFiles > 0 {
-                    return "Analyzing \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
-                }
-                return "Analyzing \(model.usbDataEncryptionTotalFiles) files"
-            }
+        case .scanning:
             if model.usbDataEncryptionProcessedFiles > 0 {
-                return "Analyzing... found \(model.usbDataEncryptionProcessedFiles) file(s)"
+                return "Scanning... found \(model.usbDataEncryptionProcessedFiles) file(s)"
             }
-            return "Analyzing source files..."
+            return "Scanning source files..."
+        case .preparing:
+            if model.usbDataEncryptionTotalFiles > 0 {
+                return "Preparing \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
+            }
+            return "Preparing file list..."
         case .encrypting:
             if model.usbDataEncryptionTotalFiles > 0 {
                 return "\(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
             }
-            return "Analyzing source files..."
+            return "Preparing file list..."
         case .deletingOriginals:
             if model.usbDataEncryptionTotalFiles > 0 {
                 return "Deleting originals: \(model.usbDataEncryptionProcessedFiles) / \(model.usbDataEncryptionTotalFiles) files"
@@ -1905,6 +1913,8 @@ private struct USBEncryptionWorkspacePage: View {
                             .tint(AegiroPalette.accentIndigo)
                             .disabled(!canRunSelectedOption)
                         }
+                    } else if stage == .success {
+                        vaultPackSuccessStageContent
                     } else {
                         progressStageContent
                     }
@@ -1918,6 +1928,7 @@ private struct USBEncryptionWorkspacePage: View {
         }
         .onAppear {
             stage = .selectOption
+            vaultPackSuccessState = nil
             model.refreshAPFSVolumeOptions()
             model.clearUSBDataEncryptionProgressIfIdle()
             applyAutoSelectionIfNeeded(force: true)
@@ -2355,6 +2366,147 @@ private struct USBEncryptionWorkspacePage: View {
         )
     }
 
+    private var vaultPackSuccessStageContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let success = vaultPackSuccessState {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(AegiroPalette.securityGreen)
+                        Text("Vault Encryption Complete")
+                            .font(AegiroTypography.body(14, weight: .semibold))
+                            .foregroundStyle(AegiroPalette.textPrimary)
+                    }
+                    Text("Your files were packed into an encrypted vault. Use the steps below to open or decrypt/export your data.")
+                        .font(AegiroTypography.body(12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    formLabel("Vault Info")
+                    Text("Vault: \(success.result.vaultURL.path)")
+                        .font(AegiroTypography.mono(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                        .textSelection(.enabled)
+                    Text("Source folder: \(success.sourceRootPath)")
+                        .font(AegiroTypography.mono(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                        .textSelection(.enabled)
+                    Text("Volume: \(success.mountPoint)")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                    Text("Files encrypted: \(success.result.encryptedFileCount) / \(success.result.scannedFileCount)")
+                        .font(AegiroTypography.body(11, weight: .semibold))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                    Text("Skipped files/folders: \(success.result.skippedPathCount)")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                    if deleteOriginals {
+                        Text("Original files deleted: \(success.result.deletedOriginalCount)")
+                            .font(AegiroTypography.body(11, weight: .regular))
+                            .foregroundStyle(AegiroPalette.textSecondary)
+                    }
+                    Text("Completed at: \(success.completedAt.formatted(date: .abbreviated, time: .standard))")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textMuted)
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AegiroPalette.backgroundMain.opacity(0.72))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+                )
+
+                VStack(alignment: .leading, spacing: 8) {
+                    formLabel("How to Decrypt / Export")
+                    Text("1. Click \"Open Created Vault\" below.")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                    Text("2. Unlock with the passphrase you used for encryption.")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                    Text("3. Use Export in the vault page to decrypt files to a folder.")
+                        .font(AegiroTypography.body(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                    Text("CLI example:")
+                        .font(AegiroTypography.body(11, weight: .semibold))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                    Text(vaultPackSuccessCLIExample)
+                        .font(AegiroTypography.mono(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                        .textSelection(.enabled)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(AegiroPalette.backgroundMain.opacity(0.9))
+                        )
+                    HStack {
+                        Spacer()
+                        Button("Copy CLI Command") {
+                            copyToClipboard(vaultPackSuccessCLIExample)
+                            model.status = "Copied decrypt/export CLI command."
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AegiroPalette.backgroundMain.opacity(0.72))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
+                )
+
+                HStack {
+                    Button("Encrypt More Files") {
+                        vaultPackSuccessState = nil
+                        stage = .configureOption
+                    }
+                    .buttonStyle(.bordered)
+                    Spacer()
+                    Button("Reveal Vault in Finder") {
+                        revealCreatedVaultInFinder()
+                    }
+                    .buttonStyle(.bordered)
+                    Button("Open Created Vault") {
+                        openCreatedVaultFromSuccess()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.securityGreen)
+                }
+            } else {
+                Text("No completed vault-pack result is available yet.")
+                    .font(AegiroTypography.body(12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+                HStack {
+                    Spacer()
+                    Button("Back to Configuration") {
+                        stage = .configureOption
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding(12)
+        .background(AegiroPalette.backgroundCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+        )
+    }
+
+    private var vaultPackSuccessCLIExample: String {
+        guard let success = vaultPackSuccessState else { return "" }
+        let vaultPath = success.result.vaultURL.path.replacingOccurrences(of: "\"", with: "\\\"")
+        return "aegiro-cli export --vault \"\(vaultPath)\" --passphrase \"<your-passphrase>\" --out \"<output-folder>\""
+    }
+
     private var usbEncryptionDebugLogCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -2538,6 +2690,7 @@ private struct USBEncryptionWorkspacePage: View {
             return
         }
         syncDefaultsForSelection(force: true)
+        vaultPackSuccessState = nil
         stage = .configureOption
     }
 
@@ -2619,14 +2772,25 @@ private struct USBEncryptionWorkspacePage: View {
             model.status = "Ignoring \(ignoredExcludedCount) exclusion path(s) outside the selected source folder."
         }
 
+        let sourcePathForResult = source.path
         stage = .progress
+        vaultPackSuccessState = nil
         model.encryptNonAPFSUSBUserData(sourceRootURL: source,
                                         vaultURL: vault,
                                         vaultPassphrase: vaultPassphrase,
                                         deleteOriginals: deleteOriginals && !vaultFileDryRun,
                                         dryRun: vaultFileDryRun,
                                         targetMountPoint: mount,
-                                        excludedSourcePaths: appliedExcluded)
+                                        excludedSourcePaths: appliedExcluded) { success in
+            guard success else { return }
+            guard !vaultFileDryRun else { return }
+            guard let result = model.usbDataEncryptionLastResult, !result.dryRun else { return }
+            vaultPackSuccessState = VaultPackSuccessState(result: result,
+                                                          sourceRootPath: sourcePathForResult,
+                                                          mountPoint: mount,
+                                                          completedAt: Date())
+            stage = .success
+        }
     }
 
     private func chooseRecoveryPath() {
@@ -2775,10 +2939,31 @@ private struct USBEncryptionWorkspacePage: View {
             .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        copyToClipboard(text)
+        model.status = "Copied USB encryption debug logs."
+    }
+
+    private func copyToClipboard(_ value: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-        model.status = "Copied USB encryption debug logs."
+        pasteboard.setString(value, forType: .string)
+    }
+
+    private func revealCreatedVaultInFinder() {
+        guard let success = vaultPackSuccessState else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([success.result.vaultURL])
+    }
+
+    private func openCreatedVaultFromSuccess() {
+        guard let success = vaultPackSuccessState else { return }
+        model.openVault(at: success.result.vaultURL)
+        let trimmedPassphrase = vaultPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedPassphrase.isEmpty {
+            model.unlock(with: trimmedPassphrase)
+        } else {
+            model.status = "Vault loaded. Enter passphrase to unlock."
+        }
+        onBackToVault()
     }
 
     private func defaultRecoveryPath(for diskID: String) -> String {
@@ -3362,7 +3547,7 @@ struct DiskEncryptSheet: View {
                     .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
             } else {
-                Text("Analyzing source files...")
+                Text("Preparing file list...")
                     .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
@@ -3860,7 +4045,7 @@ private struct USBUserDataEncryptSheet: View {
                     .font(AegiroTypography.body(11, weight: .semibold))
                     .foregroundStyle(AegiroPalette.textPrimary)
             } else {
-                Text("Analyzing source files...")
+                Text("Preparing file list...")
                     .font(AegiroTypography.body(11, weight: .regular))
                     .foregroundStyle(AegiroPalette.textSecondary)
             }

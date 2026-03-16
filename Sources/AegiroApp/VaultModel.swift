@@ -58,6 +58,7 @@ final class VaultModel: ObservableObject {
     @Published var usbDataEncryptionTotalFiles: Int = 0
     @Published var usbDataEncryptionStage: USBUserDataEncryptProgress.Stage = .completed
     @Published var usbDataEncryptionLogs: [USBDataEncryptionLogEntry] = []
+    @Published var usbDataEncryptionLastResult: USBUserDataEncryptResult?
     @Published var vaultEntriesLoading: Bool = false
     @Published var vaultEntriesPageLoading: Bool = false
     @Published var vaultEntriesHasMore: Bool = false
@@ -530,6 +531,7 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionTotalFiles = 0
         usbDataEncryptionStage = .completed
         usbDataEncryptionCancellationFlag = nil
+        usbDataEncryptionLastResult = nil
     }
 
     func clearUSBDataEncryptionLogs() {
@@ -545,6 +547,7 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionProgressMessage = "Cancellation requested. Stopping current operation..."
         appendUSBDataEncryptionLog("Cancellation requested by user.")
         status = "Cancelling USB user-data encryption and cleaning partial output..."
+        usbDataEncryptionLastResult = nil
     }
 
     private func appendUSBDataEncryptionLog(_ message: String) {
@@ -735,7 +738,6 @@ final class VaultModel: ObservableObject {
             return progress.message
         }
     }
-
     private func startDiskEncryptionProgressMonitoring(diskIdentifier: String) {
         let trimmed = diskIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -817,11 +819,12 @@ final class VaultModel: ObservableObject {
         usbDataEncryptionTargetMountPoint = mountPointTrimmed
         usbDataEncryptionActive = true
         usbDataEncryptionProgressFraction = nil
-        usbDataEncryptionProgressMessage = "Analyzing source files..."
+        usbDataEncryptionProgressMessage = dryRun ? "Scanning source files..." : "Preparing file encryption..."
         usbDataEncryptionProcessedFiles = 0
         usbDataEncryptionTotalFiles = 0
         usbDataEncryptionStage = .scanning
         usbDataEncryptionLogs = []
+        usbDataEncryptionLastResult = nil
         appendUSBDataEncryptionLog(dryRun
                                    ? "Starting scan for user files under \(sourceRoot.path)"
                                    : "Starting encryption of user files under \(sourceRoot.path)")
@@ -854,13 +857,12 @@ final class VaultModel: ObservableObject {
                         if cancellationFlag.isCancelled() {
                             return
                         }
-                        self.usbDataEncryptionStage = self.mergedUSBDataEncryptionStage(for: progress.stage)
+                        self.usbDataEncryptionStage = progress.stage
                         self.usbDataEncryptionProcessedFiles = progress.processedFileCount
                         self.usbDataEncryptionTotalFiles = progress.totalFileCount
                         self.usbDataEncryptionProgressFraction = progress.fraction
-                        let mergedMessage = self.mergedUSBDataEncryptionMessage(for: progress)
-                        self.usbDataEncryptionProgressMessage = mergedMessage
-                        self.appendUSBDataEncryptionLog(mergedMessage)
+                        self.usbDataEncryptionProgressMessage = progress.message
+                        self.appendUSBDataEncryptionLog(progress.message)
                     }
                 },
                                                                     isCancelled: {
@@ -875,12 +877,14 @@ final class VaultModel: ObservableObject {
                         self.usbDataEncryptionProgressMessage = "Encryption cancelled."
                         self.appendUSBDataEncryptionLog("Operation cancelled. Partial new vault output was cleaned when possible.")
                         self.status = "USB user-data encryption cancelled. Partial new vault output was cleaned."
+                        self.usbDataEncryptionLastResult = nil
                         completion?(false)
                         return
                     }
                     self.usbDataEncryptionActive = false
                     self.usbDataEncryptionStage = .completed
                     self.usbDataEncryptionCancellationFlag = nil
+                    self.usbDataEncryptionLastResult = result
                     if result.dryRun {
                         self.usbDataEncryptionProcessedFiles = result.scannedFileCount
                         self.usbDataEncryptionTotalFiles = result.scannedFileCount
@@ -932,6 +936,7 @@ final class VaultModel: ObservableObject {
                         self.usbDataEncryptionProgressMessage = "Encryption cancelled."
                         self.appendUSBDataEncryptionLog("Operation cancelled. Partial new vault output was cleaned when possible.")
                         self.status = "USB user-data encryption cancelled. Partial new vault output was cleaned."
+                        self.usbDataEncryptionLastResult = nil
                         completion?(false)
                         return
                     }
@@ -941,6 +946,7 @@ final class VaultModel: ObservableObject {
                     }
                     self.appendUSBDataEncryptionLog("Operation failed: \(error)")
                     self.status = "USB user-data encryption failed: \(error)"
+                    self.usbDataEncryptionLastResult = nil
                     completion?(false)
                 }
             }
