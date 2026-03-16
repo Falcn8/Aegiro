@@ -173,14 +173,54 @@ final class VaultModel: ObservableObject {
     func unlock(with pass: String) {
         touchActivity()
         guard let url = vaultURL else { return }
-        do {
-            _ = try Locker.unlockInfo(vaultURL: url, passphrase: pass)
-            self.passphrase = pass
-            self.locked = false
-            self.status = "Unlocked"
-            refreshStatus()
-        } catch {
-            self.status = "Unlock failed: \(error)"
+        let normalizedVaultURL = url.standardizedFileURL
+        let trimmedPass = pass.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPass.isEmpty else {
+            status = "Enter a passphrase"
+            return
+        }
+
+        entriesLoadGeneration += 1
+        let generation = entriesLoadGeneration
+        status = "Unlocking..."
+        vaultEntriesLoading = true
+        vaultEntriesPageLoading = false
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result {
+                try Exporter.listPage(vaultURL: normalizedVaultURL,
+                                      passphrase: trimmedPass,
+                                      offset: 0,
+                                      limit: self?.vaultEntriesPageSize ?? 300)
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.entriesLoadGeneration == generation else { return }
+                self.vaultEntriesLoading = false
+
+                guard self.vaultURL?.standardizedFileURL.path == normalizedVaultURL.path else { return }
+
+                switch result {
+                case .success(let page):
+                    let attrs = try? FileManager.default.attributesOfItem(atPath: normalizedVaultURL.path)
+                    let modified = attrs?[.modificationDate] as? Date
+                    let revisionKey = self.makeEntriesRevisionKey(vaultURL: normalizedVaultURL, vaultLastModified: modified)
+                    self.passphrase = trimmedPass
+                    self.locked = false
+                    self.entries = page.entries
+                    self.vaultFileCount = page.totalCount
+                    self.vaultEntriesActiveRevisionKey = revisionKey
+                    self.vaultEntriesNextOffset = page.nextOffset
+                    self.vaultEntriesHasMore = page.hasMore
+                    self.status = "Unlocked"
+                    self.refreshStatus()
+                case .failure(let error):
+                    self.entries = []
+                    self.vaultFileCount = nil
+                    self.vaultEntriesHasMore = false
+                    self.status = "Unlock failed: \(error)"
+                }
+            }
         }
     }
 
