@@ -58,6 +58,7 @@ final class VaultModel: ObservableObject {
     @Published var usbDataEncryptionTotalFiles: Int = 0
     @Published var usbDataEncryptionStage: USBUserDataEncryptProgress.Stage = .completed
     @Published var usbDataEncryptionLogs: [USBDataEncryptionLogEntry] = []
+    @Published var vaultEntriesLoading: Bool = false
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var diskEncryptionProgressTimer: Timer?
@@ -67,6 +68,7 @@ final class VaultModel: ObservableObject {
     private var autoLockDeadline: Date?
     private var usbDataEncryptionCancellationFlag: USBDataEncryptionCancellationFlag?
     private var usbDataEncryptionLogSequence: Int = 0
+    private var entriesLoadGeneration: Int = 0
 
     init() {
         let defaults = UserDefaults.standard
@@ -119,18 +121,20 @@ final class VaultModel: ObservableObject {
             self.sidecarPending = info.sidecarPending
             self.manifestOK = info.manifestOK
             if !info.locked, !passphrase.isEmpty {
-                self.entries = (try? Exporter.list(vaultURL: url, passphrase: passphrase)) ?? []
+                requestVaultEntriesRefresh(vaultURL: url, passphrase: passphrase)
                 if autoLockDeadline == nil {
                     resetAutoLockDeadline()
                 } else {
                     updateAutoLockRemaining()
                 }
             } else {
+                invalidateVaultEntriesRefresh()
                 self.entries = []
                 autoLockDeadline = nil
                 autoLockRemaining = 0
             }
         } catch {
+            invalidateVaultEntriesRefresh()
             self.status = "Status failed: \(error)"
         }
     }
@@ -484,6 +488,38 @@ final class VaultModel: ObservableObject {
                                                                message: trimmed))
         if usbDataEncryptionLogs.count > 4_000 {
             usbDataEncryptionLogs.removeFirst(usbDataEncryptionLogs.count - 4_000)
+        }
+    }
+
+    private func invalidateVaultEntriesRefresh() {
+        entriesLoadGeneration += 1
+        vaultEntriesLoading = false
+    }
+
+    private func requestVaultEntriesRefresh(vaultURL: URL, passphrase: String) {
+        let normalizedVaultURL = vaultURL.standardizedFileURL
+        entriesLoadGeneration += 1
+        let generation = entriesLoadGeneration
+        vaultEntriesLoading = true
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result { try Exporter.list(vaultURL: normalizedVaultURL, passphrase: passphrase) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.entriesLoadGeneration == generation else { return }
+                self.vaultEntriesLoading = false
+
+                guard self.vaultURL?.standardizedFileURL.path == normalizedVaultURL.path else { return }
+                guard !self.locked, self.passphrase == passphrase else { return }
+
+                switch result {
+                case .success(let loaded):
+                    self.entries = loaded
+                case .failure(let error):
+                    self.entries = []
+                    self.status = "List failed: \(error)"
+                }
+            }
         }
     }
 
@@ -1042,6 +1078,7 @@ final class VaultModel: ObservableObject {
     func lockSession() {
         stopDiskEncryptionProgressMonitoring()
         clearUSBDataEncryptionProgressIfIdle()
+        invalidateVaultEntriesRefresh()
         self.passphrase = ""
         self.locked = true
         self.entries = []

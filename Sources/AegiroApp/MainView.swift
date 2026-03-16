@@ -617,6 +617,8 @@ struct MainView: View {
             noVaultState
         } else if model.locked {
             lockedState
+        } else if model.vaultEntriesLoading {
+            vaultLoadingState
         } else if filteredEntries.isEmpty {
             emptyVaultState
         } else {
@@ -696,6 +698,20 @@ struct MainView: View {
             .buttonStyle(.borderedProminent)
             .tint(AegiroPalette.accentIndigo)
             .disabled(model.locked)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var vaultLoadingState: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.large)
+            Text("Loading vault files...")
+                .font(AegiroTypography.display(22, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+            Text("Large vaults can take a moment. The app remains responsive while files load.")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -1645,6 +1661,24 @@ private struct USBEncryptionWorkspacePage: View {
         }
     }
 
+    private func vaultFileElapsedDuration(at now: Date) -> TimeInterval? {
+        guard let startedAt = model.usbDataEncryptionLogs.first?.timestamp else { return nil }
+        let finishedAt = model.usbDataEncryptionLogs.last?.timestamp
+        let end = model.usbDataEncryptionActive ? now : (finishedAt ?? now)
+        return max(0, end.timeIntervalSince(startedAt))
+    }
+
+    private func formattedElapsedDuration(_ interval: TimeInterval) -> String {
+        let seconds = max(0, Int(interval.rounded(.down)))
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        let remainingSeconds = seconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, remainingSeconds)
+        }
+        return String(format: "%02d:%02d", minutes, remainingSeconds)
+    }
+
     private var shouldShowVaultFileProgressSection: Bool {
         if model.usbDataEncryptionActive {
             return true
@@ -2195,6 +2229,13 @@ private struct USBEncryptionWorkspacePage: View {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .stroke(AegiroPalette.borderSubtle.opacity(0.8), lineWidth: 1)
                         )
+                }
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    if let elapsed = vaultFileElapsedDuration(at: context.date) {
+                        Text("Elapsed: \(formattedElapsedDuration(elapsed))")
+                            .font(AegiroTypography.mono(11, weight: .semibold))
+                            .foregroundStyle(AegiroPalette.textSecondary)
+                    }
                 }
                 usbEncryptionDebugLogCard
 
