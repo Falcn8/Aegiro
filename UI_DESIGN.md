@@ -100,6 +100,7 @@ Main window uses a three-zone shell:
 - Security state is explicit in sidebar and status bar.
 - Locked state blocks file operations and shows clear unlock call-to-action.
 - Search filters by name, path, mime/type, and tags.
+- Search/sort projection is rebuilt asynchronously (with a short search debounce) to keep large-vault UI interactions responsive.
 - Drag-and-drop imports only when vault is unlocked.
 - Toast status feedback appears for key operations.
 - Each command-parity sheet keeps output visible in a copyable, monospaced area.

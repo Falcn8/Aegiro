@@ -36,6 +36,8 @@ struct MainView: View {
     @State private var viewMode: ContentViewMode = .list
     @State private var sortOption: SortOption = .modified
     @State private var sortAscending = false
+    @State private var filteredEntriesCache: [VaultIndexEntry] = []
+    @State private var filteredEntriesGeneration: Int = 0
 
     @State private var toastMessage: String?
     @State private var toastDismissWork: DispatchWorkItem?
@@ -59,8 +61,7 @@ struct MainView: View {
     }
 
     private var filteredEntries: [VaultIndexEntry] {
-        let searched = applySearch(to: model.entries)
-        return applySort(to: searched)
+        filteredEntriesCache
     }
 
     private var selectedEntries: [VaultIndexEntry] {
@@ -185,6 +186,7 @@ struct MainView: View {
         .onAppear {
             model.refreshStatus()
             model.startAutoLockTimer()
+            scheduleFilteredEntriesRebuild()
         }
         .onReceive(model.$entries) { _ in
             let validIDs = Set(model.entries.map(\.id))
@@ -195,6 +197,7 @@ struct MainView: View {
             if let selectionCursor, !validIDs.contains(selectionCursor) {
                 self.selectionCursor = nil
             }
+            scheduleFilteredEntriesRebuild()
         }
         .onReceive(model.$locked) { isLocked in
             if isLocked {
@@ -231,7 +234,17 @@ struct MainView: View {
                 showFileInfoPopover = false
             }
         }
+        .onChange(of: searchText) { _ in
+            scheduleFilteredEntriesRebuild(debounce: true)
+        }
+        .onChange(of: sortOption) { _ in
+            scheduleFilteredEntriesRebuild()
+        }
+        .onChange(of: sortAscending) { _ in
+            scheduleFilteredEntriesRebuild()
+        }
         .onDisappear {
+            filteredEntriesGeneration += 1
             toastDismissWork?.cancel()
         }
     }
@@ -1412,8 +1425,8 @@ struct MainView: View {
         return true
     }
 
-    private func applySearch(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
-        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    private static func applySearch(to entries: [VaultIndexEntry], query: String) -> [VaultIndexEntry] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return entries }
         return entries.filter {
             $0.displayName.localizedCaseInsensitiveContains(q)
@@ -1423,10 +1436,35 @@ struct MainView: View {
         }
     }
 
-    private func applySort(to entries: [VaultIndexEntry]) -> [VaultIndexEntry] {
+    private static func applySort(to entries: [VaultIndexEntry], sortOption: SortOption, sortAscending: Bool) -> [VaultIndexEntry] {
         entries.sorted { lhs, rhs in
             let result = sortOption.compare(lhs, rhs)
             return sortAscending ? result : !result
+        }
+    }
+
+    private func scheduleFilteredEntriesRebuild(debounce: Bool = false) {
+        let entries = model.entries
+        let query = searchText
+        let sort = sortOption
+        let ascending = sortAscending
+
+        filteredEntriesGeneration += 1
+        let generation = filteredEntriesGeneration
+
+        let rebuild = {
+            let searched = MainView.applySearch(to: entries, query: query)
+            let sorted = MainView.applySort(to: searched, sortOption: sort, sortAscending: ascending)
+            DispatchQueue.main.async {
+                guard filteredEntriesGeneration == generation else { return }
+                filteredEntriesCache = sorted
+            }
+        }
+
+        if debounce {
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.12, execute: rebuild)
+        } else {
+            DispatchQueue.global(qos: .userInitiated).async(execute: rebuild)
         }
     }
 
