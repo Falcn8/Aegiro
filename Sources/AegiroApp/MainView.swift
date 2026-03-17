@@ -2948,7 +2948,7 @@ private struct USBEncryptionWorkspacePage: View {
     private func defaultRecoveryPath(for diskID: String) -> String {
         let trimmed = diskID.trimmingCharacters(in: .whitespacesAndNewlines)
         let safe = trimmed.isEmpty ? "external-disk" : trimmed.replacingOccurrences(of: "/", with: "_")
-        let baseDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true)
+        let baseDir = defaultVaultDirectoryURL()
         return baseDir.appendingPathComponent("\(safe).aegiro-diskkey.json").path
     }
 
@@ -3564,7 +3564,7 @@ struct DiskEncryptSheet: View {
     private func defaultRecoveryPath(for diskID: String) -> String {
         let trimmed = diskID.trimmingCharacters(in: .whitespacesAndNewlines)
         let safe = trimmed.isEmpty ? "external-disk" : trimmed.replacingOccurrences(of: "/", with: "_")
-        let baseDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true)
+        let baseDir = defaultVaultDirectoryURL()
         return baseDir.appendingPathComponent("\(safe).aegiro-diskkey.json").path
     }
 

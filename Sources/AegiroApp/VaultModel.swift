@@ -81,10 +81,17 @@ final class VaultModel: ObservableObject {
     init() {
         let defaults = UserDefaults.standard
         if let p = defaults.string(forKey: "defaultVaultDir"), !p.isEmpty {
-            self.defaultVaultDir = URL(fileURLWithPath: p, isDirectory: true)
+            let configured = URL(fileURLWithPath: p, isDirectory: true).standardizedFileURL
+            let legacy = legacyDefaultVaultDirectoryURL().standardizedFileURL.path
+            if configured.path == legacy {
+                let migrated = defaultVaultDirectoryURL()
+                self.defaultVaultDir = migrated
+                defaults.set(migrated.path, forKey: "defaultVaultDir")
+            } else {
+                self.defaultVaultDir = configured
+            }
         } else {
-            let base = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults")
-            self.defaultVaultDir = base
+            self.defaultVaultDir = defaultVaultDirectoryURL()
         }
         let ttl = defaults.integer(forKey: "autoLockTTL")
         self.autoLockTTL = ttl > 0 ? ttl : 300
@@ -1333,9 +1340,20 @@ final class VaultModel: ObservableObject {
     }
 }
 
+func defaultVaultDirectoryURL() -> URL {
+    let documents = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Documents", isDirectory: true)
+    return documents.appendingPathComponent("Aegiro Vaults", isDirectory: true)
+}
+
+func legacyDefaultVaultDirectoryURL() -> URL {
+    FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true)
+}
+
 func defaultVaultURL() -> URL {
-    let base = UserDefaults.standard.string(forKey: "defaultVaultDir").flatMap { URL(fileURLWithPath: $0, isDirectory: true) }
-        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults")
+    let base = UserDefaults.standard.string(forKey: "defaultVaultDir")
+        .flatMap { URL(fileURLWithPath: $0, isDirectory: true) }
+        ?? defaultVaultDirectoryURL()
     try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
     return base.appendingPathComponent("alpha.agvt")
 }

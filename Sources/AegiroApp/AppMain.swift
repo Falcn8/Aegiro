@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let defaultDirPath = defaults.string(forKey: "defaultVaultDir")
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("AegiroVaults", isDirectory: true).path
+            ?? defaultVaultDirectoryURL().path
         let defaultDir = URL(fileURLWithPath: defaultDirPath, isDirectory: true)
         if let contents = try? FileManager.default.contentsOfDirectory(at: defaultDir, includingPropertiesForKeys: nil) {
             let hasVault = contents.contains {
