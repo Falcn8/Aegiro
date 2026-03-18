@@ -1636,6 +1636,7 @@ private struct USBEncryptionWorkspacePage: View {
         let result: USBUserDataEncryptResult
         let sourceRootPath: String
         let mountPoint: String
+        let unlockPassphrase: String
         let completedAt: Date
     }
 
@@ -2752,6 +2753,7 @@ private struct USBEncryptionWorkspacePage: View {
         }
 
         let sourcePathForResult = source.path
+        let unlockPassphraseForResult = vaultPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
         stage = .progress
         vaultPackSuccessState = nil
         model.encryptNonAPFSUSBUserData(sourceRootURL: source,
@@ -2767,6 +2769,7 @@ private struct USBEncryptionWorkspacePage: View {
             vaultPackSuccessState = VaultPackSuccessState(result: result,
                                                           sourceRootPath: sourcePathForResult,
                                                           mountPoint: mount,
+                                                          unlockPassphrase: unlockPassphraseForResult,
                                                           completedAt: Date())
             stage = .success
         }
@@ -2936,7 +2939,7 @@ private struct USBEncryptionWorkspacePage: View {
     private func openCreatedVaultFromSuccess() {
         guard let success = vaultPackSuccessState else { return }
         model.openVault(at: success.result.vaultURL)
-        let trimmedPassphrase = vaultPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassphrase = success.unlockPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedPassphrase.isEmpty {
             model.unlock(with: trimmedPassphrase)
         } else {
