@@ -36,6 +36,7 @@ struct MainView: View {
     @State private var viewMode: ContentViewMode = .list
     @State private var sortOption: SortOption = .modified
     @State private var sortAscending = false
+    @State private var lastObservedVaultPath: String?
     @State private var filteredEntriesCache: [VaultIndexEntry] = []
     @State private var filteredEntriesGeneration: Int = 0
 
@@ -186,7 +187,20 @@ struct MainView: View {
         .onAppear {
             model.refreshStatus()
             model.startAutoLockTimer()
+            lastObservedVaultPath = model.vaultURL?.standardizedFileURL.path
             scheduleFilteredEntriesRebuild()
+        }
+        .onReceive(model.$vaultURL) { url in
+            let normalizedPath = url?.standardizedFileURL.path
+            if normalizedPath != lastObservedVaultPath {
+                searchText = ""
+                selection.removeAll()
+                selectionAnchor = nil
+                selectionCursor = nil
+                showFileInfoPopover = false
+                scheduleFilteredEntriesRebuild()
+            }
+            lastObservedVaultPath = normalizedPath
         }
         .onReceive(model.$entries) { _ in
             let validIDs = Set(model.entries.map(\.id))
@@ -2938,12 +2952,20 @@ private struct USBEncryptionWorkspacePage: View {
 
     private func openCreatedVaultFromSuccess() {
         guard let success = vaultPackSuccessState else { return }
-        model.openVault(at: success.result.vaultURL)
+        let normalizedVaultURL = success.result.vaultURL.standardizedFileURL
+        let targetVaultPath = normalizedVaultURL.path
         let trimmedPassphrase = success.unlockPassphrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedPassphrase.isEmpty {
-            model.unlock(with: trimmedPassphrase)
-        } else {
-            model.status = "Vault loaded. Enter passphrase to unlock."
+        let currentVaultPath = model.vaultURL?.standardizedFileURL.path
+        let alreadyOpenAndUnlocked = currentVaultPath == targetVaultPath
+            && !model.locked
+            && (trimmedPassphrase.isEmpty || model.passphrase == trimmedPassphrase)
+        if !alreadyOpenAndUnlocked {
+            model.openVault(at: normalizedVaultURL)
+            if !trimmedPassphrase.isEmpty {
+                model.unlock(with: trimmedPassphrase)
+            } else {
+                model.status = "Vault loaded. Enter passphrase to unlock."
+            }
         }
         onBackToVault()
     }

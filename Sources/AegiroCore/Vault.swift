@@ -625,6 +625,7 @@ private func mergeImportedPlainItems(vaultURL: URL,
         throw AEGError.io("USB vault-pack cancelled by user.")
     }
     try out.write(to: vaultURL, options: .atomic)
+    Exporter.invalidateListCache(vaultURL: vaultURL)
     return importedCount
 }
 
@@ -861,6 +862,26 @@ public enum Exporter {
         }
     }
 
+    public static func invalidateListCache(vaultURL: URL? = nil) {
+        listCacheLock.lock()
+        defer { listCacheLock.unlock() }
+
+        guard let vaultURL else {
+            listCache.removeAll()
+            listCacheOrder.removeAll()
+            return
+        }
+
+        let prefix = vaultURL.standardizedFileURL.path + "|"
+        let keysToRemove = listCacheOrder.filter { $0.hasPrefix(prefix) }
+        guard !keysToRemove.isEmpty else { return }
+        let keySet = Set(keysToRemove)
+        for key in keySet {
+            listCache.removeValue(forKey: key)
+        }
+        listCacheOrder.removeAll { keySet.contains($0) }
+    }
+
     private static func loadAllEntries(vaultURL: URL, passphrase: String) throws -> [VaultIndexEntry] {
         let components = try readVaultReadComponents(vaultURL: vaultURL,
                                                      includeIndex: true,
@@ -1031,6 +1052,7 @@ public enum VaultSettings {
         var out = data
         out.replaceSubrange(0..<headerEnd, with: newHeader)
         try out.write(to: vaultURL, options: .atomic)
+        Exporter.invalidateListCache(vaultURL: vaultURL)
     }
 
     public static func normalizeUnlockFlags(vaultURL: URL, passphrase: String) throws -> Bool {
@@ -1063,6 +1085,7 @@ public enum VaultSettings {
         var out = data
         out.replaceSubrange(0..<headerEnd, with: newHeader)
         try out.write(to: vaultURL, options: .atomic)
+        Exporter.invalidateListCache(vaultURL: vaultURL)
         return true
     }
 }
@@ -1134,6 +1157,7 @@ public enum Doctor {
             d.replaceSubrange(layout.manLenPos..<(layout.manLenPos + 4), with: newLenLE)
             d.replaceSubrange(layout.manRange, with: newManBlob)
             try d.write(to: vaultURL, options: .atomic)
+            Exporter.invalidateListCache(vaultURL: vaultURL)
 
             manifest = newManifest
             manifestSignatureOK = ManifestBuilder.verify(manifest, signer: sig)
@@ -1309,6 +1333,7 @@ public enum Editor {
         d.replaceSubrange(layout.manRange, with: manBlob)
 
         try d.write(to: vaultURL, options: .atomic)
+        Exporter.invalidateListCache(vaultURL: vaultURL)
     }
 
     public static func deleteEntries(vaultURL: URL, passphrase: String, logicalPaths: [String]) throws -> Int {
@@ -1401,6 +1426,7 @@ public enum Editor {
         out.append(chunkArea)
 
         try out.write(to: vaultURL, options: .atomic)
+        Exporter.invalidateListCache(vaultURL: vaultURL)
         return removed
     }
 }
