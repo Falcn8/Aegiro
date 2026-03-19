@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose an improvement for Aegiro.
+title: "feat(scope): "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user problem are you trying to solve?
+      placeholder: Describe the current pain point.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or API you want.
+      placeholder: Describe your proposal in concrete terms.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Other approaches you considered.
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and tradeoffs
+      description: Note compatibility, security, and performance implications.
+      placeholder: Who benefits and what tradeoffs are introduced?
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and discussions for duplicates.
+          required: true
