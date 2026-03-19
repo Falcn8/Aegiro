@@ -1,0 +1,3 @@
+module AegiroCore {
+    header "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/include/AegiroCore-Swift.h"
+}

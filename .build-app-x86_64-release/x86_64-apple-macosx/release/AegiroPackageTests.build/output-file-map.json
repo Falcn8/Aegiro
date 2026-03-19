@@ -1,0 +1,13 @@
+{
+  "": {
+    "dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.build/AegiroPackageTests.d",
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.build/AegiroPackageTests.o",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.build/master.swiftdeps"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.derived/runner.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-x86_64-release/x86_64-apple-macosx/release/AegiroPackageTests.build/runner.dia"
+  }
+}

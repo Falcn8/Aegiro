@@ -1,0 +1,10 @@
+prefix=/opt/homebrew/opt/openssl@3
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: openssl
+Description: OpenSSL 3
+Version: 3
+Libs: -L${libdir} -lssl -lcrypto
+Cflags: -I${includedir}

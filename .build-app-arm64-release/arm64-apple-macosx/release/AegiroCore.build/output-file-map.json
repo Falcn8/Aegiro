@@ -1,0 +1,97 @@
+{
+  "": {
+    "dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/AegiroCore.d",
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/AegiroCore.o",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/master.swiftdeps"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Backup.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Backup.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Backup~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Backup.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Backup.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Crypto~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Crypto.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Crypto.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ExternalDiskCrypto.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/IndexManifest~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PQC~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PQC.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PQC.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PrivacyMonitor.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/PrivacyMonitor.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Session.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Session.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Session~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Session.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Session.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Shredder.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Shredder.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Shredder~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Shredder.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Shredder.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/USBContainerCrypto.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBContainerCrypto.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/USBUserDataCrypto.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/USBUserDataCrypto.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Vault.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Vault.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Vault~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Vault.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/Vault.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultHeader.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultHeader~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultHeader.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/VaultLimits.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultLimits.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultLimits~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultLimits.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/VaultLimits.dia"
+  },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ZeroTelemetry.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build-app-arm64-release/arm64-apple-macosx/release/AegiroCore.build/ZeroTelemetry.dia"
+  }
+}

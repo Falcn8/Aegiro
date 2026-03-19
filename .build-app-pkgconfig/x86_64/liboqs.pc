@@ -1,0 +1,11 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+openssl_libdir=/usr/local/opt/openssl@3/lib
+
+Name: liboqs
+Description: Open Quantum Safe
+Version: 0
+Libs: -L${libdir} -loqs -L${openssl_libdir} -lcrypto
+Cflags: -I${includedir}
