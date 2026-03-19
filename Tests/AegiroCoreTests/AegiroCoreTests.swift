@@ -444,6 +444,7 @@ final class AegiroCoreTests: XCTestCase {
         }
 
         XCTAssertEqual(result.encryptedFileCount, 2)
+        XCTAssertFalse(events.contains { $0.stage == .preparing })
         let encryptEvents = events.filter { $0.stage == .encrypting && $0.totalFileCount > 0 }
         XCTAssertFalse(encryptEvents.isEmpty)
         XCTAssertEqual(encryptEvents.last?.processedFileCount, 2)

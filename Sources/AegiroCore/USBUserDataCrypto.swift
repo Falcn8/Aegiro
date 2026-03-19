@@ -295,13 +295,6 @@ public enum USBUserDataCrypto {
             throw AEGError.io("Missing vault passphrase")
         }
 
-        progress?(USBUserDataEncryptProgress(stage: .preparing,
-                                             processedFileCount: 0,
-                                             totalFileCount: scan.scannedFileCount,
-                                             currentPath: nil,
-                                             message: "Preparing \(scan.scannedFileCount) user file(s) for encryption..."))
-        try throwIfCancelled(isCancelled)
-
         var createdVault = false
         do {
             try FileManager.default.createDirectory(at: normalizedVaultURL.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -324,14 +317,7 @@ public enum USBUserDataCrypto {
                                                                                                currentPath: path,
                                                                                                message: "Encrypting \(importedCount)/\(totalCount): \(name)"))
                                                       },
-                                                      preparationProgress: { preparedCount, totalCount, path in
-                                                          let name = URL(fileURLWithPath: path).lastPathComponent
-                                                          progress?(USBUserDataEncryptProgress(stage: .preparing,
-                                                                                               processedFileCount: preparedCount,
-                                                                                               totalFileCount: totalCount,
-                                                                                               currentPath: path,
-                                                                                               message: "Preparing \(preparedCount)/\(totalCount): \(name)"))
-                                                      },
+                                                      preparationProgress: nil,
                                                       isCancelled: isCancelled).imported
 
             var deletedOriginalCount = 0

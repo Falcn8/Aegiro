@@ -354,15 +354,15 @@ public enum Importer {
                                           head: head,
                                           preparationProgress: preparationProgress,
                                           isCancelled: isCancelled)
-        let imported = try mergeImportedPlainItems(vaultURL: vaultURL,
-                                                   data: data,
-                                                   head: head,
-                                                   layout: layout,
-                                                   dek: dek,
-                                                   aad: aad,
-                                                   items: items,
-                                                   progress: progress,
-                                                   isCancelled: isCancelled)
+        let imported = try mergeImportedItems(vaultURL: vaultURL,
+                                              data: data,
+                                              head: head,
+                                              layout: layout,
+                                              dek: dek,
+                                              aad: aad,
+                                              items: items,
+                                              progress: progress,
+                                              isCancelled: isCancelled)
         return (imported, sidecar)
     }
 
@@ -371,7 +371,7 @@ public enum Importer {
                                           sidecarURL: URL,
                                           head: VaultHeader,
                                           preparationProgress: ((Int, Int, String) -> Void)? = nil,
-                                          isCancelled: (() -> Bool)? = nil) throws -> [PlainImportItem] {
+                                          isCancelled: (() -> Bool)? = nil) throws -> [ImportItem] {
         try throwIfCancelled(isCancelled)
         let expandedFiles = try expandImportSources(files, isCancelled: isCancelled)
         let vaultPath = normalizedPath(vaultURL)
@@ -394,41 +394,17 @@ public enum Importer {
         }
 
         let total = candidates.count
-        var items: [PlainImportItem] = []
+        var items: [ImportItem] = []
         items.reserveCapacity(total)
         for (index, candidate) in candidates.enumerated() {
             try throwIfCancelled(isCancelled)
-            let plain = try readCancellablePlainData(from: candidate.sourceURL, isCancelled: isCancelled)
-            items.append(PlainImportItem(path: candidate.sourcePath,
-                                         plain: plain,
-                                         nameHash: candidate.nameHash,
-                                         order: index))
+            items.append(ImportItem(path: candidate.sourcePath,
+                                    nameHash: candidate.nameHash,
+                                    order: index,
+                                    payload: .sourceURL(candidate.sourceURL)))
             preparationProgress?(index + 1, total, candidate.sourcePath)
         }
         return items
-    }
-
-    private static func readCancellablePlainData(from sourceURL: URL,
-                                                 isCancelled: (() -> Bool)?) throws -> Data {
-        try throwIfCancelled(isCancelled)
-        let handle = try FileHandle(forReadingFrom: sourceURL)
-        defer { try? handle.close() }
-
-        var output = Data()
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: sourceURL.path),
-           let size = attrs[.size] as? NSNumber {
-            output.reserveCapacity(size.intValue)
-        }
-
-        let chunkSize = 64 * 1024
-        while true {
-            try throwIfCancelled(isCancelled)
-            guard let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty else {
-                break
-            }
-            output.append(chunk)
-        }
-        return output
     }
 }
 
@@ -501,22 +477,27 @@ func computeLayout(_ data: Data, afterHeader hdrLen: Int) -> VaultLayout {
                        chunkAreaStart: chunkStart)
 }
 
-private struct PlainImportItem {
-    let path: String
-    let plain: Data
-    let nameHash: Data
-    let order: Int
+private enum ImportPayload {
+    case plaintext(Data)
+    case sourceURL(URL)
 }
 
-private func mergeImportedPlainItems(vaultURL: URL,
-                                     data: Data,
-                                     head: VaultHeader,
-                                     layout: VaultLayout,
-                                     dek: SymmetricKey,
-                                     aad: Data,
-                                     items: [PlainImportItem],
-                                     progress: ((Int, Int, String) -> Void)? = nil,
-                                     isCancelled: (() -> Bool)? = nil) throws -> Int {
+private struct ImportItem {
+    let path: String
+    let nameHash: Data
+    let order: Int
+    let payload: ImportPayload
+}
+
+private func mergeImportedItems(vaultURL: URL,
+                                data: Data,
+                                head: VaultHeader,
+                                layout: VaultLayout,
+                                dek: SymmetricKey,
+                                aad: Data,
+                                items: [ImportItem],
+                                progress: ((Int, Int, String) -> Void)? = nil,
+                                isCancelled: (() -> Bool)? = nil) throws -> Int {
     if isCancelled?() == true {
         throw AEGError.io("USB vault-pack cancelled by user.")
     }
@@ -570,34 +551,57 @@ private func mergeImportedPlainItems(vaultURL: URL,
         if isCancelled?() == true {
             throw AEGError.io("USB vault-pack cancelled by user.")
         }
-        let plain = item.plain
         let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
         var fileChunkIndex: UInt64 = 0
-        var remaining = plain.count
-        var cursorPlain = 0
         var perFileCount = 0
-        while remaining > 0 {
-            if isCancelled?() == true {
-                throw AEGError.io("USB vault-pack cancelled by user.")
+        var plainSize: UInt64 = 0
+        switch item.payload {
+        case .plaintext(let plain):
+            plainSize = UInt64(plain.count)
+            var remaining = plain.count
+            var cursorPlain = 0
+            while remaining > 0 {
+                if isCancelled?() == true {
+                    throw AEGError.io("USB vault-pack cancelled by user.")
+                }
+                let n = min(remaining, chunkSize)
+                let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
+                let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
+                let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
+                let offset = UInt64(chunkArea.count)
+                chunkArea.append(combined)
+                chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
+                fileChunkIndex += 1
+                perFileCount += 1
+                remaining -= n
+                cursorPlain += n
             }
-            let n = min(remaining, chunkSize)
-            let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
-            let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
-            let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
-            let offset = UInt64(chunkArea.count)
-            chunkArea.append(combined)
-            chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
-            fileChunkIndex += 1
-            perFileCount += 1
-            remaining -= n
-            cursorPlain += n
+        case .sourceURL(let sourceURL):
+            let handle = try FileHandle(forReadingFrom: sourceURL)
+            defer { try? handle.close() }
+            while true {
+                if isCancelled?() == true {
+                    throw AEGError.io("USB vault-pack cancelled by user.")
+                }
+                guard let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty else {
+                    break
+                }
+                let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
+                let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
+                let offset = UInt64(chunkArea.count)
+                chunkArea.append(combined)
+                chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
+                fileChunkIndex += 1
+                perFileCount += 1
+                plainSize += UInt64(chunk.count)
+            }
         }
 
         let previous = priorByPath[item.path]
         let now = Date()
         let entry = VaultIndexEntry(nameHash: item.nameHash,
                                     logicalPath: item.path,
-                                    size: UInt64(plain.count),
+                                    size: plainSize,
                                     mime: previous?.mime ?? "application/octet-stream",
                                     tags: previous?.tags ?? [],
                                     chunkCount: perFileCount,
@@ -833,7 +837,7 @@ public enum Locker {
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
 
         // Deduplicate by logical path: newest sidecar record wins.
-        var stagedByPath: [String: PlainImportItem] = [:]
+        var stagedByPath: [String: ImportItem] = [:]
         var order = 0
         for item in metaObj {
             defer { order += 1 }
@@ -849,14 +853,17 @@ public enum Locker {
                   let plain = try? AES.GCM.open(sealed, using: dek) else { continue }
             let name = (normalizedSource as NSString).lastPathComponent
             let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
-            stagedByPath[normalizedSource] = PlainImportItem(path: normalizedSource, plain: plain, nameHash: h, order: order)
+            stagedByPath[normalizedSource] = ImportItem(path: normalizedSource,
+                                                        nameHash: h,
+                                                        order: order,
+                                                        payload: .plaintext(plain))
         }
         let staged = stagedByPath.values.sorted { $0.order < $1.order }
         guard !staged.isEmpty else {
             try? FileManager.default.removeItem(at: sidecar)
             return 0
         }
-        let added = try mergeImportedPlainItems(vaultURL: vaultURL, data: data, head: head, layout: layout, dek: dek, aad: aad, items: staged)
+        let added = try mergeImportedItems(vaultURL: vaultURL, data: data, head: head, layout: layout, dek: dek, aad: aad, items: staged)
 
         // cleanup sidecar
         try? FileManager.default.removeItem(at: sidecar)
