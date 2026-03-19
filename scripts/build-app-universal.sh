@@ -202,7 +202,7 @@ EOF
 
 configure_arch_environment() {
   local arch="$1"
-  local prefix brew_bin oqs_header argon_header oqs_static openssl_lib
+  local prefix brew_bin oqs_header argon_header oqs_static openssl_lib openssl_include
   ensure_brew_for_arch "$arch"
   prefix="$(brew_prefix_for_arch "$arch")"
   brew_bin="$(brew_binary_for_arch "$arch")"
@@ -210,6 +210,7 @@ configure_arch_environment() {
   argon_header="$prefix/include/argon2.h"
   oqs_static="$prefix/lib/liboqs.a"
   openssl_lib="$prefix/opt/openssl@3/lib/libcrypto.dylib"
+  openssl_include="$prefix/opt/openssl@3/include"
 
   if [[ ! -f "$oqs_header" ]]; then
     echo "Missing liboqs header for $arch at $oqs_header" >&2
@@ -227,6 +228,10 @@ configure_arch_environment() {
   fi
   if [[ ! -f "$openssl_lib" ]]; then
     echo "Missing OpenSSL libcrypto for $arch at $openssl_lib" >&2
+    exit 1
+  fi
+  if [[ ! -f "$openssl_include/openssl/evp.h" ]]; then
+    echo "Missing OpenSSL headers for $arch at $openssl_include" >&2
     exit 1
   fi
 
@@ -260,7 +265,23 @@ Libs: -L\${libdir} -loqs -L\${openssl_libdir} -lcrypto
 Cflags: -I\${includedir}
 PC
 
-  export PKG_CONFIG_PATH="$pc_dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+  cat >"$pc_dir/openssl.pc" <<PC
+prefix=$prefix/opt/openssl@3
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: openssl
+Description: OpenSSL 3
+Version: 3
+Libs: -L\${libdir} -lssl -lcrypto
+Cflags: -I\${includedir}
+PC
+
+  # Constrain pkg-config resolution to the target-arch stubs to avoid
+  # accidentally mixing arm64 and x86_64 Homebrew metadata.
+  export PKG_CONFIG_PATH="$pc_dir"
+  export PKG_CONFIG_LIBDIR="$pc_dir"
   export AEGIRO_OQS_LIB_DIR="$prefix/lib"
   export AEGIRO_OPENSSL_LIB_DIR="$prefix/opt/openssl@3/lib"
 }
