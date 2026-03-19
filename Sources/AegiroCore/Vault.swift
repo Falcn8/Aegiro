@@ -1163,6 +1163,7 @@ public enum Doctor {
     public static func run(vaultURL: URL,
                            passphrase: String?,
                            fix: Bool,
+                           deepCheck: Bool = true,
                            progress: ((String) -> Void)? = nil) throws -> DoctorReport {
         progress?("Loading vault data...")
         let data = try Data(contentsOf: vaultURL)
@@ -1213,16 +1214,16 @@ public enum Doctor {
             let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
             let idxBlob = data.subdata(in: layout.idxRange)
             let idxPlain = try decryptIndexBlob(idxBlob, key: dek, aad: aad)
-            let index = try JSONDecoder().decode(VaultIndex.self, from: idxPlain)
             let idxHash = Data(SHA256.hash(data: idxPlain))
-            decryptedIndex = index
+            if deepCheck {
+                decryptedIndex = try JSONDecoder().decode(VaultIndex.self, from: idxPlain)
+            }
             decryptedIndexHash = idxHash
             dekForDeepChecks = dek
             manifestIndexHashMatches = (idxHash == manifest.indexRootHash)
         }
 
         if fix,
-           decryptedIndex != nil,
            let idxHash = decryptedIndexHash,
            let dek = dekForDeepChecks,
            (!manifestSignatureOK
@@ -1302,7 +1303,7 @@ public enum Doctor {
 
         // Entry and chunk authentication checks when passphrase is available.
         var entryCount: Int? = nil
-        if let index = decryptedIndex, let dek = dekForDeepChecks {
+        if deepCheck, let index = decryptedIndex, let dek = dekForDeepChecks {
             entryCount = index.entries.count
 
             var plainBytesByName: [String: UInt64] = [:]
@@ -1399,6 +1400,8 @@ public enum Doctor {
                 issues.append("Chunk map contains unknown entry: \(name).")
             }
             progress?("Chunk checks completed.")
+        } else if !deepCheck {
+            progress?("Deep chunk authentication skipped (fast mode).")
         } else {
             progress?("Passphrase not provided. Skipping deep chunk authentication and index-hash checks.")
         }

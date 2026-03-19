@@ -5887,7 +5887,10 @@ private struct DoctorSheet: View {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let result = try Doctor.run(vaultURL: vaultURL, passphrase: passphrase, fix: fix) { message in
+                let result = try Doctor.run(vaultURL: vaultURL,
+                                            passphrase: passphrase,
+                                            fix: fix,
+                                            deepCheck: !fix) { message in
                     DispatchQueue.main.async {
                         appendDoctorLog(message)
                     }
