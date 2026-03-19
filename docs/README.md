@@ -15,4 +15,4 @@ This folder groups project documentation by purpose.
 
 ## Legal
 
-- [Contributor CLA](legal/CLA.md)
+- [Ownership and Usage](legal/OWNERSHIP.md)

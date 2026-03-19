@@ -114,8 +114,7 @@ Jump between project markdown pages:
 - [USB Encryption Diagrams](docs/explanations/USB_ENCRYPTION_DIAGRAMS.md)
 - [Documentation Index](docs/README.md)
 - [App UI Design](docs/guides/UI_DESIGN.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Contributor CLA](docs/legal/CLA.md)
+- [Ownership & Usage](docs/legal/OWNERSHIP.md)
 - [Agent Workflow Rules](AGENTS.md)
 
 ---
@@ -134,6 +133,6 @@ Jump between project markdown pages:
 
 This project uses a custom source-available license in [LICENSE.txt](LICENSE.txt).
 
-- GitHub collaboration and pull requests are allowed.
+- External contributions and pull requests are currently not accepted.
 - Redistribution or republication (including App Store listings and DMG/binary distribution) is not allowed.
-- Contributions are assigned to the project owner under the license terms.
+- Full terms and ownership boundaries are defined in [LICENSE.txt](LICENSE.txt) and [docs/legal/OWNERSHIP.md](docs/legal/OWNERSHIP.md).
