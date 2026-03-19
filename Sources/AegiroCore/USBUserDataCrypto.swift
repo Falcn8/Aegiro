@@ -183,8 +183,6 @@ public enum USBUserDataCrypto {
             guard candidate.path.hasPrefix(rootPrefix) else { continue }
             let relativePath = String(candidate.path.dropFirst(rootPrefix.count))
             guard !relativePath.isEmpty else { continue }
-            let values = try? candidate.resourceValues(forKeys: keys)
-            let itemIsDirectory = values?.isDirectory == true
 
             let relativeComponents = relativePath
                 .split(separator: "/", omittingEmptySubsequences: true)
@@ -192,7 +190,8 @@ public enum USBUserDataCrypto {
             guard let first = relativeComponents.first else { continue }
 
             if shouldSkipHiddenPath(relativeComponents) {
-                if itemIsDirectory {
+                let isDirectory = (try? candidate.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+                if isDirectory {
                     enumerator.skipDescendants()
                 }
                 skipped.insert(candidate.path)
@@ -200,7 +199,8 @@ public enum USBUserDataCrypto {
             }
 
             if shouldSkipRootEntry(first) {
-                if itemIsDirectory {
+                let isDirectory = (try? candidate.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+                if isDirectory {
                     enumerator.skipDescendants()
                 }
                 skipped.insert(candidate.path)
@@ -208,7 +208,8 @@ public enum USBUserDataCrypto {
             }
 
             if shouldSkipUserExcludedPath(relativePath: relativePath, excludedRelativePaths: userExcludedRelativePaths) {
-                if itemIsDirectory {
+                let isDirectory = (try? candidate.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+                if isDirectory {
                     enumerator.skipDescendants()
                 }
                 skipped.insert(candidate.path)
@@ -220,10 +221,10 @@ public enum USBUserDataCrypto {
                 continue
             }
 
+            let values = try? candidate.resourceValues(forKeys: keys)
+            let itemIsDirectory = values?.isDirectory == true
             if values?.isSymbolicLink == true {
-                if itemIsDirectory {
-                    enumerator.skipDescendants()
-                }
+                enumerator.skipDescendants()
                 skipped.insert(candidate.path)
                 continue
             }
