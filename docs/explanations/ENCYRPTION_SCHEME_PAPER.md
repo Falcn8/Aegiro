@@ -150,6 +150,12 @@ Each file stores `VaultChunkCrypto` metadata in encrypted index entries:
 - `keySalt` (`16 bytes`)
 - `noncePrefix` (`4 bytes`)
 
+Current writer policy:
+
+- Prefer `AES-GCM` for new chunk writes on all architectures.
+- Fallback to `ChaCha20-Poly1305` only if `AES-GCM` is unavailable at runtime.
+- Always retain support for decrypting both algorithm IDs from existing vault entries.
+
 For each file:
 
 1. Derive `file_key = HKDF-SHA256(DEK, keySalt, "AEGIRO-FILE-KEY-V1" || fileID || algorithm || format)`.

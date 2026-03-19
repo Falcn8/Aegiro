@@ -23,6 +23,16 @@ private let vaultChunkKeySaltLength = 16
 private let vaultChunkNoncePrefixLength = 4
 private let vaultChunkTagLength = 16
 private let vaultChunkAEADIDV1: UInt16 = 1
+private let vaultPreferredChunkAlgorithm: UInt8 = {
+    // Prefer AES-GCM for consistent output across architectures.
+    // If AES-GCM is unavailable at runtime, fall back to ChaCha20-Poly1305.
+    let key = SymmetricKey(size: .bits256)
+    let nonce = AES.GCM.Nonce()
+    if (try? AES.GCM.seal(Data(), using: key, nonce: nonce, authenticating: Data())) != nil {
+        return vaultChunkAlgAESGCM
+    }
+    return vaultChunkAlgChaChaPoly1305
+}()
 
 private struct PQAccessBundleV1: Codable {
     let version: UInt8
@@ -297,11 +307,7 @@ private func sanitizedExportRelativePath(from logicalPath: String) -> String {
 }
 
 private func preferredVaultChunkAlgorithm() -> UInt8 {
-    #if arch(arm64)
-    return vaultChunkAlgAESGCM
-    #else
-    return vaultChunkAlgChaChaPoly1305
-    #endif
+    return vaultPreferredChunkAlgorithm
 }
 
 private func secureRandomData(count: Int) throws -> Data {
