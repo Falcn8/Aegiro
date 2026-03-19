@@ -5,6 +5,7 @@ This folder groups project documentation by purpose.
 ## Explanations
 
 - [Encryption Scheme Paper](explanations/ENCYRPTION_SCHEME_PAPER.md)
+- [Standards Alignment](explanations/STANDARDS_ALIGNMENT.md)
 - [Runtime Format Status (AGVT v1)](explanations/ENCYRPTION_SCHEME_PAPER.md#9-runtime-format-status)
 - [USB Encryption Schematics](explanations/USB_ENCRYPTION_SCHEMATICS.md)
 - [USB Encryption Diagrams](explanations/USB_ENCRYPTION_DIAGRAMS.md)
