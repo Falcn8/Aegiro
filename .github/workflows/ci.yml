@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  cli-version-guard:
+    name: CLI Version Guard
+    if: github.event_name == 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure CLI version bump for CLI changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          CLI_CHANGED="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- 'Sources/AegiroCLI/**' || true)"
+          NON_VERSION_CLI_CHANGED="$(echo "$CLI_CHANGED" | grep -v '^Sources/AegiroCLI/main.swift$' || true)"
+
+          if [ -z "$NON_VERSION_CLI_CHANGED" ]; then
+            echo "No CLI source changes requiring version validation."
+            exit 0
+          fi
+
+          if ! git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- 'Sources/AegiroCLI/main.swift' | grep -q '^Sources/AegiroCLI/main.swift$'; then
+            echo "CLI sources changed, but Sources/AegiroCLI/main.swift was not updated."
+            echo "Bump AEGIRO_CLI_VERSION as required by AGENTS.md."
+            exit 1
+          fi
+
+          if ! git diff "$BASE_SHA" "$HEAD_SHA" -- 'Sources/AegiroCLI/main.swift' | grep -q 'AEGIRO_CLI_VERSION'; then
+            echo "Sources/AegiroCLI/main.swift changed, but AEGIRO_CLI_VERSION change was not detected."
+            echo "Bump AEGIRO_CLI_VERSION as required by AGENTS.md."
+            exit 1
+          fi
+
+  build-and-test:
+    name: Build and Test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
