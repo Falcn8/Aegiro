@@ -291,7 +291,7 @@ Not provided:
 1. Argon2 parameter structs are stored in header/bundle metadata, but KDF code paths currently use fixed defaults (`m=256 MiB, t=3, p=1`).  
 2. `wraps_offsets` fields exist in header, but parser/reader logic uses sequential parsing instead of relying on those offsets.  
 3. Legacy unlock and PQC unlock coexist; mode inference and flag normalization are available.  
-4. Reader compatibility currently accepts both AEAD ID `1` (current) and legacy ID `2`, and also falls back to legacy `AEGIRO-FILE-KEY-V2` / `AEGIRO-CHUNK-V2` domains for existing chunks while writes use v1 labels.
+4. Chunk readers are strict AGVT v1 (`AEGIRO-FILE-KEY-V1`, `AEGIRO-CHUNK-V1`, AEAD ID `1`); vaults with legacy v2 chunk labels are not supported.
 
 ---
 
@@ -303,7 +303,7 @@ This document is the active implementation reference for that format.
 Runtime policy:
 
 - New vault writes: AGVT v1 header/version/AEAD labels.
-- Reader compatibility: accepts legacy AEAD ID `2` and legacy `AEGIRO-FILE-KEY-V2` / `AEGIRO-CHUNK-V2` chunk domains when needed.
+- Reader enforcement: accepts only AEAD ID `1` with `AEGIRO-FILE-KEY-V1` / `AEGIRO-CHUNK-V1` chunk domains.
 - AGVT v2 spec/helper artifacts were removed from active source/docs; historical context remains in git history.
 
 ---

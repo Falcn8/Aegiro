@@ -15,6 +15,31 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(parsed.alg_ids.aead, 1)
     }
 
+    func testRejectsLegacyChunkAEADID() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        var data = try Data(contentsOf: vaultURL)
+        let (header, hdrLen) = try parseHeaderAndOffset(data)
+
+        var modified = header
+        modified.alg_ids.aead = 2
+        let modifiedHeader = try modified.serialize()
+        XCTAssertEqual(modifiedHeader.count, hdrLen, "AEAD id mutation must preserve header length for in-place rewrite")
+
+        data.replaceSubrange(0..<hdrLen, with: modifiedHeader)
+        try data.write(to: vaultURL, options: .atomic)
+
+        let outDir = tmp.appendingPathComponent("out", isDirectory: true)
+        XCTAssertThrowsError(try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)) { error in
+            XCTAssertTrue(String(describing: error).contains("Unsupported vault chunk AEAD id"))
+        }
+    }
+
     func testNonceUniqueness() {
         let seed = SymmetricKey(size: .bits256)
         var set = Set<Data>()
