@@ -33,7 +33,6 @@ public protocol KDF {
     func deriveKey(passphrase: String, salt: Data, outLen: Int) throws -> Data
 }
 
-#if REAL_CRYPTO
 import Argon2C
 public struct Argon2idKDF: KDF {
     public func deriveKey(passphrase: String, salt: Data, outLen: Int) throws -> Data {
@@ -65,25 +64,6 @@ public struct Argon2idKDF: KDF {
         return out
     }
 }
-#else
-public struct StubKDF: KDF {
-    public func deriveKey(passphrase: String, salt: Data, outLen: Int) throws -> Data {
-        let ikm = Data(passphrase.utf8)
-        let prk = HKDF<SHA256>.deriveKey(inputKeyMaterial: SymmetricKey(data: ikm),
-                                         salt: salt,
-                                         info: Data("AEGIRO-KDF".utf8),
-                                         outputByteCount: outLen)
-        var out = Data(count: outLen)
-        prk.withUnsafeBytes { raw in
-            out.withUnsafeMutableBytes { dst in
-                guard let srcBase = raw.baseAddress, let dstBase = dst.baseAddress else { return }
-                memcpy(dstBase, srcBase, min(raw.count, dst.count))
-            }
-        }
-        return out
-    }
-}
-#endif
 
 public struct HMACUtil {
     public static func hmacNameHash(_ name: String, salt: Data) -> Data {

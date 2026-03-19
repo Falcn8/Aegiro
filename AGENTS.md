@@ -9,8 +9,8 @@ This repo is designed for iterative, surgical improvements. Please follow these 
 - If a change affects the CLI or on‑disk format, update docs/help and include those in the same commit.
 
 ### Build and Dist
-- REAL_CRYPTO build and packaging:
-  - `bash scripts/build-real.sh`
+- Build and packaging:
+  - `bash scripts/build.sh`
   - Script outputs: `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` and prints a SHA256 checksum.
 - When CLI behavior changes, rebuild and commit updated `dist/` artifacts so users can install directly.
 - Verify basic commands after builds:
@@ -36,7 +36,7 @@ This repo is designed for iterative, surgical improvements. Please follow these 
 - Update help/docs when you add or modify commands.
 
 ### Quick References
-- Build (REAL_CRYPTO): `bash scripts/build-real.sh`
+- Build: `bash scripts/build.sh`
 - Verify package: `shasum -a 256 dist/aegiro-cli-macos-arm64.tar.gz`
 - Install binary (optional): `sudo install -m 0755 dist/aegiro-cli /usr/local/bin/aegiro`
 - Basic smoke test: `./dist/aegiro-cli --help`

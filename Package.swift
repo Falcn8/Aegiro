@@ -13,7 +13,7 @@ let package = Package(
         .target(
             name: "AegiroCore",
             dependencies: [
-                // Required for default REAL_CRYPTO builds
+                // Required for cryptographic build and packaging
                 .target(name: "Argon2C"),
                 .target(name: "OQSWrapper"),
                 .target(name: "OpenSSLShim"),
@@ -21,9 +21,6 @@ let package = Package(
             resources: [
                 .process("Resources/OnboardingCopy.json"),
                 .process("Resources/TrustSheet.png")
-            ],
-            swiftSettings: [
-                .define("REAL_CRYPTO")
             ],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker","-force_load","-Xlinker","/opt/homebrew/lib/liboqs.a","-L/opt/homebrew/opt/openssl@3/lib","-lcrypto"], .when(configuration: .release))

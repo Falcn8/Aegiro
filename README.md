@@ -53,7 +53,7 @@ Aegiro is a local-first encrypted vault system for macOS:
 
 ```bash
 # Build package
-bash scripts/build-real.sh
+bash scripts/build.sh
 ./dist/aegiro-cli --version
 
 # Create a vault
@@ -94,7 +94,7 @@ Use `./dist/aegiro-cli --help` for full options.
 
 ```bash
 brew install liboqs argon2 openssl@3
-bash scripts/build-real.sh
+bash scripts/build.sh
 ```
 
 Outputs:

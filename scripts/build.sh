@@ -49,7 +49,7 @@ PC
 
 export PKG_CONFIG_PATH="$PC_DIR${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 
-echo "Building (default REAL_CRYPTO)..."
+echo "Building release..."
 swift build -c release
 BIN=".build/release/aegiro-cli"
 if [[ ! -x "$BIN" ]]; then

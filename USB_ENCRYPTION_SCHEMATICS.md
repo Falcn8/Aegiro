@@ -367,5 +367,5 @@ aegiro-cli disk-unlock \
 | `ExternalDiskCrypto.recoverDiskPassphrase()` | `Sources/AegiroCore/ExternalDiskCrypto.swift` |
 | `DiskRecoveryBundle` | `Sources/AegiroCore/ExternalDiskCrypto.swift` |
 | `AEAD.encrypt` / `AEAD.decrypt` | `Sources/AegiroCore/Crypto.swift` |
-| `Kyber512` / `StubKEM` | `Sources/AegiroCore/PQC.swift` |
-| `Argon2idKDF` / `StubKDF` | `Sources/AegiroCore/Crypto.swift` |
+| `Kyber512` | `Sources/AegiroCore/PQC.swift` |
+| `Argon2idKDF` | `Sources/AegiroCore/Crypto.swift` |

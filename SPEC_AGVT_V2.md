@@ -41,7 +41,7 @@ AGVT v2 supports profile IDs so formats stay stable while algorithms can evolve.
   - KEM: Kyber512 (liboqs)
   - Signature: Dilithium2 (liboqs)
 
-Initial implementation target for this repo: `0x0002` (to align with existing REAL_CRYPTO posture), while keeping parsing generic.
+Initial implementation target for this repo: `0x0002` (to align with the current crypto posture), while keeping parsing generic.
 
 ## 5. Key Hierarchy
 

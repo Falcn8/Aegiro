@@ -1,6 +1,5 @@
 
 import Foundation
-import CryptoKit
 
 public protocol PQKEM {
     func keypair() throws -> (pk: Data, sk: Data)
@@ -14,9 +13,8 @@ public protocol PQSig {
     func verify(message: Data, sig: Data, pk: Data) -> Bool
 }
 
-#if REAL_CRYPTO
 import OQSWrapper
-import OpenSSLShim // ensure libcrypto links in REAL_CRYPTO builds
+import OpenSSLShim // ensure libcrypto links in crypto builds
 public struct Kyber512: PQKEM {
     public init() {}
     public func keypair() throws -> (pk: Data, sk: Data) {
@@ -165,54 +163,5 @@ public struct Dilithium2: PQSig {
             }
         }
         return rc == OQS_SUCCESS
-    }
-}
-#else
-public struct StubKEM: PQKEM {
-    public init() {}
-    public func keypair() throws -> (pk: Data, sk: Data) {
-        let sk = Curve25519.KeyAgreement.PrivateKey()
-        return (pk: sk.publicKey.rawRepresentation, sk: sk.rawRepresentation)
-    }
-    public func encap(_ pk: Data) throws -> (ss: Data, ct: Data) {
-        let eph = Curve25519.KeyAgreement.PrivateKey()
-        let pub = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: pk)
-        let ss = try eph.sharedSecretFromKeyAgreement(with: pub).hkdfSha256(salt: Data(), info: Data("AEGIRO-KEM".utf8), outputByteCount: 32)
-        return (ss: ss, ct: eph.publicKey.rawRepresentation)
-    }
-    public func decap(_ ct: Data, sk: Data) throws -> Data {
-        let priv = try Curve25519.KeyAgreement.PrivateKey(rawRepresentation: sk)
-        let ephPub = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: ct)
-        let ss = try priv.sharedSecretFromKeyAgreement(with: ephPub).hkdfSha256(salt: Data(), info: Data("AEGIRO-KEM".utf8), outputByteCount: 32)
-        return ss
-    }
-}
-
-public struct StubSig: PQSig {
-    public init() {}
-    public func keypair() throws -> (pk: Data, sk: Data) {
-        let sk = P256.Signing.PrivateKey()
-        return (pk: sk.publicKey.rawRepresentation, sk: sk.rawRepresentation)
-    }
-    public func sign(message: Data, sk: Data) throws -> Data {
-        let priv = try P256.Signing.PrivateKey(rawRepresentation: sk)
-        let sig = try priv.signature(for: message)
-        return sig.derRepresentation
-    }
-    public func verify(message: Data, sig: Data, pk: Data) -> Bool {
-        guard let pub = try? P256.Signing.PublicKey(rawRepresentation: pk) else { return false }
-        guard let s = try? P256.Signing.ECDSASignature(derRepresentation: sig) else { return false }
-        return pub.isValidSignature(s, for: message)
-    }
-}
-#endif
-
-extension SharedSecret {
-    func hkdfSha256(salt: Data, info: Data, outputByteCount: Int) -> Data {
-        let key = self.hkdfDerivedSymmetricKey(using: SHA256.self,
-                                               salt: salt,
-                                               sharedInfo: info,
-                                               outputByteCount: outputByteCount)
-        return key.withUnsafeBytes { Data($0) }
     }
 }

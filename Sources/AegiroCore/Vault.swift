@@ -36,13 +36,8 @@ public final class AegiroVault {
     }
 
     public static func create(at url: URL, passphrase: String, touchID: Bool) throws -> AegiroVault {
-        #if REAL_CRYPTO
         let kem = Kyber512()
         let sig = Dilithium2()
-        #else
-        let kem = StubKEM()
-        let sig = StubSig()
-        #endif
         let (kemPk, kemSk) = try kem.keypair()
         let (sigPk, sigSk) = try sig.keypair()
 
@@ -53,11 +48,7 @@ public final class AegiroVault {
         if touchID { header.flags |= vaultFlagTouchID }
         header.flags |= vaultFlagPQCUnlockV1
 
-        #if REAL_CRYPTO
         let kdf = Argon2idKDF()
-        #else
-        let kdf = StubKDF()
-        #endif
         let pdkRaw = try kdf.deriveKey(passphrase: passphrase, salt: header.kdf_salt, outLen: 32)
         let pdk = SymmetricKey(data: pdkRaw)
 
@@ -638,11 +629,7 @@ private func mergeImportedItems(vaultURL: URL,
     }
     let signerWrap = data.subdata(in: layout.signerWrapRange)
     let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
-    #if REAL_CRYPTO
     let sig = Dilithium2()
-    #else
-    let sig = StubSig()
-    #endif
     let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
     let manBlob = try JSONEncoder().encode(manifest)
 
@@ -687,11 +674,7 @@ private func mergeImportedItems(vaultURL: URL,
 }
 
 private func derivePassphraseKey(passphrase: String, salt: Data) throws -> SymmetricKey {
-    #if REAL_CRYPTO
     let kdf = Argon2idKDF()
-    #else
-    let kdf = StubKDF()
-    #endif
     let raw = try kdf.deriveKey(passphrase: passphrase, salt: salt, outLen: 32)
     return SymmetricKey(data: raw)
 }
@@ -739,11 +722,7 @@ private func unlockDEK(head: VaultHeader,
                                  nonce: try AES.GCM.Nonce(data: accessBundle.kemSecretWrap.prefix(12)),
                                  combined: accessBundle.kemSecretWrap,
                                  aad: vaultAAD)
-    #if REAL_CRYPTO
     let kem = Kyber512()
-    #else
-    let kem = StubKEM()
-    #endif
     let ss = try kem.decap(accessBundle.kemCiphertext, sk: kemSk)
     let pqKey = SymmetricKey(data: ss)
     let dekRaw = try AEAD.decrypt(key: pqKey,
@@ -779,11 +758,7 @@ private func inferUnlockMode(data: Data, head: VaultHeader, layout: VaultLayout,
                                          combined: accessBundle.kemSecretWrap,
                                          aad: vaultAAD) {
             do {
-                #if REAL_CRYPTO
                 let kem = Kyber512()
-                #else
-                let kem = StubKEM()
-                #endif
                 let ss = try kem.decap(accessBundle.kemCiphertext, sk: kemSk)
                 let pqKey = SymmetricKey(data: ss)
                 let pqWrap = data.subdata(in: layout.pqWrapRange)
@@ -1053,11 +1028,7 @@ public enum VaultStatus {
 
         // Manifest verify
         let manifest = try JSONDecoder().decode(Manifest.self, from: components.manBlob)
-        #if REAL_CRYPTO
         let sig = Dilithium2()
-        #else
-        let sig = StubSig()
-        #endif
         let ok = ManifestBuilder.verify(manifest, signer: sig)
 
         // Entries if we can decrypt
@@ -1194,11 +1165,7 @@ public enum Doctor {
                 fixed: false
             )
         }
-        #if REAL_CRYPTO
         let sig = Dilithium2()
-        #else
-        let sig = StubSig()
-        #endif
         let cmData = data.subdata(in: layout.chunkMapRange)
         let chunkMapHash = Data(SHA256.hash(data: cmData))
         var manifestSignatureOK = ManifestBuilder.verify(manifest, signer: sig)
@@ -1464,11 +1431,7 @@ public enum Editor {
 
         // Re-sign manifest
         let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: d.subdata(in: layout.signerWrapRange).prefix(12)), combined: d.subdata(in: layout.signerWrapRange), aad: aad)
-        #if REAL_CRYPTO
         let sig = Dilithium2()
-        #else
-        let sig = StubSig()
-        #endif
         let chunkMap = d.subdata(in: layout.chunkMapRange)
         let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
         let manBlob = try JSONEncoder().encode(manifest)
@@ -1534,11 +1497,7 @@ public enum Editor {
 
         let signerWrap = data.subdata(in: layout.signerWrapRange)
         let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
-        #if REAL_CRYPTO
         let sig = Dilithium2()
-        #else
-        let sig = StubSig()
-        #endif
         let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
         let manBlob = try JSONEncoder().encode(manifest)
 

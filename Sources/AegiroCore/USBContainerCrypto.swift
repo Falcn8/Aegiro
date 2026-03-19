@@ -78,11 +78,7 @@ public enum USBContainerCrypto {
         let argon = Argon2Params(mMiB: 256, t: 3, p: 1)
         let recoveryKey = try deriveRecoveryKey(passphrase: recoveryPassphrase, salt: kdfSalt, argon: argon)
 
-        #if REAL_CRYPTO
         let kem = Kyber512()
-        #else
-        let kem = StubKEM()
-        #endif
         let (kemPk, kemSk) = try kem.keypair()
         let (sharedSecret, kemCiphertext) = try kem.encap(kemPk)
         let sharedKey = SymmetricKey(data: sharedSecret)
@@ -233,11 +229,7 @@ public enum USBContainerCrypto {
                                          nonce: try AES.GCM.Nonce(data: bundle.kem_secret_wrap.prefix(12)),
                                          combined: bundle.kem_secret_wrap,
                                          aad: aad)
-        #if REAL_CRYPTO
         let kem = Kyber512()
-        #else
-        let kem = StubKEM()
-        #endif
         let sharedSecret = try kem.decap(bundle.kem_ciphertext, sk: kemSecret)
         let sharedKey = SymmetricKey(data: sharedSecret)
         let passphraseData = try AEAD.decrypt(key: sharedKey,
@@ -252,11 +244,7 @@ public enum USBContainerCrypto {
 
     private static func deriveRecoveryKey(passphrase: String, salt: Data, argon: Argon2Params) throws -> SymmetricKey {
         _ = argon
-        #if REAL_CRYPTO
         let kdf = Argon2idKDF()
-        #else
-        let kdf = StubKDF()
-        #endif
         let raw = try kdf.deriveKey(passphrase: passphrase, salt: salt, outLen: 32)
         return SymmetricKey(data: raw)
     }

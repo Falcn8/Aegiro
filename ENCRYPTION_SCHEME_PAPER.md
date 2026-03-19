@@ -14,7 +14,7 @@ Aegiro currently ships three encryption workflows:
 2. APFS external-volume recovery wrapping (`apfs-volume-encrypt` / `apfs-volume-decrypt`)  
 3. Portable APFS sparsebundle recovery wrapping (`usb-container-create` / `usb-container-open`)
 
-The main vault path is passphrase-gated, Argon2id-based, AES-GCM authenticated encryption with post-quantum key encapsulation/signature support in `REAL_CRYPTO` builds.
+The main vault path is passphrase-gated, Argon2id-based, AES-GCM authenticated encryption with post-quantum key encapsulation/signature support.
 
 ---
 
@@ -25,8 +25,8 @@ The main vault path is passphrase-gated, Argon2id-based, AES-GCM authenticated e
 - KDF: Argon2id (`Argon2idKDF`)  
 - Symmetric AEAD: AES-256-GCM (`AEAD`, `IndexCrypto`)  
 - Hash / MAC: SHA-256, HMAC-SHA256  
-- KEM (REAL_CRYPTO): Kyber512 (`Kyber512`)  
-- Signature (REAL_CRYPTO): Dilithium2 (`Dilithium2`)
+- KEM: Kyber512 (`Kyber512`)  
+- Signature: Dilithium2 (`Dilithium2`)
 
 Reference code:
 
@@ -34,14 +34,9 @@ Reference code:
 - `Sources/AegiroCore/PQC.swift`
 - `Sources/AegiroCore/IndexManifest.swift`
 
-## 2.2 Build-Mode Split
+## 2.2 Build Profile
 
-- `REAL_CRYPTO` build: liboqs-backed Kyber512 + Dilithium2
-- Non-`REAL_CRYPTO` build: test/developer stubs
-  - KEM stub: Curve25519 ECDH + HKDF-SHA256
-  - Sig stub: P-256 ECDSA
-
-This means the same file format logic exists in both modes, but cryptographic strength differs by build target.
+- Single crypto profile: liboqs-backed Kyber512 + Dilithium2, with Argon2id passphrase derivation.
 
 ---
 
@@ -294,7 +289,7 @@ Provided (at-rest model):
 - integrity/authenticity of encrypted blobs via AEAD tags
 - whole-state binding via manifest hashes + signature
 - passphrase hardening via Argon2id
-- PQC-assisted unlock chain in `REAL_CRYPTO` builds
+- PQC-assisted unlock chain
 
 Not provided:
 
@@ -335,4 +330,3 @@ In short:
 - APFS recovery bundle crypto: `Sources/AegiroCore/ExternalDiskCrypto.swift`  
 - USB container recovery bundle crypto: `Sources/AegiroCore/USBContainerCrypto.swift`  
 - Alternative fast chunk scheme: `Sources/AegiroCore/FastEncryptionScheme.swift`
-
