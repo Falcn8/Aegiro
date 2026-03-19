@@ -650,8 +650,10 @@ struct MainView: View {
             lockedState
         } else if model.vaultEntriesLoading {
             vaultLoadingState
-        } else if filteredEntries.isEmpty {
+        } else if model.entries.isEmpty {
             emptyVaultState
+        } else if filteredEntries.isEmpty {
+            emptySearchResultsState
         } else {
             fileBrowser
         }
@@ -725,6 +727,31 @@ struct MainView: View {
                 .foregroundStyle(AegiroPalette.textSecondary)
             Button("Add Files") {
                 model.importFiles()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AegiroPalette.accentIndigo)
+            .disabled(model.locked)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptySearchResultsState: some View {
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(AegiroTypography.body(38, weight: .medium))
+                .foregroundStyle(AegiroPalette.accentIndigo)
+            Text("No matching files")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+            Text(trimmedQuery.isEmpty
+                 ? "Current filters hide all files."
+                 : "No files match \"\(trimmedQuery)\".")
+                .font(AegiroTypography.body(14, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+            Button("Show All Files (\(model.entries.count))") {
+                searchText = ""
+                scheduleFilteredEntriesRebuild()
             }
             .buttonStyle(.borderedProminent)
             .tint(AegiroPalette.accentIndigo)
