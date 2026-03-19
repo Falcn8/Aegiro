@@ -5853,14 +5853,19 @@ private struct DoctorSheet: View {
                     report = result
                     if fix {
                         let flagsChanged = model.normalizeUnlockFlagsIfNeeded()
-                        switch (result.fixed, flagsChanged) {
-                        case (true, true):
+                        let hasIssues = !result.issues.isEmpty
+                        switch (result.fixed, flagsChanged, hasIssues) {
+                        case (true, true, _):
                             runMessage = "Doctor completed. Applied manifest fix and normalized unlock flags."
-                        case (true, false):
+                        case (true, false, _):
                             runMessage = "Doctor completed. Applied manifest fix."
-                        case (false, true):
+                        case (false, true, true):
+                            runMessage = "Doctor completed. Normalized unlock flags. Remaining issues require manual repair."
+                        case (false, true, false):
                             runMessage = "Doctor completed. Normalized unlock flags."
-                        case (false, false):
+                        case (false, false, true):
+                            runMessage = "Doctor completed. No automatic fix was applied. Review listed issues."
+                        case (false, false, false):
                             runMessage = "Doctor completed. No fixes were needed."
                         }
                     } else {

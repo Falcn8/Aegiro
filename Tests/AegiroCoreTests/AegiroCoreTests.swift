@@ -314,6 +314,43 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertTrue(report.issues.contains { $0.contains("Chunk authentication failed") })
     }
 
+    func testDoctorFixRepairsManifestIndexHashMismatch() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let fileURL = tmp.appendingPathComponent("note.txt")
+        try Data("manifest-index-fix".utf8).write(to: fileURL)
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [fileURL])
+        XCTAssertEqual(imported.imported, 1)
+
+        var data = try Data(contentsOf: vaultURL)
+        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+
+        var manifest = try JSONDecoder().decode(Manifest.self, from: data.subdata(in: layout.manRange))
+        XCTAssertFalse(manifest.indexRootHash.isEmpty)
+        manifest.indexRootHash[0] = manifest.indexRootHash[0] ^ 0x01
+        let badManifestBlob = try JSONEncoder().encode(manifest)
+
+        let newLenLE = withUnsafeBytes(of: UInt32(badManifestBlob.count).littleEndian) { Data($0) }
+        data.replaceSubrange(layout.manLenPos..<(layout.manLenPos + 4), with: newLenLE)
+        data.replaceSubrange(layout.manRange, with: badManifestBlob)
+        try data.write(to: vaultURL, options: .atomic)
+
+        let pre = try Doctor.run(vaultURL: vaultURL, passphrase: "test-pass", fix: false)
+        XCTAssertTrue(pre.issues.contains { $0.contains("Manifest index hash does not match decrypted index.") })
+        XCTAssertFalse(pre.manifestOK)
+
+        let post = try Doctor.run(vaultURL: vaultURL, passphrase: "test-pass", fix: true)
+        XCTAssertTrue(post.fixed)
+        XCTAssertTrue(post.manifestOK)
+        XCTAssertFalse(post.issues.contains { $0.contains("Manifest index hash does not match decrypted index.") })
+    }
+
     func testExternalDiskRecoveryBundleRoundTripDryRun() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

@@ -1198,12 +1198,31 @@ public enum Doctor {
         var manifestSignatureOK = ManifestBuilder.verify(manifest, signer: sig)
         var manifestSignerMatchesHeader = (manifest.signerPK == head.pq_pubkeys.dilithium_pk)
         var manifestChunkMapHashMatches = (manifest.chunkMapHash == chunkMapHash)
+        var manifestIndexHashMatches: Bool? = nil
 
-        if (!manifestSignatureOK || !manifestSignerMatchesHeader || !manifestChunkMapHashMatches), fix,
-           let pass = passphrase, !pass.isEmpty {
+        var decryptedIndex: VaultIndex?
+        var decryptedIndexHash: Data?
+        var dekForDeepChecks: SymmetricKey?
+        if let pass = passphrase, !pass.isEmpty {
             let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
             let idxBlob = data.subdata(in: layout.idxRange)
-            let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
+            let idxPlain = try decryptIndexBlob(idxBlob, key: dek, aad: aad)
+            let index = try JSONDecoder().decode(VaultIndex.self, from: idxPlain)
+            let idxHash = Data(SHA256.hash(data: idxPlain))
+            decryptedIndex = index
+            decryptedIndexHash = idxHash
+            dekForDeepChecks = dek
+            manifestIndexHashMatches = (idxHash == manifest.indexRootHash)
+        }
+
+        if fix,
+           let index = decryptedIndex,
+           let idxHash = decryptedIndexHash,
+           let dek = dekForDeepChecks,
+           (!manifestSignatureOK
+            || !manifestSignerMatchesHeader
+            || !manifestChunkMapHashMatches
+            || manifestIndexHashMatches == false) {
             let newManifest = try ManifestBuilder.build(
                 index: index,
                 chunkMap: cmData,
@@ -1223,10 +1242,14 @@ public enum Doctor {
             manifestSignatureOK = ManifestBuilder.verify(manifest, signer: sig)
             manifestSignerMatchesHeader = (manifest.signerPK == head.pq_pubkeys.dilithium_pk)
             manifestChunkMapHashMatches = (manifest.chunkMapHash == chunkMapHash)
+            manifestIndexHashMatches = (idxHash == manifest.indexRootHash)
             fixed = true
         }
 
         var manifestOK = manifestSignatureOK && manifestSignerMatchesHeader && manifestChunkMapHashMatches
+        if let manifestIndexHashMatches {
+            manifestOK = manifestOK && manifestIndexHashMatches
+        }
         if !manifestSignatureOK {
             issues.append("Manifest signature invalid.")
         }
@@ -1235,6 +1258,9 @@ public enum Doctor {
         }
         if !manifestChunkMapHashMatches {
             issues.append("Manifest chunk map hash does not match chunk map bytes.")
+        }
+        if manifestIndexHashMatches == false {
+            issues.append("Manifest index hash does not match decrypted index.")
         }
 
         // Chunk map parse and area consistency checks.
@@ -1268,19 +1294,8 @@ public enum Doctor {
 
         // Entry and chunk authentication checks when passphrase is available.
         var entryCount: Int? = nil
-        if let pass = passphrase, !pass.isEmpty {
-            let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
-            let idxBlob = data.subdata(in: layout.idxRange)
-
-            let idxPlain = try decryptIndexBlob(idxBlob, key: dek, aad: aad)
-            let index = try JSONDecoder().decode(VaultIndex.self, from: idxPlain)
+        if let index = decryptedIndex, let dek = dekForDeepChecks {
             entryCount = index.entries.count
-
-            let idxHash = Data(SHA256.hash(data: idxPlain))
-            if idxHash != manifest.indexRootHash {
-                manifestOK = false
-                issues.append("Manifest index hash does not match decrypted index.")
-            }
 
             var plainBytesByName: [String: UInt64] = [:]
             for c in chunks {
