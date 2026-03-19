@@ -8,6 +8,9 @@ This repo is designed for iterative, surgical improvements. Please follow these 
 - Use clear commit messages describing why + what (e.g., `fix(cli): guard args and add hint for missing --vault`).
 - If a change affects the CLI or on‑disk format, update docs/help and include those in the same commit.
 
+### CLI Version Rule
+- Any change under `Sources/AegiroCLI` must also bump `AEGIRO_CLI_VERSION` in `Sources/AegiroCLI/main.swift`.
+
 ### Build and Dist
 - Build and packaging:
   - `bash scripts/build.sh`
