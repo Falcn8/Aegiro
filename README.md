@@ -127,9 +127,9 @@ bash scripts/build-app-universal.sh --configuration release --ad-hoc
 
 Outputs:
 
-- `dist/AegiroApp-arm64.app`
-- `dist/AegiroApp-x86_64.app`
-- `dist/AegiroApp.app` (universal)
+- `dist/Aegiro-arm64.app`
+- `dist/Aegiro-x86_64.app`
+- `dist/Aegiro.app` (universal)
 
 ---
 

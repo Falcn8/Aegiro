@@ -5,8 +5,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 CONFIG="debug"
-APP_NAME="AegiroApp"
-CANONICAL_APP_PATH="$ROOT_DIR/dist/${APP_NAME}.app"
+TARGET_NAME="AegiroApp"
+APP_EXECUTABLE="$TARGET_NAME"
+APP_BUNDLE_NAME="Aegiro"
+CANONICAL_APP_PATH="$ROOT_DIR/dist/${APP_BUNDLE_NAME}.app"
 BUNDLE_ID="com.example.aegiro"
 IDENTITY=""
 FORCE_AD_HOC=0
@@ -31,7 +33,7 @@ Options:
   --identity "<name-or-sha1>"      Use this signing identity
   --bundle-id <id>                 Bundle identifier (default: com.example.aegiro)
   --launch                         Launch the built app as a new instance
-  --kill-running                   Kill existing AegiroApp processes before launch
+  --kill-running                   Kill existing Aegiro app processes before launch
   --ad-hoc                         Force ad-hoc signing
   --help                           Show this help
 EOF
@@ -312,7 +314,7 @@ package_app_bundle() {
 
   rm -rf "$app_path"
   mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
-  cp "$app_bin" "$app_path/Contents/MacOS/$APP_NAME"
+  cp "$app_bin" "$app_path/Contents/MacOS/$APP_EXECUTABLE"
 
   while IFS= read -r bundle; do
     [[ -z "$bundle" ]] && continue
@@ -324,9 +326,9 @@ package_app_bundle() {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>${APP_NAME}</string>
-  <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
-  <key>CFBundleExecutable</key><string>${APP_NAME}</string>
+  <key>CFBundleName</key><string>${APP_BUNDLE_NAME}</string>
+  <key>CFBundleDisplayName</key><string>${APP_BUNDLE_NAME}</string>
+  <key>CFBundleExecutable</key><string>${APP_EXECUTABLE}</string>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
   <key>CFBundleVersion</key><string>${BUILD_VERSION}</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
@@ -344,20 +346,20 @@ build_for_arch() {
   local arch="$1"
   local scratch_path bin_dir app_bin app_path
 
-  echo "Building ${APP_NAME} (${CONFIG}, ${arch})..."
+  echo "Building ${APP_BUNDLE_NAME}.app (${CONFIG}, ${arch}) from target ${TARGET_NAME}..."
   configure_arch_environment "$arch"
 
   scratch_path="$ROOT_DIR/.build-app-${arch}-${CONFIG}"
-  swift build --product "$APP_NAME" -c "$CONFIG" --arch "$arch" --scratch-path "$scratch_path"
-  bin_dir="$(swift build --product "$APP_NAME" -c "$CONFIG" --arch "$arch" --scratch-path "$scratch_path" --show-bin-path)"
-  app_bin="$bin_dir/$APP_NAME"
+  swift build --product "$TARGET_NAME" -c "$CONFIG" --arch "$arch" --scratch-path "$scratch_path"
+  bin_dir="$(swift build --product "$TARGET_NAME" -c "$CONFIG" --arch "$arch" --scratch-path "$scratch_path" --show-bin-path)"
+  app_bin="$bin_dir/$APP_EXECUTABLE"
   if [[ ! -x "$app_bin" ]]; then
     echo "Build did not produce executable: $app_bin" >&2
     exit 1
   fi
 
   mkdir -p "$ROOT_DIR/dist"
-  app_path="$ROOT_DIR/dist/${APP_NAME}-${arch}.app"
+  app_path="$ROOT_DIR/dist/${APP_BUNDLE_NAME}-${arch}.app"
   package_app_bundle "$app_path" "$app_bin" "$bin_dir"
 
   BUILT_ARCHES+=("$arch")
@@ -392,9 +394,9 @@ build_universal_app() {
   rm -rf "$CANONICAL_APP_PATH"
   cp -R "$source_app" "$CANONICAL_APP_PATH"
 
-  arm_exec="$arm_app/Contents/MacOS/$APP_NAME"
-  x86_exec="$x86_app/Contents/MacOS/$APP_NAME"
-  uni_exec="$CANONICAL_APP_PATH/Contents/MacOS/$APP_NAME"
+  arm_exec="$arm_app/Contents/MacOS/$APP_EXECUTABLE"
+  x86_exec="$x86_app/Contents/MacOS/$APP_EXECUTABLE"
+  uni_exec="$CANONICAL_APP_PATH/Contents/MacOS/$APP_EXECUTABLE"
 
   lipo -create "$arm_exec" "$x86_exec" -output "$uni_exec"
   sign_app_bundle "$CANONICAL_APP_PATH"

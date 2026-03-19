@@ -5,8 +5,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 CONFIG="debug"
-APP_NAME="AegiroApp"
-APP_PATH="$ROOT_DIR/dist/${APP_NAME}.app"
+TARGET_NAME="AegiroApp"
+APP_EXECUTABLE="$TARGET_NAME"
+APP_BUNDLE_NAME="Aegiro"
+APP_PATH="$ROOT_DIR/dist/${APP_BUNDLE_NAME}.app"
 BUNDLE_ID="com.example.aegiro"
 IDENTITY=""
 FORCE_AD_HOC=0
@@ -23,7 +25,7 @@ Options:
   --identity "<name-or-sha1>"      Use this signing identity
   --bundle-id <id>                 Bundle identifier (default: com.example.aegiro)
   --launch                         Launch the built app as a new instance
-  --kill-running                   Kill existing AegiroApp processes before launch
+  --kill-running                   Kill existing Aegiro app processes before launch
   --ad-hoc                         Force ad-hoc signing
   --help                           Show this help
 EOF
@@ -120,10 +122,10 @@ kill_running_instances() {
   fi
 }
 
-echo "Building ${APP_NAME} (${CONFIG})..."
-swift build --target "$APP_NAME" -c "$CONFIG"
+echo "Building ${APP_BUNDLE_NAME}.app (${CONFIG}) from target ${TARGET_NAME}..."
+swift build --target "$TARGET_NAME" -c "$CONFIG"
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
-APP_BIN="$BIN_DIR/$APP_NAME"
+APP_BIN="$BIN_DIR/$APP_EXECUTABLE"
 if [[ ! -x "$APP_BIN" ]]; then
   echo "Build did not produce executable: $APP_BIN" >&2
   exit 1
@@ -131,7 +133,7 @@ fi
 
 rm -rf "$APP_PATH"
 mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
-cp "$APP_BIN" "$APP_PATH/Contents/MacOS/$APP_NAME"
+cp "$APP_BIN" "$APP_PATH/Contents/MacOS/$APP_EXECUTABLE"
 
 # SwiftPM resource bundles are emitted next to the executable.
 # Copy bundles into app resources so packaged builds include images/fonts/json assets.
@@ -145,9 +147,9 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>${APP_NAME}</string>
-  <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
-  <key>CFBundleExecutable</key><string>${APP_NAME}</string>
+  <key>CFBundleName</key><string>${APP_BUNDLE_NAME}</string>
+  <key>CFBundleDisplayName</key><string>${APP_BUNDLE_NAME}</string>
+  <key>CFBundleExecutable</key><string>${APP_EXECUTABLE}</string>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
   <key>CFBundleVersion</key><string>${BUILD_VERSION}</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
