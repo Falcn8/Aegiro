@@ -7,7 +7,7 @@ public enum AGVTV2 {
     public static let defaultMaxSegmentsPerVault = 4_096
     public static let maxSegmentsEnvKey = "AEGIRO_MAX_SEGMENTS_PER_VAULT"
 
-    // Matches SPEC_AGVT_V2.md release bytes; revisit only with coordinated format bump.
+    // Matches docs/explanations/SPEC_AGVT_V2.md release bytes; revisit only with coordinated format bump.
     public static let superblockMagic = Data([0x41, 0x47, 0x56, 0x54, 0x32, 0x00, 0x00, 0x01]) // "AGVT2\0\0\1"
 
     public static var maxSegmentsPerVault: Int {
