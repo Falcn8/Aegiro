@@ -1,6 +1,6 @@
 # Aegiro Encryption Scheme Paper
 
-Version: 2.2 (implementation-focused)  
+Revised: 2026-03-19  
 Document type: Engineering reference  
 Primary source of truth: current code in `Sources/AegiroCore`
 
