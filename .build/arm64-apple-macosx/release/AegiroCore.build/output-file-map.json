@@ -28,6 +28,12 @@
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.dia"
   },
+  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FastEncryptionScheme.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.dia"
+  },
   "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FormatV2.swift": {
     "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FormatV2.swift.o",
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FormatV2~partial.swiftmodule",

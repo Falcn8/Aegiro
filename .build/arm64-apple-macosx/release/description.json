@@ -133,10 +133,6 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift"
-        },
-        {
-          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift"
         },
         {
@@ -198,7 +194,6 @@
       "objects" : [
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AegiroTheme.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swift.o",
-        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MainView.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/MenuBarView.swift.o",
@@ -283,10 +278,6 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o"
-        },
-        {
-          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o"
         },
         {
@@ -334,7 +325,6 @@
       "sources" : [
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AegiroTheme.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AppMain.swift",
-        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MainView.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MenuBarView.swift",
@@ -479,6 +469,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FastEncryptionScheme.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FormatV2.swift"
         },
         {
@@ -550,6 +544,7 @@
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/Crypto.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/CryptoExtensions.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FormatV2.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/IndexManifest.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/PQC.swift.o",
@@ -593,7 +588,6 @@
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/include/AegiroCore-Swift.h",
         "-swift-version",
         "5",
-        "-DREAL_CRYPTO",
         "-plugin-path",
         "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
         "-sdk",
@@ -643,6 +637,10 @@
         {
           "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.swift.o"
         },
         {
           "kind" : "file",
@@ -707,6 +705,7 @@
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ExternalDiskCrypto.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FastEncryptionScheme.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FormatV2.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift",
         "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift",
@@ -735,6 +734,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FastEncryptionSchemeTests.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FormatV2Tests.swift"
         },
         {
@@ -755,6 +758,7 @@
       "moduleOutputPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules/AegiroCoreTests.swiftmodule",
       "objects" : [
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swift.o",
+        "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FastEncryptionSchemeTests.swift.o",
         "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests.swift.o"
       ],
       "otherArguments" : [
@@ -828,6 +832,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FastEncryptionSchemeTests.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests.swift.o"
         },
         {
@@ -838,6 +846,7 @@
       "prepareForIndexing" : false,
       "sources" : [
         "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift",
+        "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FastEncryptionSchemeTests.swift",
         "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FormatV2Tests.swift"
       ],
       "tempsPath" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build",
@@ -965,7 +974,6 @@
       "-c",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AegiroTheme.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/AppMain.swift",
-      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MainView.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/MenuBarView.swift",
@@ -1123,6 +1131,7 @@
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/Crypto.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/CryptoExtensions.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/ExternalDiskCrypto.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FastEncryptionScheme.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FormatV2.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/IndexManifest.swift",
       "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/PQC.swift",
@@ -1166,7 +1175,6 @@
       "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/include/AegiroCore-Swift.h",
       "-swift-version",
       "5",
-      "-DREAL_CRYPTO",
       "-plugin-path",
       "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
       "-sdk",
@@ -1209,6 +1217,7 @@
       "aegiro",
       "-c",
       "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/AegiroCoreTests.swift",
+      "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FastEncryptionSchemeTests.swift",
       "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FormatV2Tests.swift",
       "-I",
       "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/Modules",
@@ -1421,10 +1430,6 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift"
-        },
-        {
-          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift"
         },
         {
@@ -1483,10 +1488,6 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o"
-        },
-        {
-          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o"
         },
         {
@@ -1540,6 +1541,10 @@
         {
           "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.swift.o"
         },
         {
           "kind" : "file",
@@ -1635,6 +1640,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FastEncryptionScheme.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroCore/FormatV2.swift"
         },
         {
@@ -1701,6 +1710,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FastEncryptionSchemeTests.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FormatV2Tests.swift"
         }
       ],
@@ -1742,6 +1755,10 @@
         {
           "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.swift.o"
         },
         {
           "kind" : "file",
@@ -1801,6 +1818,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FastEncryptionSchemeTests.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests.swift.o"
         },
         {
@@ -1836,6 +1857,10 @@
         {
           "kind" : "file",
           "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/ExternalDiskCrypto.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCore.build/FastEncryptionScheme.swift.o"
         },
         {
           "kind" : "file",

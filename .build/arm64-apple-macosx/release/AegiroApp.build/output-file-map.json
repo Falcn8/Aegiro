@@ -16,12 +16,6 @@
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/AppMain.dia"
   },
-  "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/BiometricKeychain.swift": {
-    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swift.o",
-    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain~partial.swiftmodule",
-    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.swiftdeps",
-    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/BiometricKeychain.dia"
-  },
   "/Users/codei/Documents/Programming/Aegiro/Sources/AegiroApp/FirstRunView.swift": {
     "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView.swift.o",
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroApp.build/FirstRunView~partial.swiftmodule",

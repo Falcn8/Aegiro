@@ -2,6 +2,5 @@
   "welcome": "Aegiro is local-only. Your files never leave this Mac. No cloud. No tracking.",
   "quantum_note": "Backups use post-quantum cryptography to protect against future decryption.",
   "passphrase_warning": "There is no server recovery. If you lose your passphrase, we cannot unlock your vault.",
-  "touch_id": "Touch ID unlocks the vault on this device only. It never sends your data anywhere.",
   "backup_tip": "Export an encrypted backup and store it offline. You\u2019ll need your passphrase to open it."
 }

@@ -10,6 +10,12 @@
     "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.swiftdeps",
     "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/AegiroCoreTests.dia"
   },
+  "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FastEncryptionSchemeTests.swift": {
+    "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FastEncryptionSchemeTests.swift.o",
+    "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FastEncryptionSchemeTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FastEncryptionSchemeTests.swiftdeps",
+    "diagnostics": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FastEncryptionSchemeTests.dia"
+  },
   "/Users/codei/Documents/Programming/Aegiro/Tests/AegiroCoreTests/FormatV2Tests.swift": {
     "object": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests.swift.o",
     "swiftmodule": "/Users/codei/Documents/Programming/Aegiro/.build/arm64-apple-macosx/release/AegiroCoreTests.build/FormatV2Tests~partial.swiftmodule",
