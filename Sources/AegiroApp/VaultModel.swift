@@ -1129,7 +1129,7 @@ final class VaultModel: ObservableObject {
                 let vault = try AegiroVault.open(at: vaultURL)
                 try Backup.exportBackup(from: vault, to: outURL, passphrase: passphrase)
                 DispatchQueue.main.async {
-                    self?.status = "Backup exported to \(outURL.path) (directory created; zip externally)."
+                    self?.status = "Backup archive created at \(outURL.path)."
                     completion?(.success(()))
                 }
             } catch {

@@ -4814,7 +4814,7 @@ private struct BackupSheet: View {
             isRunning = false
             switch result {
             case .success:
-                output = "Backup exported to \(outURL.path)\n(directory payload created; zip externally)."
+                output = "Backup archive created at \(outURL.path)."
                 onDone()
             case .failure(let error):
                 output = "Error: \(error)"

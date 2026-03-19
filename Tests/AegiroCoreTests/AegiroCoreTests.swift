@@ -211,6 +211,56 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("two.txt")), d2)
     }
 
+    func testBackupExportCreatesSingleArchiveWithMetadata() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let f1 = tmp.appendingPathComponent("one.txt")
+        try Data("hello-one".utf8).write(to: f1)
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1])
+        XCTAssertEqual(imported.imported, 1)
+
+        let vault = try AegiroVault.open(at: vaultURL)
+        let backupURL = tmp.appendingPathComponent("vault.aegirobackup")
+        try Backup.exportBackup(from: vault, to: backupURL, passphrase: "test-pass")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: backupURL.path))
+
+        let info = try Backup.inspectBackup(at: backupURL)
+        XCTAssertEqual(info.metadata.formatVersion, 1)
+        XCTAssertEqual(info.metadata.sourceVaultFileName, "vault.agvt")
+        XCTAssertEqual(info.payloadSizeBytes, info.metadata.sourceVaultSizeBytes)
+        XCTAssertTrue(info.metadata.passphraseValidated)
+        XCTAssertEqual(info.metadata.decryptedEntryCount, 1)
+        XCTAssertGreaterThanOrEqual(info.archiveSizeBytes, info.payloadSizeBytes)
+
+        let sourceData = try Data(contentsOf: vaultURL)
+        XCTAssertEqual(info.metadata.sourceVaultSizeBytes, UInt64(sourceData.count))
+        let expectedHash = Data(SHA256.hash(data: sourceData)).map { String(format: "%02x", $0) }.joined()
+        XCTAssertEqual(info.metadata.sourceVaultSHA256Hex, expectedHash)
+    }
+
+    func testBackupExportWithoutPassphraseSkipsEntryValidation() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let vault = try AegiroVault.open(at: vaultURL)
+        let backupURL = tmp.appendingPathComponent("vault.aegirobackup")
+        try Backup.exportBackup(from: vault, to: backupURL, passphrase: "")
+
+        let info = try Backup.inspectBackup(at: backupURL)
+        XCTAssertFalse(info.metadata.passphraseValidated)
+        XCTAssertNil(info.metadata.decryptedEntryCount)
+    }
+
     func testPQCBundleRequiredForUnlockOnNewVault() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

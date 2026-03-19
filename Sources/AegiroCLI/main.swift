@@ -221,7 +221,7 @@ struct CLI {
             }
             let v = try AegiroVault.open(at: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath))
             try Backup.exportBackup(from: v, to: URL(fileURLWithPath: NSString(string: o).expandingTildeInPath), passphrase: pass)
-            print("Backup exported to \(o) (directory created; zip externally).")
+            print("Backup archive created at \(o).")
         case "scan":
             var includeContents = true
             var maxFileBytes = 2_000_000
@@ -566,7 +566,7 @@ Usage:
   export --vault <path> --passphrase "<pass>" [--out <dir>] [filters...]
   preview --vault <path> --passphrase "<pass>" <filter>
   doctor --vault <path> [--passphrase "<pass>"] [--fix]  (deep checks require passphrase)
-  backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]
+  backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]  Create a single-file backup archive
   scan [--names-only] [--max-file-bytes <n>] <paths...>
   shred <paths...>
   apfs-volume-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
