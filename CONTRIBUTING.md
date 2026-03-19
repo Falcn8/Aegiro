@@ -8,7 +8,7 @@ requests, under the repository license and contribution terms.
 ## Before You Start
 
 - Read [LICENSE.txt](LICENSE.txt).
-- Read [CLA.md](CLA.md).
+- Read [CLA](docs/legal/CLA.md).
 - Do not submit code you do not have rights to contribute.
 
 ## Contribution Scope
@@ -19,7 +19,7 @@ You are welcome to contribute:
 - security hardening
 - tests
 - documentation improvements
-- UX and app-flow improvements consistent with `UI_DESIGN.md`
+- UX and app-flow improvements consistent with `docs/guides/UI_DESIGN.md`
 
 ## Workflow
 
@@ -35,7 +35,7 @@ By submitting any Contribution (including a pull request), you agree to the
 assignment and license terms in:
 
 - Section 4 of [LICENSE.txt](LICENSE.txt)
-- [CLA.md](CLA.md)
+- [CLA](docs/legal/CLA.md)
 
 If you do not agree with those terms, do not submit a Contribution.
 

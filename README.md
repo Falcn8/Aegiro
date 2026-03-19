@@ -112,9 +112,10 @@ Jump between project markdown pages:
 - [Encryption Scheme Paper (Implementation)](docs/explanations/ENCYRPTION_SCHEME_PAPER.md)
 - [USB Encryption Schematics](docs/explanations/USB_ENCRYPTION_SCHEMATICS.md)
 - [USB Encryption Diagrams](docs/explanations/USB_ENCRYPTION_DIAGRAMS.md)
-- [App UI Design](UI_DESIGN.md)
+- [Documentation Index](docs/README.md)
+- [App UI Design](docs/guides/UI_DESIGN.md)
 - [Contributing Guide](CONTRIBUTING.md)
-- [Contributor CLA](CLA.md)
+- [Contributor CLA](docs/legal/CLA.md)
 - [Agent Workflow Rules](AGENTS.md)
 
 ---

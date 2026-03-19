@@ -45,7 +45,7 @@ This repo is designed for iterative, surgical improvements. Please follow these 
 - Basic smoke test: `./dist/aegiro-cli --help`
 
 ### Design Reference
-- Follow `UI_DESIGN.md` for macOS app layouts, patterns, and UX principles. Keep the document updated when changing app UI.
+- Follow `docs/guides/UI_DESIGN.md` for macOS app layouts, patterns, and UX principles. Keep the document updated when changing app UI.
 
 ### Do Not
 - Do not commit secrets or credentials.
