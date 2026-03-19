@@ -1,6 +1,6 @@
 # Aegiro Encryption Scheme Paper
 
-Revised: 2026-03-19  
+Last Revised: 2026-03-19  
 Document type: Engineering reference  
 Primary source of truth: current code in `Sources/AegiroCore`
 
