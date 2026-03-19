@@ -4,7 +4,7 @@ import AegiroCore
 
 enum Exit: Int32 { case ok = 0, usage = 2, fail = 1 }
 
-let AEGIRO_CLI_VERSION = "0.1.0"
+let AEGIRO_CLI_VERSION = "0.1.1"
 
 struct CLI {
     static func run() throws {
@@ -144,12 +144,17 @@ struct CLI {
             guard let p = path, !pass.isEmpty, let f = filter else { hint("Missing required options for preview.", tip: "Use: preview --vault <path> --passphrase \"<pass>\" <filter>") }
             let entries = try Exporter.list(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass)
             guard let match = entries.first(where: { $0.logicalPath.localizedCaseInsensitiveContains(f) }) else { hint("No file matches filter.", tip: f) }
-            let tmp = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent((match.logicalPath as NSString).lastPathComponent)
-            _ = try Exporter.export(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath), passphrase: pass, filters: [match.logicalPath], outDir: tmp.deletingLastPathComponent())
-            print("Preview at: \(tmp.path)")
+            let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+                .appendingPathComponent("aegiro-preview-\(UUID().uuidString)", isDirectory: true)
+            let results = try Exporter.export(vaultURL: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath),
+                                              passphrase: pass,
+                                              filters: [match.logicalPath],
+                                              outDir: tmpDir)
+            guard let out = results.first?.1 else { hint("Nothing exported for preview.", tip: "Try a different filter.") }
+            print("Preview at: \(out.path)")
             let proc = Process()
             proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            proc.arguments = [tmp.path]
+            proc.arguments = [out.path]
             try? proc.run()
             proc.waitUntilExit()
         case "doctor":
@@ -608,6 +613,7 @@ Performance tips:
   Batch files in one import run: import --vault <path> --passphrase "<pass>" <files...>
   For whole folders, use: usb-vault-pack --source <folder> --vault <path.agvt> ...
   Avoid repeated single-file imports; each run rewrites vault metadata/chunk map.
+  Export preserves logical paths under --out by default to avoid duplicate-name collisions.
 """)
     }
 

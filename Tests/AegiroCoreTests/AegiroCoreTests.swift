@@ -115,8 +115,9 @@ final class AegiroCoreTests: XCTestCase {
         let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
         XCTAssertEqual(exported.count, 2)
 
-        let out1 = outDir.appendingPathComponent("one.txt")
-        let out2 = outDir.appendingPathComponent("two.txt")
+        let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
+        let out1 = try XCTUnwrap(exportedByLogicalPath[f1.path])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
         XCTAssertEqual(try Data(contentsOf: out1), d1)
         XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
@@ -166,11 +167,15 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(entries.count, 3)
 
         let outDir = tmp.appendingPathComponent("out", isDirectory: true)
-        _ = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
 
-        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("one.txt")), d1)
-        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("two.txt")), d2)
-        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("three.bin")), d3)
+        let out1 = try XCTUnwrap(exportedByLogicalPath[f1.path])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
+        let out3 = try XCTUnwrap(exportedByLogicalPath[f3.path])
+        XCTAssertEqual(try Data(contentsOf: out1), d1)
+        XCTAssertEqual(try Data(contentsOf: out2), d2)
+        XCTAssertEqual(try Data(contentsOf: out3), d3)
     }
 
     func testImportRejectsWhenVaultFileLimitWouldBeExceeded() throws {
@@ -232,8 +237,10 @@ final class AegiroCoreTests: XCTestCase {
         let outDir = tmp.appendingPathComponent("out", isDirectory: true)
         let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
         XCTAssertEqual(exported.count, 1)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: outDir.appendingPathComponent("one.txt").path))
-        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("two.txt")), d2)
+        let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
+        XCTAssertNil(exportedByLogicalPath[f1.path])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
+        XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
 
     func testBackupExportCreatesSingleArchiveWithMetadata() throws {
@@ -642,7 +649,7 @@ final class AegiroCoreTests: XCTestCase {
         let outDir = tmp.appendingPathComponent("out", isDirectory: true)
         let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
         XCTAssertEqual(exported.count, 1)
-        let restored = outDir.appendingPathComponent("hello.txt")
+        let restored = try XCTUnwrap(exported.first?.1)
         XCTAssertEqual(try Data(contentsOf: restored), payload)
     }
 }

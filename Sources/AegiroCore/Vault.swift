@@ -274,6 +274,28 @@ private func normalizedPath(_ url: URL) -> String {
     return url.standardizedFileURL.resolvingSymlinksInPath().path
 }
 
+private func sanitizedExportRelativePath(from logicalPath: String) -> String {
+    let normalized = logicalPath.replacingOccurrences(of: "\\", with: "/")
+    let rawComponents = normalized
+        .split(separator: "/", omittingEmptySubsequences: true)
+        .map(String.init)
+
+    let safeComponents: [String]
+    if rawComponents.isEmpty {
+        safeComponents = ["unnamed"]
+    } else {
+        safeComponents = rawComponents.map { component in
+            var trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || trimmed == "." || trimmed == ".." {
+                trimmed = "_"
+            }
+            return trimmed.replacingOccurrences(of: ":", with: "_")
+        }
+    }
+
+    return NSString.path(withComponents: safeComponents)
+}
+
 private func preferredVaultChunkAlgorithm() -> UInt8 {
     #if arch(arm64)
     return vaultChunkAlgAESGCM
@@ -1194,8 +1216,10 @@ public enum Exporter {
                                              algorithm: e.chunkCrypto.algorithm)
                 plain.append(dec)
             }
-            let outURL = outDir.appendingPathComponent((e.logicalPath as NSString).lastPathComponent)
-            try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+            let relativePath = sanitizedExportRelativePath(from: e.logicalPath)
+            let outURL = outDir.appendingPathComponent(relativePath, isDirectory: false)
+            let parentDirectory = outURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: parentDirectory, withIntermediateDirectories: true)
             try plain.write(to: outURL)
             results.append((e.logicalPath, outURL, plain.count))
         }

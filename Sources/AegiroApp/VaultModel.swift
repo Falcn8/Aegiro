@@ -390,8 +390,11 @@ final class VaultModel: ObservableObject {
         guard let url = vaultURL else { return }
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         do {
-            _ = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: [logicalPath], outDir: tmpDir)
-            let out = tmpDir.appendingPathComponent((logicalPath as NSString).lastPathComponent)
+            let results = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: [logicalPath], outDir: tmpDir)
+            guard let out = results.first?.1 else {
+                status = "Preview failed: no file exported"
+                return
+            }
             NSWorkspace.shared.open(out)
         } catch {
             self.status = "Preview failed: \(error)"
@@ -402,8 +405,11 @@ final class VaultModel: ObservableObject {
         guard let url = vaultURL else { return }
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         do {
-            _ = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: [logicalPath], outDir: tmpDir)
-            let out = tmpDir.appendingPathComponent((logicalPath as NSString).lastPathComponent)
+            let results = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: [logicalPath], outDir: tmpDir)
+            guard let out = results.first?.1 else {
+                status = "Reveal failed: no file exported"
+                return
+            }
             NSWorkspace.shared.activateFileViewerSelecting([out])
         } catch {
             self.status = "Reveal failed: \(error)"

@@ -77,6 +77,7 @@ bash scripts/build.sh
 # List and export
 ./dist/aegiro-cli list --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 ./dist/aegiro-cli export --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --out ~/Recovered
+# Export keeps logical paths under --out (avoids duplicate filename collisions)
 
 # Whole-folder packing (recommended for folder/USB workflows)
 ./dist/aegiro-cli usb-vault-pack --source ~/MyFolder --vault ~/AegiroVaults/data.agvt --passphrase "<pass>"
@@ -133,6 +134,7 @@ Jump between project markdown pages:
 - Default file-count limit per vault: `1,000` (`AEGIRO_MAX_FILES_PER_VAULT` to override).
 - Non-APFS metadata paths are skipped in USB user-data flow.
 - Prefer batched imports in one command; repeated small imports are slower because each run rewrites vault metadata/chunk map.
+- Export preserves logical paths under the output directory by default.
 - Chunk encryption uses per-file derived keys and opaque chunk-map file IDs (no plaintext file paths in chunk map).
 - All encryption workflows are local; no telemetry endpoints are used by default.
 
