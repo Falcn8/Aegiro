@@ -9,15 +9,15 @@ and concrete drive trees for each USB workflow.
 
 | Mode | Command / Surface | Encrypts What | Cross-platform |
 |---|---|---|---|
-| APFS Volume Encryption | `disk-encrypt` / `disk-unlock` | Entire APFS volume (FileVault/APFS) | macOS/APFS only |
-| Portable Container Encryption | `usb-container-create` / `usb-container-mount` | Encrypted APFS sparsebundle file on host FS | Host FS can be exFAT/FAT/NTFS/APFS |
+| APFS Volume Encryption | `apfs-volume-encrypt` / `apfs-volume-decrypt` | Entire APFS volume (FileVault/APFS) | macOS/APFS only |
+| Portable Container Encryption | `usb-container-create` / `usb-container-open` / `usb-container-close` | Encrypted APFS sparsebundle file on host FS | Host FS can be exFAT/FAT/NTFS/APFS |
 | Non-APFS User-Data Encryption | App UI “Encrypt USB Data” | User files packed into `.agvt` vault file | Works on non-APFS hosts (file-level) |
 
 ---
 
 ## 2. Architecture Diagrams
 
-### 2.1 APFS Volume Encryption (`disk-encrypt`)
+### 2.1 APFS Volume Encryption (`apfs-volume-encrypt`)
 
 ```mermaid
 flowchart LR
@@ -33,7 +33,7 @@ flowchart LR
     K --> L["APFS Volume Encrypted"]
 ```
 
-### 2.2 APFS Volume Unlock (`disk-unlock`)
+### 2.2 APFS Volume Unlock (`apfs-volume-decrypt`)
 
 ```mermaid
 flowchart LR
@@ -82,7 +82,7 @@ flowchart LR
 
 ## 3. File Trees on Drive
 
-### 3.1 APFS Volume Encryption (`disk-encrypt`)
+### 3.1 APFS Volume Encryption (`apfs-volume-encrypt`)
 
 Before:
 
@@ -198,7 +198,7 @@ After (delete originals ON):
 
 ## 5. Operational Behavior
 
-- `disk-encrypt`: OS-level volume operation; requires APFS and appropriate permissions.
+- `apfs-volume-encrypt`: OS-level volume operation; requires APFS and appropriate permissions.
 - `usb-container-*`: container mount/unmount flow via `hdiutil`.
 - App USB user-data encryption: file-level flow with optional delete originals.
 - Recovery JSON files are critical; store them in a separate backup location.
@@ -209,13 +209,13 @@ After (delete originals ON):
 
 ```bash
 # APFS volume mode
-.build/release/aegiro-cli disk-encrypt --disk disk9s1 --passphrase "<recovery-pass>" --recovery ~/Backups/disk9s1.aegiro-diskkey.json
-.build/release/aegiro-cli disk-unlock --disk disk9s1 --recovery ~/Backups/disk9s1.aegiro-diskkey.json --passphrase "<recovery-pass>"
+./dist/aegiro-cli apfs-volume-encrypt --disk disk9s1 --passphrase "<recovery-pass>" --recovery ~/Backups/disk9s1.aegiro-diskkey.json
+./dist/aegiro-cli apfs-volume-decrypt --disk disk9s1 --recovery ~/Backups/disk9s1.aegiro-diskkey.json --passphrase "<recovery-pass>"
 
 # Portable container mode
-.build/release/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<recovery-pass>" --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json
-.build/release/aegiro-cli usb-container-mount --image /Volumes/MyUSB/aegiro-portable.sparsebundle --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json --passphrase "<recovery-pass>"
-.build/release/aegiro-cli usb-container-unmount --target "/Volumes/AegiroUSB"
+./dist/aegiro-cli usb-container-create --image /Volumes/MyUSB/aegiro-portable.sparsebundle --size 16g --name "AegiroUSB" --passphrase "<recovery-pass>" --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json
+./dist/aegiro-cli usb-container-open --image /Volumes/MyUSB/aegiro-portable.sparsebundle --recovery /Volumes/MyUSB/aegiro-portable.aegiro-usbkey.json --passphrase "<recovery-pass>"
+./dist/aegiro-cli usb-container-close --target "/Volumes/AegiroUSB"
 ```
 
 ---

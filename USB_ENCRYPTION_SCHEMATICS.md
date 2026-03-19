@@ -10,7 +10,7 @@ contains, and how the volume is unlocked.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                        ENCRYPT (disk-encrypt)                            │
+│                     ENCRYPT (apfs-volume-encrypt)                        │
 │                                                                          │
 │  User passphrase ──► Argon2id KDF ──► Recovery Key                      │
 │                                           │                              │
@@ -32,7 +32,7 @@ contains, and how the volume is unlocked.
 └──────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                        UNLOCK (disk-unlock)                              │
+│                      UNLOCK (apfs-volume-decrypt)                        │
 │                                                                          │
 │  Bundle JSON ──► kdf_salt, argon2 params, kem_ciphertext,                │
 │                  kem_secret_wrap, disk_passphrase_wrap                   │
@@ -338,7 +338,7 @@ different disk identifier, even if an attacker controls the bundle file.
 
 ```bash
 # Encrypt an external APFS volume and create recovery bundle
-aegiro-cli disk-encrypt \
+aegiro-cli apfs-volume-encrypt \
   --disk disk9s1 \
   --passphrase "<recovery passphrase>" \
   --recovery ~/Backups/disk9s1.aegiro-diskkey.json \
@@ -346,14 +346,14 @@ aegiro-cli disk-encrypt \
   [--dry-run]   # generate bundle only; do NOT call diskutil
 
 # Unlock an APFS volume using the recovery bundle
-aegiro-cli disk-unlock \
+aegiro-cli apfs-volume-decrypt \
   --disk disk9s1 \
   --recovery ~/Backups/disk9s1.aegiro-diskkey.json \
   --passphrase "<recovery passphrase>" \
   [--dry-run]   # recover passphrase only; do NOT call diskutil
 ```
 
-> **Note:** `disk-encrypt` and `disk-unlock` both require admin or ownership
+> **Note:** `apfs-volume-encrypt` and `apfs-volume-decrypt` both require admin or ownership
 > permissions on the target disk, as enforced by `diskutil`.
 
 ---
