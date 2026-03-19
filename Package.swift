@@ -18,10 +18,6 @@ let package = Package(
                 .target(name: "OQSWrapper"),
                 .target(name: "OpenSSLShim"),
             ],
-            resources: [
-                .process("Resources/OnboardingCopy.json"),
-                .process("Resources/TrustSheet.png")
-            ],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker","-force_load","-Xlinker","/opt/homebrew/lib/liboqs.a","-L/opt/homebrew/opt/openssl@3/lib","-lcrypto"], .when(configuration: .release))
             ]
