@@ -28,6 +28,7 @@ struct MainView: View {
     @State private var showDoctorSheet = false
     @State private var showFileInfoPopover = false
     @State private var activePage: WorkspacePage = .vault
+    @FocusState private var searchFieldFocused: Bool
 
     @State private var searchText = ""
     @State private var selection: Set<VaultIndexEntry.ID> = []
@@ -61,8 +62,16 @@ struct MainView: View {
         _activePage = State(initialValue: startOnUSBEncryption ? .usbEncryption : .vault)
     }
 
+    private var trimmedSearchQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var filteredEntries: [VaultIndexEntry] {
-        filteredEntriesCache
+        // Preserve visible rows when a background filter rebuild has not published yet.
+        if filteredEntriesCache.isEmpty, !model.entries.isEmpty, trimmedSearchQuery.isEmpty {
+            return MainView.applySort(to: model.entries, sortOption: sortOption, sortAscending: sortAscending)
+        }
+        return filteredEntriesCache
     }
 
     private var selectedEntries: [VaultIndexEntry] {
@@ -250,8 +259,7 @@ struct MainView: View {
         }
         .onChange(of: searchText) { _ in
             scheduleFilteredEntriesRebuild(debounce: true)
-            let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
+            if !trimmedSearchQuery.isEmpty {
                 model.loadRemainingVaultEntriesInBackground()
             }
         }
@@ -299,6 +307,7 @@ struct MainView: View {
                 TextField("Search files", text: $searchText)
                     .textFieldStyle(.plain)
                     .foregroundStyle(AegiroPalette.textPrimary)
+                    .focused($searchFieldFocused)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -365,6 +374,7 @@ struct MainView: View {
             }
             .padding(12)
         }
+        .simultaneousGesture(TapGesture().onEnded { dismissSearchFieldFocus() })
         .frame(width: 260)
         .background(AegiroPalette.backgroundPanel)
     }
@@ -742,7 +752,7 @@ struct MainView: View {
     }
 
     private var emptySearchResultsState: some View {
-        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedQuery = trimmedSearchQuery
         return VStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
                 .font(AegiroTypography.body(38, weight: .medium))
@@ -751,13 +761,18 @@ struct MainView: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
             Text(trimmedQuery.isEmpty
-                 ? "Current filters hide all files."
+                 ? "No files are currently visible. Reload vault files."
                  : "No files match \"\(trimmedQuery)\".")
                 .font(AegiroTypography.body(14, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
-            Button("Show All Files (\(model.entries.count))") {
-                searchText = ""
-                scheduleFilteredEntriesRebuild()
+            Button(trimmedQuery.isEmpty ? "Reload Vault Files" : "Show All Files (\(model.entries.count))") {
+                dismissSearchFieldFocus()
+                if trimmedQuery.isEmpty {
+                    model.reloadVaultEntriesNow()
+                } else {
+                    searchText = ""
+                    scheduleFilteredEntriesRebuild()
+                }
             }
             .buttonStyle(.borderedProminent)
             .tint(AegiroPalette.accentIndigo)
@@ -843,6 +858,7 @@ struct MainView: View {
                     listSelectionBase = []
                 }
         )
+        .simultaneousGesture(TapGesture().onEnded { dismissSearchFieldFocus() })
     }
 
     private var gridView: some View {
@@ -936,6 +952,7 @@ struct MainView: View {
                     gridSelectionBase = []
                 }
         )
+        .simultaneousGesture(TapGesture().onEnded { dismissSearchFieldFocus() })
     }
 
     private var listHeader: some View {
@@ -1125,7 +1142,10 @@ struct MainView: View {
     }
 
     private func actionButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            dismissSearchFieldFocus()
+            action()
+        } label: {
             Label(title, systemImage: icon)
                 .font(AegiroTypography.body(13, weight: .medium))
                 .foregroundStyle(AegiroPalette.textPrimary)
@@ -1193,11 +1213,13 @@ struct MainView: View {
     }
 
     private func handleGridClick(on entry: VaultIndexEntry) {
+        dismissSearchFieldFocus()
         let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
         updateSelectionForClick(on: entry.id, modifiers: modifiers)
     }
 
     private func handleListClick(on entry: VaultIndexEntry) {
+        dismissSearchFieldFocus()
         let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
         updateSelectionForClick(on: entry.id, modifiers: modifiers)
     }
@@ -1433,6 +1455,7 @@ struct MainView: View {
     }
 
     private func exportSelection() {
+        dismissSearchFieldFocus()
         guard !model.locked else {
             model.status = "Unlock to export files"
             return
@@ -1523,8 +1546,7 @@ struct MainView: View {
     }
 
     private func triggerVaultPagination(after entry: VaultIndexEntry) {
-        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedQuery.isEmpty {
+        if !trimmedSearchQuery.isEmpty {
             model.loadRemainingVaultEntriesInBackground()
             return
         }
@@ -1555,6 +1577,11 @@ struct MainView: View {
         } else {
             DispatchQueue.global(qos: .userInitiated).async(execute: rebuild)
         }
+    }
+
+    private func dismissSearchFieldFocus() {
+        guard searchFieldFocused else { return }
+        searchFieldFocused = false
     }
 
     private func formattedRemaining(_ seconds: TimeInterval) -> String {
