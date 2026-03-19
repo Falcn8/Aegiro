@@ -9,12 +9,11 @@ Primary source of truth: current code in `Sources/AegiroCore`
 ## 1. Scope and Intent
 
 This paper documents how encryption works in the **current implementation**, not just in design specs.  
-It covers four active cryptographic paths:
+It covers three active cryptographic paths:
 
 1. Vault encryption for `.agvt` files (`create`, `import`, `unlock`, `export`)  
 2. APFS external-volume recovery wrapping (`apfs-volume-encrypt`, `apfs-volume-decrypt`)  
-3. Portable encrypted APFS sparsebundle recovery wrapping (`usb-container-create`, `usb-container-open`)  
-4. The standalone `FastEncryptionScheme` module
+3. Portable encrypted APFS sparsebundle recovery wrapping (`usb-container-create`, `usb-container-open`)
 
 It also identifies implementation caveats and separation between current runtime behavior and the AGVT v2 design specification.
 
@@ -249,27 +248,7 @@ Source: `Sources/AegiroCore/USBContainerCrypto.swift`
 
 ---
 
-## 6. FastEncryptionScheme (Independent Format)
-
-`FastEncryptionScheme` is a separate chunked format and not the primary `.agvt` path.
-
-Format details:
-
-- magic: `AEGFAST1`
-- versioned fixed-size header (48 bytes)
-- algorithm selector: AES-GCM-256 or ChaCha20-Poly1305
-- per-file session key derived by HKDF from master key + keySalt
-- nonce construction: `noncePrefix(4B) || chunkIndex(8B LE)`
-- per-chunk AEAD authenticates header bytes as AAD
-
-Source references:
-
-- `Sources/AegiroCore/FastEncryptionScheme.swift`
-- `Tests/AegiroCoreTests/FastEncryptionSchemeTests.swift`
-
----
-
-## 7. Validation, Audit, and Repair (`doctor`)
+## 6. Validation, Audit, and Repair (`doctor`)
 
 `Doctor.run(...)` performs layered checks:
 
@@ -287,7 +266,7 @@ Source: `Sources/AegiroCore/Vault.swift` (`Doctor`)
 
 ---
 
-## 8. Security Properties
+## 7. Security Properties
 
 Provided (offline at-rest model):
 
@@ -305,7 +284,7 @@ Not provided:
 
 ---
 
-## 9. Known Implementation Caveats
+## 8. Known Implementation Caveats
 
 1. Argon2 parameter structs are stored in header/bundle metadata, but KDF code paths currently use fixed defaults (`m=256 MiB, t=3, p=1`).  
 2. `wraps_offsets` fields exist in header, but parser/reader logic uses sequential parsing instead of relying on those offsets.  
@@ -314,7 +293,7 @@ Not provided:
 
 ---
 
-## 10. AGVT v2 Spec vs Runtime Reality
+## 9. AGVT v2 Spec vs Runtime Reality
 
 `SPEC_AGVT_V2.md` defines a newer architecture (dual superblocks + append-only records + profile framing).  
 Current runtime vault read/write behavior remains the v1-style layout documented above (`Vault.swift` path).
@@ -326,7 +305,7 @@ Summary:
 
 ---
 
-## 11. Quick Source Index
+## 10. Quick Source Index
 
 - Core primitives: `Sources/AegiroCore/Crypto.swift`  
 - Header model: `Sources/AegiroCore/VaultHeader.swift`  
@@ -334,6 +313,4 @@ Summary:
 - Index + manifest crypto: `Sources/AegiroCore/IndexManifest.swift`  
 - PQ backend: `Sources/AegiroCore/PQC.swift`  
 - APFS recovery bundle: `Sources/AegiroCore/ExternalDiskCrypto.swift`  
-- USB container recovery bundle: `Sources/AegiroCore/USBContainerCrypto.swift`  
-- Fast scheme: `Sources/AegiroCore/FastEncryptionScheme.swift`
-
+- USB container recovery bundle: `Sources/AegiroCore/USBContainerCrypto.swift`
