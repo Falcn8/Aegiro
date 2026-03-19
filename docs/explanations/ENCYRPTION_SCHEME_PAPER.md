@@ -291,7 +291,7 @@ Not provided:
 1. Argon2 parameter structs are stored in header/bundle metadata, but KDF code paths currently use fixed defaults (`m=256 MiB, t=3, p=1`).  
 2. `wraps_offsets` fields exist in header, but parser/reader logic uses sequential parsing instead of relying on those offsets.  
 3. Legacy unlock and PQC unlock coexist; mode inference and flag normalization are available.  
-4. Reader compatibility currently accepts both AEAD ID `1` (current) and legacy ID `2` while writes use ID `1`; this compatibility branch should be retired once old vaults are migrated.
+4. Reader compatibility currently accepts both AEAD ID `1` (current) and legacy ID `2`, and also falls back to legacy `AEGIRO-FILE-KEY-V2` / `AEGIRO-CHUNK-V2` domains for existing chunks while writes use v1 labels.
 
 ---
 

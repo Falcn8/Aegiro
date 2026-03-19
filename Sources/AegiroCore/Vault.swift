@@ -14,7 +14,10 @@ public struct VaultOpenContext {
 private let vaultFlagTouchID: UInt32 = 1 << 0
 private let vaultFlagPQCUnlockV1: UInt32 = 1 << 1
 private let vaultAAD = Data("AEGIRO-V1".utf8)
-private let vaultChunkAADPrefix = Data("AEGIRO-CHUNK-V1".utf8)
+private let vaultChunkAADPrefixV1 = Data("AEGIRO-CHUNK-V1".utf8)
+private let vaultChunkAADPrefixLegacyV2 = Data("AEGIRO-CHUNK-V2".utf8)
+private let vaultFileKeyInfoPrefixV1 = Data("AEGIRO-FILE-KEY-V1".utf8)
+private let vaultFileKeyInfoPrefixLegacyV2 = Data("AEGIRO-FILE-KEY-V2".utf8)
 private let vaultChunkFormatV1: UInt8 = 1
 private let vaultChunkAlgAESGCM: UInt8 = 1
 private let vaultChunkAlgChaChaPoly1305: UInt8 = 2
@@ -316,19 +319,26 @@ private func validateVaultChunkCrypto(_ crypto: VaultChunkCrypto) throws {
     }
 }
 
-private func deriveVaultFileKey(dek: SymmetricKey, fileID: Data, crypto: VaultChunkCrypto) throws -> SymmetricKey {
+private func deriveVaultFileKey(dek: SymmetricKey,
+                                fileID: Data,
+                                crypto: VaultChunkCrypto,
+                                infoPrefix: Data = vaultFileKeyInfoPrefixV1) throws -> SymmetricKey {
     try validateVaultChunkCrypto(crypto)
-    let info = Data("AEGIRO-FILE-KEY-V1".utf8) + fileID + Data([crypto.algorithm, crypto.format])
+    let info = infoPrefix + fileID + Data([crypto.algorithm, crypto.format])
     return HKDF<SHA256>.deriveKey(inputKeyMaterial: dek,
                                   salt: crypto.keySalt,
                                   info: info,
                                   outputByteCount: 32)
 }
 
-private func makeVaultChunkAAD(vaultSalt: Data, fileID: Data, ordinal: UInt32, crypto: VaultChunkCrypto) -> Data {
+private func makeVaultChunkAAD(vaultSalt: Data,
+                               fileID: Data,
+                               ordinal: UInt32,
+                               crypto: VaultChunkCrypto,
+                               aadPrefix: Data = vaultChunkAADPrefixV1) -> Data {
     var out = Data()
-    out.reserveCapacity(vaultChunkAADPrefix.count + vaultSalt.count + fileID.count + 8)
-    out.append(vaultChunkAADPrefix)
+    out.reserveCapacity(aadPrefix.count + vaultSalt.count + fileID.count + 8)
+    out.append(aadPrefix)
     out.append(vaultSalt)
     out.append(fileID)
     out.append(Data([crypto.algorithm, crypto.format]))
@@ -1157,7 +1167,14 @@ public enum Exporter {
         var results: [(String, URL, Int)] = []
         for e in selection {
             try validateVaultChunkCrypto(e.chunkCrypto)
-            let fileKey = try deriveVaultFileKey(dek: dek, fileID: e.fileID, crypto: e.chunkCrypto)
+            let fileKey = try deriveVaultFileKey(dek: dek,
+                                                 fileID: e.fileID,
+                                                 crypto: e.chunkCrypto,
+                                                 infoPrefix: vaultFileKeyInfoPrefixV1)
+            let legacyFileKey = try deriveVaultFileKey(dek: dek,
+                                                       fileID: e.fileID,
+                                                       crypto: e.chunkCrypto,
+                                                       infoPrefix: vaultFileKeyInfoPrefixLegacyV2)
             let fileChunks = (chunksByFileID[e.fileID] ?? []).sorted { $0.ordinal < $1.ordinal }
             guard fileChunks.count == e.chunkCount else {
                 throw AEGError.integrity("Chunk count mismatch for \(e.logicalPath)")
@@ -1175,12 +1192,27 @@ public enum Exporter {
                 let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
                                                  fileID: e.fileID,
                                                  ordinal: c.ordinal,
-                                                 crypto: e.chunkCrypto)
-                let dec = try openVaultChunk(payload,
+                                                 crypto: e.chunkCrypto,
+                                                 aadPrefix: vaultChunkAADPrefixV1)
+                let dec: Data
+                do {
+                    dec = try openVaultChunk(payload,
                                              key: fileKey,
                                              nonceData: nonceData,
                                              aad: chunkAAD,
                                              algorithm: e.chunkCrypto.algorithm)
+                } catch {
+                    let legacyChunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                           fileID: e.fileID,
+                                                           ordinal: c.ordinal,
+                                                           crypto: e.chunkCrypto,
+                                                           aadPrefix: vaultChunkAADPrefixLegacyV2)
+                    dec = try openVaultChunk(payload,
+                                             key: legacyFileKey,
+                                             nonceData: nonceData,
+                                             aad: legacyChunkAAD,
+                                             algorithm: e.chunkCrypto.algorithm)
+                }
                 plain.append(dec)
             }
             let outURL = outDir.appendingPathComponent((e.logicalPath as NSString).lastPathComponent)
@@ -1467,15 +1499,26 @@ public enum Doctor {
         if deepCheck, let index = decryptedIndex, let dek = dekForDeepChecks {
             entryCount = index.entries.count
 
+            struct VaultFileKeyPair {
+                let current: SymmetricKey
+                let legacy: SymmetricKey
+            }
+
             var plainBytesByName: [String: UInt64] = [:]
             let entryByFileID = Dictionary(uniqueKeysWithValues: index.entries.map { ($0.fileID, $0) })
-            var fileKeyByID: [Data: SymmetricKey] = [:]
+            var fileKeyByID: [Data: VaultFileKeyPair] = [:]
             fileKeyByID.reserveCapacity(index.entries.count)
             for entry in index.entries {
                 try validateVaultChunkCrypto(entry.chunkCrypto)
-                fileKeyByID[entry.fileID] = try deriveVaultFileKey(dek: dek,
-                                                                   fileID: entry.fileID,
-                                                                   crypto: entry.chunkCrypto)
+                let current = try deriveVaultFileKey(dek: dek,
+                                                     fileID: entry.fileID,
+                                                     crypto: entry.chunkCrypto,
+                                                     infoPrefix: vaultFileKeyInfoPrefixV1)
+                let legacy = try deriveVaultFileKey(dek: dek,
+                                                    fileID: entry.fileID,
+                                                    crypto: entry.chunkCrypto,
+                                                    infoPrefix: vaultFileKeyInfoPrefixLegacyV2)
+                fileKeyByID[entry.fileID] = VaultFileKeyPair(current: current, legacy: legacy)
             }
             if chunks.isEmpty {
                 progress?("No chunks to authenticate.")
@@ -1492,7 +1535,7 @@ public enum Doctor {
                     DispatchQueue.concurrentPerform(iterations: chunks.count) { index in
                         let c = chunks[index]
                         guard let entry = entryByFileID[c.fileID],
-                              let fileKey = fileKeyByID[c.fileID] else {
+                              let fileKeys = fileKeyByID[c.fileID] else {
                             chunkIssues[index] = "Chunk map contains unknown file identifier."
                             return
                         }
@@ -1505,12 +1548,27 @@ public enum Doctor {
                                 let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
                                                                  fileID: c.fileID,
                                                                  ordinal: c.ordinal,
-                                                                 crypto: entry.chunkCrypto)
-                                let plain = try openVaultChunk(payload,
-                                                               key: fileKey,
+                                                                 crypto: entry.chunkCrypto,
+                                                                 aadPrefix: vaultChunkAADPrefixV1)
+                                let plain: Data
+                                do {
+                                    plain = try openVaultChunk(payload,
+                                                               key: fileKeys.current,
                                                                nonceData: nonceData,
                                                                aad: chunkAAD,
                                                                algorithm: entry.chunkCrypto.algorithm)
+                                } catch {
+                                    let legacyChunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                                           fileID: c.fileID,
+                                                                           ordinal: c.ordinal,
+                                                                           crypto: entry.chunkCrypto,
+                                                                           aadPrefix: vaultChunkAADPrefixLegacyV2)
+                                    plain = try openVaultChunk(payload,
+                                                               key: fileKeys.legacy,
+                                                               nonceData: nonceData,
+                                                               aad: legacyChunkAAD,
+                                                               algorithm: entry.chunkCrypto.algorithm)
+                                }
                                 chunkPlainBytes[index] = UInt64(plain.count)
                                 chunkOwners[index] = entry.logicalPath
                             } catch {
@@ -1544,7 +1602,7 @@ public enum Doctor {
                     var authenticated = 0
                     for c in chunks {
                         guard let entry = entryByFileID[c.fileID],
-                              let fileKey = fileKeyByID[c.fileID] else {
+                              let fileKeys = fileKeyByID[c.fileID] else {
                             chunkAreaOK = false
                             issues.append("Chunk map contains unknown file identifier.")
                             continue
@@ -1558,12 +1616,27 @@ public enum Doctor {
                             let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
                                                              fileID: c.fileID,
                                                              ordinal: c.ordinal,
-                                                             crypto: entry.chunkCrypto)
-                            let plain = try openVaultChunk(payload,
-                                                           key: fileKey,
+                                                             crypto: entry.chunkCrypto,
+                                                             aadPrefix: vaultChunkAADPrefixV1)
+                            let plain: Data
+                            do {
+                                plain = try openVaultChunk(payload,
+                                                           key: fileKeys.current,
                                                            nonceData: nonceData,
                                                            aad: chunkAAD,
                                                            algorithm: entry.chunkCrypto.algorithm)
+                            } catch {
+                                let legacyChunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                                       fileID: c.fileID,
+                                                                       ordinal: c.ordinal,
+                                                                       crypto: entry.chunkCrypto,
+                                                                       aadPrefix: vaultChunkAADPrefixLegacyV2)
+                                plain = try openVaultChunk(payload,
+                                                           key: fileKeys.legacy,
+                                                           nonceData: nonceData,
+                                                           aad: legacyChunkAAD,
+                                                           algorithm: entry.chunkCrypto.algorithm)
+                            }
                             plainBytesByName[entry.logicalPath, default: 0] += UInt64(plain.count)
                         } catch {
                             chunkAreaOK = false
