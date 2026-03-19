@@ -5711,6 +5711,7 @@ private struct DoctorSheet: View {
     @State private var runMessage: String = ""
     @State private var isRunning = false
     @State private var doctorLogLines: [String] = []
+    @State private var doctorLogExpanded = true
 
     private var canApplyFix: Bool {
         let trimmed = model.passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -5789,26 +5790,35 @@ private struct DoctorSheet: View {
 
             if isRunning || !doctorLogLines.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Activity")
-                        .font(AegiroTypography.body(13, weight: .semibold))
-                        .foregroundStyle(AegiroPalette.textPrimary)
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(Array(doctorLogLines.enumerated()), id: \.offset) { _, line in
-                                Text(line)
-                                    .font(AegiroTypography.mono(11, weight: .regular))
-                                    .foregroundStyle(AegiroPalette.textSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack {
+                        Text("Activity")
+                            .font(AegiroTypography.body(13, weight: .semibold))
+                            .foregroundStyle(AegiroPalette.textPrimary)
+                        Spacer()
+                        Button(doctorLogExpanded ? "Collapse" : "Uncollapse") {
+                            doctorLogExpanded.toggle()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if doctorLogExpanded {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(Array(doctorLogLines.enumerated()), id: \.offset) { _, line in
+                                    Text(line)
+                                        .font(AegiroTypography.mono(11, weight: .regular))
+                                        .foregroundStyle(AegiroPalette.textSecondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                             }
                         }
+                        .frame(minHeight: 84, maxHeight: 140)
+                        .padding(8)
+                        .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                        )
                     }
-                    .frame(minHeight: 84, maxHeight: 140)
-                    .padding(8)
-                    .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
-                    )
                 }
             }
 
@@ -5870,6 +5880,7 @@ private struct DoctorSheet: View {
         let passphrase = trimmedPass.isEmpty ? nil : trimmedPass
 
         doctorLogLines = []
+        doctorLogExpanded = true
         isRunning = true
         runMessage = fix ? "Running doctor and applying fix..." : "Running doctor..."
         appendDoctorLog(runMessage)
@@ -5904,6 +5915,7 @@ private struct DoctorSheet: View {
                         runMessage = "Doctor completed."
                     }
                     appendDoctorLog(runMessage)
+                    doctorLogExpanded = false
                     isRunning = false
                     model.refreshStatus()
                 }
@@ -5911,6 +5923,7 @@ private struct DoctorSheet: View {
                 DispatchQueue.main.async {
                     runMessage = "Doctor failed: \(error)"
                     appendDoctorLog(runMessage)
+                    doctorLogExpanded = false
                     isRunning = false
                 }
             }
