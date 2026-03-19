@@ -109,6 +109,7 @@ Outputs:
 Jump between project markdown pages:
 
 - [Format Spec (AGVT v2)](SPEC_AGVT_V2.md)
+- [Encryption Scheme Paper (Implementation)](ENCRYPTION_SCHEME_PAPER.md)
 - [USB Encryption Schematics](USB_ENCRYPTION_SCHEMATICS.md)
 - [USB Encryption Diagrams](USB_ENCRYPTION_DIAGRAMS.md)
 - [App UI Design](UI_DESIGN.md)
