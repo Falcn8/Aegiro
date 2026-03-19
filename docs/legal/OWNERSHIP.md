@@ -1,6 +1,6 @@
 # Ownership and Usage
 
-This project remains owned by the maintainer (`AegiroMaintainer`).
+This project remains owned by the maintainer (`@Falcn8`).
 
 ## Current project policy
 
@@ -10,5 +10,5 @@ This project remains owned by the maintainer (`AegiroMaintainer`).
 
 ## Source of truth
 
-The legally binding terms are in [LICENSE.txt](../../LICENSE.txt).  
-If there is any conflict, `LICENSE.txt` controls.
+The legally binding terms are in [LICENSE](../../LICENSE).  
+If there is any conflict, `LICENSE` controls.

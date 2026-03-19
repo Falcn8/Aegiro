@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/aegiro-project/Aegiro"><img src="https://img.shields.io/badge/GitHub-AegiroMaintainer%2FAegiro-181717?style=flat-square&logo=github" alt="GitHub"></a>
+  <a href="https://github.com/Falcn8/Aegiro"><img src="https://img.shields.io/badge/GitHub-Falcn8%2FAegiro-181717?style=flat-square&logo=github" alt="GitHub"></a>
   <img src="https://img.shields.io/badge/Platform-macOS-000000?style=flat-square&logo=apple" alt="Platform macOS">
   <img src="https://img.shields.io/badge/Language-Swift-F05138?style=flat-square&logo=swift" alt="Swift">
   <img src="https://img.shields.io/badge/Format-AGVT%20v1-2f6feb?style=flat-square" alt="AGVT v1">
@@ -139,8 +139,8 @@ Jump between project markdown pages:
 
 ## License
 
-This project uses a custom source-available license in [LICENSE.txt](LICENSE.txt).
+This project uses a custom source-available license in [LICENSE](LICENSE).
 
 - External contributions and pull requests are currently not accepted.
 - Redistribution or republication (including App Store listings and DMG/binary distribution) is not allowed.
-- Full terms and ownership boundaries are defined in [LICENSE.txt](LICENSE.txt) and [docs/legal/OWNERSHIP.md](docs/legal/OWNERSHIP.md).
+- Full terms and ownership boundaries are defined in [LICENSE](LICENSE) and [docs/legal/OWNERSHIP.md](docs/legal/OWNERSHIP.md).

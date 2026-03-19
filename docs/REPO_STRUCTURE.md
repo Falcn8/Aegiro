@@ -23,5 +23,5 @@ This page explains the main folders and which ones are source-of-truth vs genera
 
 - `README.md`: project overview and quick links.
 - `AGENTS.md`: repository workflow instructions for coding agents.
-- `LICENSE.txt`: legal terms and ownership boundaries.
-- `SECURITY.md`: security contact/process notes.
+- `LICENSE`: legal terms and ownership boundaries.
+- `SECURITY`: security contact/process notes.
