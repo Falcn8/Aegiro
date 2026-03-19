@@ -178,6 +178,22 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func reloadVaultEntriesNow() {
+        touchActivity()
+        guard let url = vaultURL?.standardizedFileURL else { return }
+        let trimmedPass = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !locked, !trimmedPass.isEmpty else {
+            status = "Unlock with your passphrase to reload vault files"
+            return
+        }
+
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let modified = attrs?[.modificationDate] as? Date
+        let revisionKey = makeEntriesRevisionKey(vaultURL: url, vaultLastModified: modified) + "|manual:\(UUID().uuidString)"
+        status = "Reloading vault files..."
+        requestVaultEntriesRefresh(vaultURL: url, passphrase: trimmedPass, revisionKey: revisionKey)
+    }
+
     func unlock(with pass: String) {
         touchActivity()
         guard let url = vaultURL else { return }

@@ -731,6 +731,12 @@ struct MainView: View {
             .buttonStyle(.borderedProminent)
             .tint(AegiroPalette.accentIndigo)
             .disabled(model.locked)
+            if !model.locked {
+                Button("Reload Vault Files") {
+                    model.reloadVaultEntriesNow()
+                }
+                .buttonStyle(.bordered)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
