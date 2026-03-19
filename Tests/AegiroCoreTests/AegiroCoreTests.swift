@@ -110,6 +110,44 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: result.sidecar.path))
     }
 
+    func testImportDirectoryBatchesFilesInSingleRun() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let sourceRoot = tmp.appendingPathComponent("batch", isDirectory: true)
+        let nested = sourceRoot.appendingPathComponent("nested", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+
+        let f1 = sourceRoot.appendingPathComponent("one.txt")
+        let f2 = nested.appendingPathComponent("two.txt")
+        let f3 = nested.appendingPathComponent("three.bin")
+        let d1 = Data("one".utf8)
+        let d2 = Data("two".utf8)
+        let d3 = Data([0x00, 0x01, 0x02, 0x03])
+        try d1.write(to: f1)
+        try d2.write(to: f2)
+        try d3.write(to: f3)
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL,
+                                                  passphrase: "test-pass",
+                                                  files: [sourceRoot])
+        XCTAssertEqual(imported.imported, 3)
+
+        let entries = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        XCTAssertEqual(entries.count, 3)
+
+        let outDir = tmp.appendingPathComponent("out", isDirectory: true)
+        _ = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+
+        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("one.txt")), d1)
+        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("two.txt")), d2)
+        XCTAssertEqual(try Data(contentsOf: outDir.appendingPathComponent("three.bin")), d3)
+    }
+
     func testImportRejectsWhenVaultFileLimitWouldBeExceeded() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

@@ -62,9 +62,16 @@ bash scripts/build-real.sh
 # Import files
 ./dist/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" ~/Downloads/file.pdf
 
+# Batch import in one run (faster than repeated one-file imports)
+./dist/aegiro-cli import --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" \
+  ~/Downloads/file-a.pdf ~/Downloads/file-b.pdf ~/Desktop/notes.txt
+
 # List and export
 ./dist/aegiro-cli list --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 ./dist/aegiro-cli export --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --out ~/Recovered
+
+# Whole-folder packing (recommended for folder/USB workflows)
+./dist/aegiro-cli usb-vault-pack --source ~/MyFolder --vault ~/AegiroVaults/data.agvt --passphrase "<pass>"
 ```
 
 ---
@@ -115,6 +122,7 @@ Jump between project markdown pages:
 
 - Default file-count limit per vault: `1,000` (`AEGIRO_MAX_FILES_PER_VAULT` to override).
 - Non-APFS metadata paths are skipped in USB user-data flow.
+- Prefer batched imports in one command; repeated small imports are slower because each run rewrites vault metadata/chunk map.
 - All encryption workflows are local; no telemetry endpoints are used by default.
 
 ---

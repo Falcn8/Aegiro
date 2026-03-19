@@ -280,6 +280,58 @@ public enum Importer {
         }
     }
 
+    private static func expandImportSources(_ files: [URL],
+                                            isCancelled: (() -> Bool)? = nil) throws -> [URL] {
+        try throwIfCancelled(isCancelled)
+        let fm = FileManager.default
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey]
+        var expanded: [URL] = []
+        expanded.reserveCapacity(files.count)
+
+        for input in files {
+            try throwIfCancelled(isCancelled)
+            let normalizedInput = input.standardizedFileURL.resolvingSymlinksInPath()
+            var isDirectory: ObjCBool = false
+            guard fm.fileExists(atPath: normalizedInput.path, isDirectory: &isDirectory) else {
+                throw AEGError.io("Import source does not exist: \(normalizedInput.path)")
+            }
+
+            if !isDirectory.boolValue {
+                expanded.append(normalizedInput)
+                continue
+            }
+
+            guard let enumerator = fm.enumerator(at: normalizedInput,
+                                                 includingPropertiesForKeys: Array(keys),
+                                                 options: [],
+                                                 errorHandler: { _, _ in true }) else {
+                throw AEGError.io("Unable to enumerate import directory: \(normalizedInput.path)")
+            }
+
+            var directoryFiles: [URL] = []
+            while let item = enumerator.nextObject() as? URL {
+                try throwIfCancelled(isCancelled)
+                let rawCandidate = item.standardizedFileURL
+                let values = try? rawCandidate.resourceValues(forKeys: keys)
+                if values?.isSymbolicLink == true {
+                    if values?.isDirectory == true {
+                        enumerator.skipDescendants()
+                    }
+                    continue
+                }
+                if values?.isDirectory == true {
+                    continue
+                }
+                if values?.isRegularFile == true {
+                    directoryFiles.append(rawCandidate.resolvingSymlinksInPath())
+                }
+            }
+            directoryFiles.sort { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
+            expanded.append(contentsOf: directoryFiles)
+        }
+        return expanded
+    }
+
     public static func sidecarImport(vaultURL: URL,
                                      passphrase: String,
                                      files: [URL],
@@ -321,12 +373,13 @@ public enum Importer {
                                           preparationProgress: ((Int, Int, String) -> Void)? = nil,
                                           isCancelled: (() -> Bool)? = nil) throws -> [PlainImportItem] {
         try throwIfCancelled(isCancelled)
+        let expandedFiles = try expandImportSources(files, isCancelled: isCancelled)
         let vaultPath = normalizedPath(vaultURL)
         let sidecarPath = normalizedPath(sidecarURL)
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
         var candidates: [(sourcePath: String, sourceURL: URL, nameHash: Data)] = []
         var seenSources = Set<String>()
-        for f in files {
+        for f in expandedFiles {
             let sourcePath = normalizedPath(f)
             if sourcePath == vaultPath || sourcePath == sidecarPath || sourcePath.hasPrefix(sidecarPrefix) {
                 continue

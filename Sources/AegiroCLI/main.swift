@@ -581,6 +581,11 @@ Usage:
 Limits:
   Max files per vault: \(VaultLimits.defaultMaxFilesPerVault) by default.
   Override: set AEGIRO_MAX_FILES_PER_VAULT=<positive-int>.
+
+Performance tips:
+  Batch files in one import run: import --vault <path> --passphrase "<pass>" <files...>
+  For whole folders, use: usb-vault-pack --source <folder> --vault <path.agvt> ...
+  Avoid repeated single-file imports; each run rewrites vault metadata/chunk map.
 """)
     }
 
