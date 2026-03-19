@@ -4,7 +4,8 @@ This project remains owned by the maintainer (`@Falcn8`).
 
 ## Current project policy
 
-- External pull requests and code contributions are not being accepted.
+- External pull requests and code contributions are accepted.
+- Contributions should follow [CONTRIBUTING.md](../../CONTRIBUTING.md).
 - Redistribution or republication of this project (source or binaries) is not allowed.
 - Public re-hosting, app-store publishing, and third-party binary distribution are not allowed.
 

@@ -16,6 +16,7 @@ This folder groups project documentation by purpose.
 ## Repository
 
 - [Repository Structure](REPO_STRUCTURE.md)
+- [Contributing Guide](../CONTRIBUTING.md)
 
 ## Legal
 
