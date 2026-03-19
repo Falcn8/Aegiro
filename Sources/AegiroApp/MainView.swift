@@ -5710,6 +5710,7 @@ private struct DoctorSheet: View {
     @State private var report: DoctorReport?
     @State private var runMessage: String = ""
     @State private var isRunning = false
+    @State private var doctorLogLines: [String] = []
 
     private var canApplyFix: Bool {
         let trimmed = model.passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -5786,6 +5787,31 @@ private struct DoctorSheet: View {
                     .foregroundStyle(AegiroPalette.textSecondary)
             }
 
+            if isRunning || !doctorLogLines.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Activity")
+                        .font(AegiroTypography.body(13, weight: .semibold))
+                        .foregroundStyle(AegiroPalette.textPrimary)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(Array(doctorLogLines.enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .font(AegiroTypography.mono(11, weight: .regular))
+                                    .foregroundStyle(AegiroPalette.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .frame(minHeight: 84, maxHeight: 140)
+                    .padding(8)
+                    .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                    )
+                }
+            }
+
             HStack {
                 Button("Run Check") {
                     runDoctor(fix: false)
@@ -5843,12 +5869,18 @@ private struct DoctorSheet: View {
         let trimmedPass = model.passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
         let passphrase = trimmedPass.isEmpty ? nil : trimmedPass
 
+        doctorLogLines = []
         isRunning = true
         runMessage = fix ? "Running doctor and applying fix..." : "Running doctor..."
+        appendDoctorLog(runMessage)
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let result = try Doctor.run(vaultURL: vaultURL, passphrase: passphrase, fix: fix)
+                let result = try Doctor.run(vaultURL: vaultURL, passphrase: passphrase, fix: fix) { message in
+                    DispatchQueue.main.async {
+                        appendDoctorLog(message)
+                    }
+                }
                 DispatchQueue.main.async {
                     report = result
                     if fix {
@@ -5871,15 +5903,29 @@ private struct DoctorSheet: View {
                     } else {
                         runMessage = "Doctor completed."
                     }
+                    appendDoctorLog(runMessage)
                     isRunning = false
                     model.refreshStatus()
                 }
             } catch {
                 DispatchQueue.main.async {
                     runMessage = "Doctor failed: \(error)"
+                    appendDoctorLog(runMessage)
                     isRunning = false
                 }
             }
+        }
+    }
+
+    private func appendDoctorLog(_ message: String) {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if doctorLogLines.last == trimmed {
+            return
+        }
+        doctorLogLines.append(trimmed)
+        if doctorLogLines.count > 240 {
+            doctorLogLines.removeFirst(doctorLogLines.count - 240)
         }
     }
 }

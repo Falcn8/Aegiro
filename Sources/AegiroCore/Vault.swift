@@ -1160,7 +1160,11 @@ public struct DoctorReport: Codable {
 }
 
 public enum Doctor {
-    public static func run(vaultURL: URL, passphrase: String?, fix: Bool) throws -> DoctorReport {
+    public static func run(vaultURL: URL,
+                           passphrase: String?,
+                           fix: Bool,
+                           progress: ((String) -> Void)? = nil) throws -> DoctorReport {
+        progress?("Loading vault data...")
         let data = try Data(contentsOf: vaultURL)
         var issues: [String] = []
         var fixed = false
@@ -1170,6 +1174,7 @@ public enum Doctor {
         } catch {
             return DoctorReport(headerOK: false, manifestOK: false, chunkAreaOK: false, entries: nil, issues: ["Header parse failed: \(error)"], fixed: false)
         }
+        progress?("Parsing manifest and chunk map...")
         let layout = computeLayout(data, afterHeader: hdrLen)
         let aad = vaultAAD
 
@@ -1204,6 +1209,7 @@ public enum Doctor {
         var decryptedIndexHash: Data?
         var dekForDeepChecks: SymmetricKey?
         if let pass = passphrase, !pass.isEmpty {
+            progress?("Decrypting index...")
             let dek = try Exporter.deriveDEK(data: data, passphrase: pass)
             let idxBlob = data.subdata(in: layout.idxRange)
             let idxPlain = try decryptIndexBlob(idxBlob, key: dek, aad: aad)
@@ -1216,20 +1222,22 @@ public enum Doctor {
         }
 
         if fix,
-           let index = decryptedIndex,
+           decryptedIndex != nil,
            let idxHash = decryptedIndexHash,
            let dek = dekForDeepChecks,
            (!manifestSignatureOK
             || !manifestSignerMatchesHeader
             || !manifestChunkMapHashMatches
             || manifestIndexHashMatches == false) {
-            let newManifest = try ManifestBuilder.build(
-                index: index,
-                chunkMap: cmData,
-                signer: sig,
-                sk: try unwrapSignerSK(data: data, dek: dek),
-                pk: head.pq_pubkeys.dilithium_pk
-            )
+            progress?("Applying manifest fix...")
+            // Preserve the exact decrypted index hash bytes from disk to avoid
+            // process-dependent JSON key ordering when rebuilding a manifest.
+            let msg = idxHash + chunkMapHash
+            let sigBytes = try sig.sign(message: msg, sk: try unwrapSignerSK(data: data, dek: dek))
+            let newManifest = Manifest(indexRootHash: idxHash,
+                                       chunkMapHash: chunkMapHash,
+                                       signature: sigBytes,
+                                       signerPK: head.pq_pubkeys.dilithium_pk)
             let newManBlob = try JSONEncoder().encode(newManifest)
             var d = data
             let newLenLE = withUnsafeBytes(of: UInt32(newManBlob.count).littleEndian) { Data($0) }
@@ -1298,18 +1306,72 @@ public enum Doctor {
             entryCount = index.entries.count
 
             var plainBytesByName: [String: UInt64] = [:]
-            for c in chunks {
-                guard let relRange = chunkRelativeRange(c, areaBytes: areaBytes) else { continue }
-                let start = layout.chunkAreaStart + relRange.lowerBound
-                let end = layout.chunkAreaStart + relRange.upperBound
-                let combined = data.subdata(in: start..<end)
-                do {
-                    let box = try AES.GCM.SealedBox(combined: combined)
-                    let plain = try AES.GCM.open(box, using: dek, authenticating: aad)
-                    plainBytesByName[c.name, default: 0] += UInt64(plain.count)
-                } catch {
-                    chunkAreaOK = false
-                    issues.append("Chunk authentication failed for \(c.name) at offset \(c.relOffset).")
+            if chunks.isEmpty {
+                progress?("No chunks to authenticate.")
+            } else {
+                progress?("Authenticating \(chunks.count) chunk(s)...")
+                let progressStride = max(1, chunks.count / 40)
+                if chunks.count >= 96 {
+                    var chunkPlainBytes = Array(repeating: UInt64(0), count: chunks.count)
+                    var chunkIssues = Array<String?>(repeating: nil, count: chunks.count)
+                    let progressLock = NSLock()
+                    var processed = 0
+
+                    DispatchQueue.concurrentPerform(iterations: chunks.count) { index in
+                        let c = chunks[index]
+                        if let relRange = chunkRelativeRange(c, areaBytes: areaBytes) {
+                            let start = layout.chunkAreaStart + relRange.lowerBound
+                            let end = layout.chunkAreaStart + relRange.upperBound
+                            let combined = data.subdata(in: start..<end)
+                            do {
+                                let box = try AES.GCM.SealedBox(combined: combined)
+                                let plain = try AES.GCM.open(box, using: dek, authenticating: aad)
+                                chunkPlainBytes[index] = UInt64(plain.count)
+                            } catch {
+                                chunkIssues[index] = "Chunk authentication failed for \(c.name) at offset \(c.relOffset)."
+                            }
+                        }
+
+                        guard progress != nil else { return }
+                        var emitCount: Int?
+                        progressLock.lock()
+                        processed += 1
+                        if processed == 1 || processed == chunks.count || processed % progressStride == 0 {
+                            emitCount = processed
+                        }
+                        progressLock.unlock()
+                        if let emitCount {
+                            progress?("Authenticating chunks: \(emitCount)/\(chunks.count)")
+                        }
+                    }
+
+                    for index in chunks.indices {
+                        plainBytesByName[chunks[index].name, default: 0] += chunkPlainBytes[index]
+                        if let issue = chunkIssues[index] {
+                            chunkAreaOK = false
+                            issues.append(issue)
+                        }
+                    }
+                } else {
+                    var authenticated = 0
+                    for c in chunks {
+                        guard let relRange = chunkRelativeRange(c, areaBytes: areaBytes) else { continue }
+                        let start = layout.chunkAreaStart + relRange.lowerBound
+                        let end = layout.chunkAreaStart + relRange.upperBound
+                        let combined = data.subdata(in: start..<end)
+                        do {
+                            let box = try AES.GCM.SealedBox(combined: combined)
+                            let plain = try AES.GCM.open(box, using: dek, authenticating: aad)
+                            plainBytesByName[c.name, default: 0] += UInt64(plain.count)
+                        } catch {
+                            chunkAreaOK = false
+                            issues.append("Chunk authentication failed for \(c.name) at offset \(c.relOffset).")
+                        }
+                        authenticated += 1
+                        if authenticated == 1 || authenticated == chunks.count || authenticated % progressStride == 0 {
+                            progress?("Authenticating chunks: \(authenticated)/\(chunks.count)")
+                        }
+                    }
                 }
             }
 
@@ -1319,7 +1381,7 @@ public enum Doctor {
 
             for e in index.entries {
                 let actualCount = chunkCounts[e.logicalPath, default: 0]
-                if actualCount == 0 {
+                if actualCount == 0, e.size > 0 {
                     issues.append("No chunks for \(e.logicalPath).")
                 }
                 if e.chunkCount != actualCount {
@@ -1336,8 +1398,12 @@ public enum Doctor {
             for name in Set(chunks.map(\.name)) where !entryNames.contains(name) {
                 issues.append("Chunk map contains unknown entry: \(name).")
             }
+            progress?("Chunk checks completed.")
+        } else {
+            progress?("Passphrase not provided. Skipping deep chunk authentication and index-hash checks.")
         }
 
+        progress?("Doctor completed.")
         return DoctorReport(headerOK: true, manifestOK: manifestOK, chunkAreaOK: chunkAreaOK, entries: entryCount, issues: issues, fixed: fixed)
     }
 
