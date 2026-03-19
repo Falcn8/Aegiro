@@ -1685,6 +1685,7 @@ private struct USBEncryptionWorkspacePage: View {
         let mountPoint: String
         let unlockPassphrase: String
         let completedAt: Date
+        let elapsedDuration: TimeInterval?
     }
 
     @EnvironmentObject private var model: VaultModel
@@ -2457,6 +2458,11 @@ private struct USBEncryptionWorkspacePage: View {
                     Text("Completed at: \(success.completedAt.formatted(date: .abbreviated, time: .standard))")
                         .font(AegiroTypography.body(11, weight: .regular))
                         .foregroundStyle(AegiroPalette.textMuted)
+                    if let elapsed = success.elapsedDuration {
+                        Text("Elapsed: \(formattedElapsedDuration(elapsed))")
+                            .font(AegiroTypography.mono(11, weight: .semibold))
+                            .foregroundStyle(AegiroPalette.textSecondary)
+                    }
                 }
                 .padding(10)
                 .background(
@@ -2813,11 +2819,13 @@ private struct USBEncryptionWorkspacePage: View {
             guard success else { return }
             guard !vaultFileDryRun else { return }
             guard let result = model.usbDataEncryptionLastResult, !result.dryRun else { return }
+            let elapsedDuration = vaultFileElapsedDuration(at: Date())
             vaultPackSuccessState = VaultPackSuccessState(result: result,
                                                           sourceRootPath: sourcePathForResult,
                                                           mountPoint: mount,
                                                           unlockPassphrase: unlockPassphraseForResult,
-                                                          completedAt: Date())
+                                                          completedAt: Date(),
+                                                          elapsedDuration: elapsedDuration)
             stage = .success
         }
     }
