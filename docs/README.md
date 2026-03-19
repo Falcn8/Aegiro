@@ -12,6 +12,7 @@ This folder groups project documentation by purpose.
 ## Guides
 
 - [App UI Design](guides/UI_DESIGN.md)
+- [macOS File Associations](guides/MACOS_FILE_ASSOCIATIONS.md)
 
 ## Repository
 

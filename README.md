@@ -122,6 +122,7 @@ Jump between project markdown pages:
 - [Documentation Index](docs/README.md)
 - [Repository Structure](docs/REPO_STRUCTURE.md)
 - [App UI Design](docs/guides/UI_DESIGN.md)
+- [macOS File Associations](docs/guides/MACOS_FILE_ASSOCIATIONS.md)
 - [Ownership & Usage](docs/legal/OWNERSHIP.md)
 - [Agent Workflow Rules](AGENTS.md)
 
