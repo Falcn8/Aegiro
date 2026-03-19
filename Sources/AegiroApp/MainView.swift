@@ -5967,10 +5967,14 @@ private struct DoctorSheet: View {
                             .font(AegiroTypography.body(13, weight: .semibold))
                             .foregroundStyle(AegiroPalette.textPrimary)
                         Spacer()
-                        Button(doctorLogExpanded ? "Collapse" : "Uncollapse") {
+                        Button {
                             doctorLogExpanded.toggle()
+                        } label: {
+                            Image(systemName: doctorLogExpanded ? "chevron.up" : "chevron.down")
                         }
                         .buttonStyle(.bordered)
+                        .help(doctorLogExpanded ? "Collapse activity log" : "Expand activity log")
+                        .accessibilityLabel(doctorLogExpanded ? "Collapse activity log" : "Expand activity log")
                     }
                     if doctorLogExpanded {
                         ScrollView {
