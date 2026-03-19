@@ -29,6 +29,13 @@ You are welcome to contribute:
 4. Open a pull request using the PR template.
 5. Complete all required acknowledgment fields in the PR.
 
+## CLI Versioning Rule
+
+- Any change under `Sources/AegiroCLI` must bump `AEGIRO_CLI_VERSION` in `Sources/AegiroCLI/main.swift`.
+- Pull requests and pushes to `main` are checked by `.github/workflows/cli-version-guard.yml`.
+- You can run the same guard locally with:
+  - `bash scripts/check-cli-version-bump.sh HEAD~1`
+
 ## Legal Terms for Contributions
 
 By submitting any Contribution (including a pull request), you agree to the

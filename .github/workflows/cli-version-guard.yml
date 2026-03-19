@@ -1,0 +1,42 @@
+name: CLI Version Guard
+
+on:
+  pull_request:
+    paths:
+      - "Sources/AegiroCLI/**"
+      - "scripts/check-cli-version-bump.sh"
+      - ".github/workflows/cli-version-guard.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Sources/AegiroCLI/**"
+      - "scripts/check-cli-version-bump.sh"
+      - ".github/workflows/cli-version-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base reference
+        id: base
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enforce CLI version bump when CLI changes
+        shell: bash
+        run: |
+          bash scripts/check-cli-version-bump.sh "${{ steps.base.outputs.ref }}"
