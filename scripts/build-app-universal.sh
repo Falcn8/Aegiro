@@ -161,10 +161,51 @@ brew_prefix_for_arch() {
   esac
 }
 
+brew_binary_for_arch() {
+  local arch="$1"
+  case "$arch" in
+    arm64)
+      echo "/opt/homebrew/bin/brew"
+      ;;
+    x86_64)
+      echo "/usr/local/bin/brew"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+ensure_brew_for_arch() {
+  local arch="$1"
+  local brew_bin
+  brew_bin="$(brew_binary_for_arch "$arch")"
+  if [[ -x "$brew_bin" ]]; then
+    return
+  fi
+
+  if [[ "$arch" == "x86_64" ]]; then
+    cat >&2 <<'EOF'
+Missing Intel Homebrew at /usr/local/bin/brew.
+Install it first:
+  softwareupdate --install-rosetta --agree-to-license
+  arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+Then install x86_64 deps:
+  arch -x86_64 /usr/local/bin/brew install liboqs argon2 openssl@3
+EOF
+  else
+    echo "Missing Homebrew at /opt/homebrew/bin/brew." >&2
+    echo "Install deps with: brew install liboqs argon2 openssl@3" >&2
+  fi
+  exit 1
+}
+
 configure_arch_environment() {
   local arch="$1"
-  local prefix oqs_header argon_header oqs_static openssl_lib
+  local prefix brew_bin oqs_header argon_header oqs_static openssl_lib
+  ensure_brew_for_arch "$arch"
   prefix="$(brew_prefix_for_arch "$arch")"
+  brew_bin="$(brew_binary_for_arch "$arch")"
   oqs_header="$prefix/include/oqs/oqs.h"
   argon_header="$prefix/include/argon2.h"
   oqs_static="$prefix/lib/liboqs.a"
@@ -172,20 +213,12 @@ configure_arch_environment() {
 
   if [[ ! -f "$oqs_header" ]]; then
     echo "Missing liboqs header for $arch at $oqs_header" >&2
-    if [[ "$arch" == "x86_64" ]]; then
-      echo "Install x86_64 deps with: arch -x86_64 /usr/local/bin/brew install liboqs argon2 openssl@3" >&2
-    else
-      echo "Install deps with: brew install liboqs argon2 openssl@3" >&2
-    fi
+    echo "Install deps with: arch -$arch $brew_bin install liboqs argon2 openssl@3" >&2
     exit 1
   fi
   if [[ ! -f "$argon_header" ]]; then
     echo "Missing argon2 header for $arch at $argon_header" >&2
-    if [[ "$arch" == "x86_64" ]]; then
-      echo "Install x86_64 deps with: arch -x86_64 /usr/local/bin/brew install liboqs argon2 openssl@3" >&2
-    else
-      echo "Install deps with: brew install liboqs argon2 openssl@3" >&2
-    fi
+    echo "Install deps with: arch -$arch $brew_bin install liboqs argon2 openssl@3" >&2
     exit 1
   fi
   if [[ ! -f "$oqs_static" ]]; then
