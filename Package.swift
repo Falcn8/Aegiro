@@ -1,5 +1,10 @@
 // swift-tools-version: 5.9
 import PackageDescription
+import Foundation
+
+let env = ProcessInfo.processInfo.environment
+let oqsLibDir = env["AEGIRO_OQS_LIB_DIR"] ?? "/opt/homebrew/lib"
+let opensslLibDir = env["AEGIRO_OPENSSL_LIB_DIR"] ?? "/opt/homebrew/opt/openssl@3/lib"
 
 let package = Package(
     name: "Aegiro",
@@ -19,7 +24,10 @@ let package = Package(
                 .target(name: "OpenSSLShim"),
             ],
             linkerSettings: [
-                .unsafeFlags(["-Xlinker","-force_load","-Xlinker","/opt/homebrew/lib/liboqs.a","-L/opt/homebrew/opt/openssl@3/lib","-lcrypto"], .when(configuration: .release))
+                .unsafeFlags(["-Xlinker", "-force_load",
+                              "-Xlinker", "\(oqsLibDir)/liboqs.a",
+                              "-L\(opensslLibDir)",
+                              "-lcrypto"], .when(configuration: .release))
             ]
         ),
         .executableTarget(

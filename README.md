@@ -112,6 +112,25 @@ Outputs:
 - `dist/aegiro-cli`
 - `dist/aegiro-cli-macos-arm64.tar.gz`
 
+Build app bundles for both Apple Silicon and Intel (plus universal app):
+
+```bash
+# Apple Silicon deps
+brew install liboqs argon2 openssl@3
+
+# Intel deps (required on Apple Silicon hosts for x86_64 build)
+arch -x86_64 /usr/local/bin/brew install liboqs argon2 openssl@3
+
+# Build arm64 + x86_64 + universal app bundle
+bash scripts/build-app-universal.sh --configuration release --ad-hoc
+```
+
+Outputs:
+
+- `dist/AegiroApp-arm64.app`
+- `dist/AegiroApp-x86_64.app`
+- `dist/AegiroApp.app` (universal)
+
 ---
 
 ## Docs Map
