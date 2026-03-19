@@ -113,6 +113,7 @@ Jump between project markdown pages:
 - [USB Encryption Schematics](docs/explanations/USB_ENCRYPTION_SCHEMATICS.md)
 - [USB Encryption Diagrams](docs/explanations/USB_ENCRYPTION_DIAGRAMS.md)
 - [Documentation Index](docs/README.md)
+- [Repository Structure](docs/REPO_STRUCTURE.md)
 - [App UI Design](docs/guides/UI_DESIGN.md)
 - [Ownership & Usage](docs/legal/OWNERSHIP.md)
 - [Agent Workflow Rules](AGENTS.md)
