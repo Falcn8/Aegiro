@@ -72,7 +72,7 @@ Main window uses a three-zone shell:
 - Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet plus a dedicated USB Encryption page (outside the vault shell) for external volume encryption workflows.
-- Security card now includes `Check Integrity` and `Backup`.
+- Security card now includes `Check Integrity`, `Backup`, and `Restore` (`.aegirobackup` -> `.agvt`) workflows.
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
 - Sheets include mounted non-APFS volumes inline in the same list; in USB-focused flows these rows are selectable across the full row hit area (not text-only), and in APFS-only flows they remain informational.
 - Added "Encrypt USB Data" sheet for mounted non-APFS volumes: encrypts only user files into a `.agvt` vault file on the USB, skips known filesystem metadata, and can optionally delete originals after successful import.

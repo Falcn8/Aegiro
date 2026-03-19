@@ -261,6 +261,48 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertNil(info.metadata.decryptedEntryCount)
     }
 
+    func testBackupRestoreRoundTripRecreatesVaultBytes() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("source.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let fileURL = tmp.appendingPathComponent("one.txt")
+        try Data("hello-restore".utf8).write(to: fileURL)
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [fileURL])
+        XCTAssertEqual(imported.imported, 1)
+
+        let backupURL = tmp.appendingPathComponent("source.aegirobackup")
+        let vault = try AegiroVault.open(at: vaultURL)
+        try Backup.exportBackup(from: vault, to: backupURL, passphrase: "test-pass")
+
+        let restoredURL = tmp.appendingPathComponent("restored.agvt")
+        let info = try Backup.restoreBackup(from: backupURL, to: restoredURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: restoredURL.path))
+        XCTAssertEqual(info.metadata.sourceVaultFileName, "source.agvt")
+        XCTAssertEqual(try Data(contentsOf: restoredURL), try Data(contentsOf: vaultURL))
+    }
+
+    func testBackupRestoreRejectsOverwriteWithoutFlag() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("source.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+        let backupURL = tmp.appendingPathComponent("source.aegirobackup")
+        let vault = try AegiroVault.open(at: vaultURL)
+        try Backup.exportBackup(from: vault, to: backupURL, passphrase: "test-pass")
+
+        let restoredURL = tmp.appendingPathComponent("restored.agvt")
+        try Data("placeholder".utf8).write(to: restoredURL)
+
+        XCTAssertThrowsError(try Backup.restoreBackup(from: backupURL, to: restoredURL, overwrite: false))
+        XCTAssertNoThrow(try Backup.restoreBackup(from: backupURL, to: restoredURL, overwrite: true))
+    }
+
     func testPQCBundleRequiredForUnlockOnNewVault() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

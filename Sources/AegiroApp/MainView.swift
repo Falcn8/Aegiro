@@ -20,6 +20,7 @@ struct MainView: View {
     @State private var showUSBUserDataEncryptSheet = false
     @State private var showUSBContainerSheet = false
     @State private var showBackupSheet = false
+    @State private var showRestoreSheet = false
     @State private var showVerifySheet = false
     @State private var showStatusSheet = false
     @State private var showScanSheet = false
@@ -152,6 +153,12 @@ struct MainView: View {
         .sheet(isPresented: $showBackupSheet) {
             BackupSheet {
                 showBackupSheet = false
+            }
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showRestoreSheet) {
+            RestoreSheet {
+                showRestoreSheet = false
             }
             .environmentObject(model)
         }
@@ -483,6 +490,10 @@ struct MainView: View {
                     showBackupSheet = true
                 }
                 .disabled(model.vaultURL == nil)
+
+                actionButton(title: "Restore", icon: "arrow.clockwise.circle") {
+                    showRestoreSheet = true
+                }
             }
         }
     }
@@ -4815,6 +4826,167 @@ private struct BackupSheet: View {
             switch result {
             case .success:
                 output = "Backup archive created at \(outURL.path)."
+                onDone()
+            case .failure(let error):
+                output = "Error: \(error)"
+            }
+        }
+    }
+}
+
+private struct RestoreSheet: View {
+    @EnvironmentObject private var model: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var backupPath = ""
+    @State private var outPath = ""
+    @State private var overwriteExisting = false
+    @State private var isRunning = false
+    @State private var output = ""
+
+    var onDone: () -> Void
+
+    private var canRun: Bool {
+        !backupPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !outPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !isRunning
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Restore Vault")
+                .font(AegiroTypography.display(24, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("Restore a vault file from backup archive (CLI parity for restore --backup <path.aegirobackup> --out <path.agvt> [--force]).")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            formLabel("Backup Archive")
+            HStack(spacing: 8) {
+                TextField("/path/to/vault.aegirobackup", text: $backupPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseBackupPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            formLabel("Restore Output Path")
+            HStack(spacing: 8) {
+                TextField("/path/to/restored.agvt", text: $outPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose...") { chooseOutputPath() }
+                    .buttonStyle(.bordered)
+            }
+
+            Toggle("Overwrite existing output", isOn: $overwriteExisting)
+                .font(AegiroTypography.body(12, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+                .toggleStyle(.checkbox)
+
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            outputCard(output)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Run Restore") { runRestore() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AegiroPalette.accentIndigo)
+                    .disabled(!canRun)
+            }
+        }
+        .padding(24)
+        .frame(width: 700)
+        .background(AegiroPalette.backgroundPanel)
+        .onAppear {
+            if outPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               !backupPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                outPath = defaultRestorePath(for: backupPath)
+            }
+        }
+    }
+
+    private func formLabel(_ text: String) -> some View {
+        Text(text)
+            .font(AegiroTypography.body(12, weight: .semibold))
+            .foregroundStyle(AegiroPalette.textSecondary)
+    }
+
+    private func outputCard(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            formLabel("Output")
+            ScrollView {
+                Text(text.isEmpty ? "No output yet." : text)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(text.isEmpty ? AegiroPalette.textMuted : AegiroPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(minHeight: 95, maxHeight: 150)
+            .background(AegiroPalette.backgroundMain, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+    }
+
+    private func chooseBackupPath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Backup Archive"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "aegirobackup") ?? .data]
+        if panel.runModal() == .OK, let url = panel.url {
+            backupPath = url.path
+            if outPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                outPath = defaultRestorePath(for: url.path)
+            }
+        }
+    }
+
+    private func chooseOutputPath() {
+        let panel = NSSavePanel()
+        panel.title = "Choose Restore Output"
+        panel.nameFieldStringValue = (outPath.isEmpty ? "restored.agvt" : outPath as NSString).lastPathComponent
+        panel.allowedContentTypes = [UTType(filenameExtension: "agvt") ?? .data]
+        if panel.runModal() == .OK, var url = panel.url {
+            if url.pathExtension.lowercased() != "agvt" {
+                url.appendPathExtension("agvt")
+            }
+            outPath = url.path
+        }
+    }
+
+    private func defaultRestorePath(for backupPath: String) -> String {
+        let backupURL = URL(fileURLWithPath: NSString(string: backupPath).expandingTildeInPath)
+        let baseName = backupURL.deletingPathExtension().lastPathComponent
+        return backupURL.deletingLastPathComponent()
+            .appendingPathComponent("\(baseName).agvt")
+            .path
+    }
+
+    private func runRestore() {
+        output = ""
+        isRunning = true
+
+        let backupURL = URL(fileURLWithPath: NSString(string: backupPath).expandingTildeInPath)
+        let outURL = URL(fileURLWithPath: NSString(string: outPath).expandingTildeInPath)
+        model.restoreBackup(backupURL: backupURL, outURL: outURL, overwrite: overwriteExisting) { result in
+            isRunning = false
+            switch result {
+            case .success(let info):
+                let backupDate = info.metadata.createdAt.formatted(date: .abbreviated, time: .shortened)
+                output = """
+                Restored vault to \(outURL.path).
+                Backup created: \(backupDate)
+                Source vault SHA256: \(info.metadata.sourceVaultSHA256Hex)
+                """
                 onDone()
             case .failure(let error):
                 output = "Error: \(error)"

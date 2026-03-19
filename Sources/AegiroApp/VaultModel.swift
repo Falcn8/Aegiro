@@ -1141,6 +1141,28 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    func restoreBackup(backupURL: URL,
+                       outURL: URL,
+                       overwrite: Bool,
+                       completion: ((Result<BackupArchiveInfo, Error>) -> Void)? = nil) {
+        status = "Restoring backup..."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let info = try Backup.restoreBackup(from: backupURL, to: outURL, overwrite: overwrite)
+                DispatchQueue.main.async {
+                    self?.status = "Backup restored to \(outURL.path)."
+                    completion?(.success(info))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.status = "Restore failed: \(error)"
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
     func verifyManifest(vaultURL: URL,
                         completion: ((Result<Bool, Error>) -> Void)? = nil) {
         status = "Verifying manifest signature..."

@@ -222,6 +222,28 @@ struct CLI {
             let v = try AegiroVault.open(at: URL(fileURLWithPath: NSString(string: p).expandingTildeInPath))
             try Backup.exportBackup(from: v, to: URL(fileURLWithPath: NSString(string: o).expandingTildeInPath), passphrase: pass)
             print("Backup archive created at \(o).")
+        case "restore":
+            var backup: String?
+            var out: String?
+            var force = false
+            var it = args.dropFirst().makeIterator()
+            while let a = it.next() {
+                switch a {
+                case "--backup": backup = it.next()
+                case "--out": out = it.next()
+                case "--force": force = true
+                default: break
+                }
+            }
+            guard let b = backup, let o = out else {
+                hint("Missing required options for restore.", tip: "Use: restore --backup <path.aegirobackup> --out <path.agvt> [--force]")
+            }
+            let info = try Backup.restoreBackup(from: URL(fileURLWithPath: NSString(string: b).expandingTildeInPath),
+                                                to: URL(fileURLWithPath: NSString(string: o).expandingTildeInPath),
+                                                overwrite: force)
+            print("Restored vault to \(o).")
+            print("Backup created: \(formatTimestamp(info.metadata.createdAt))")
+            print("Source vault SHA256: \(info.metadata.sourceVaultSHA256Hex)")
         case "scan":
             var includeContents = true
             var maxFileBytes = 2_000_000
@@ -567,6 +589,7 @@ Usage:
   preview --vault <path> --passphrase "<pass>" <filter>
   doctor --vault <path> [--passphrase "<pass>"] [--fix]  (deep checks require passphrase)
   backup --vault <path> --out <path.aegirobackup> [--passphrase "<pass>"]  Create a single-file backup archive
+  restore --backup <path.aegirobackup> --out <path.agvt> [--force]         Restore vault bytes from a backup archive
   scan [--names-only] [--max-file-bytes <n>] <paths...>
   shred <paths...>
   apfs-volume-encrypt --disk <diskXsY> --passphrase "<recovery-pass>" [--recovery <path.json>] [--dry-run] [--force]
