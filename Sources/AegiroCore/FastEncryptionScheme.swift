@@ -10,10 +10,11 @@ public enum FastEncryptionScheme {
 
     public static let version: UInt8 = 1
     public static let magic = Data("AEGFAST1".utf8)
-    public static let headerSize = 32
+    public static let headerSize = 48
     public static let defaultChunkSize = 1 << 20 // 1 MiB
     private static let tagSize = 16
     private static let noncePrefixSize = 4
+    private static let keySaltSize = 16
     private static let nonceSize = 12
 
     public static func preferredAlgorithm() -> Algorithm {
@@ -41,11 +42,13 @@ public enum FastEncryptionScheme {
         }
 
         let noncePrefix = try randomBytes(count: noncePrefixSize)
+        let keySalt = try randomBytes(count: keySaltSize)
         let header = try makeHeader(algorithm: selected,
                                     chunkSize: chunkSize,
                                     plaintextLength: UInt64(plaintext.count),
-                                    noncePrefix: noncePrefix)
-        let sessionKey = deriveSessionKey(masterKey: masterKey, algorithm: selected)
+                                    noncePrefix: noncePrefix,
+                                    keySalt: keySalt)
+        let sessionKey = deriveSessionKey(masterKey: masterKey, algorithm: selected, keySalt: keySalt)
 
         let chunkCount = chunkCountFor(plaintextLength: plaintext.count, chunkSize: chunkSize)
         let expectedCipherLen = try encryptedPayloadLength(plaintextLength: plaintext.count, chunkSize: chunkSize)
@@ -91,7 +94,7 @@ public enum FastEncryptionScheme {
             throw AEGError.integrity("Encrypted payload length mismatch")
         }
 
-        let sessionKey = deriveSessionKey(masterKey: masterKey, algorithm: header.algorithm)
+        let sessionKey = deriveSessionKey(masterKey: masterKey, algorithm: header.algorithm, keySalt: header.keySalt)
         let chunkSize = Int(header.chunkSize)
         let chunkCount = chunkCountFor(plaintextLength: Int(header.plaintextLength), chunkSize: chunkSize)
 
@@ -133,14 +136,19 @@ public enum FastEncryptionScheme {
         let chunkSize: UInt32
         let plaintextLength: UInt64
         let noncePrefix: Data
+        let keySalt: Data
     }
 
     private static func makeHeader(algorithm: Algorithm,
                                    chunkSize: Int,
                                    plaintextLength: UInt64,
-                                   noncePrefix: Data) throws -> Data {
+                                   noncePrefix: Data,
+                                   keySalt: Data) throws -> Data {
         guard noncePrefix.count == noncePrefixSize else {
             throw AEGError.crypto("Invalid nonce prefix")
+        }
+        guard keySalt.count == keySaltSize else {
+            throw AEGError.crypto("Invalid key salt")
         }
 
         var out = Data()
@@ -151,6 +159,7 @@ public enum FastEncryptionScheme {
         out.append(leData(UInt32(chunkSize)))
         out.append(leData(plaintextLength))
         out.append(noncePrefix)
+        out.append(keySalt)
         out.append(Data(repeating: 0, count: headerSize - out.count))
         return out
     }
@@ -182,18 +191,21 @@ public enum FastEncryptionScheme {
         }
 
         let noncePrefix = headerData.subdata(in: 22..<26)
+        let keySalt = headerData.subdata(in: 26..<42)
         return ParsedHeader(raw: headerData,
                             algorithm: algorithm,
                             chunkSize: chunkSize,
                             plaintextLength: plaintextLength,
-                            noncePrefix: noncePrefix)
+                            noncePrefix: noncePrefix,
+                            keySalt: keySalt)
     }
 
-    private static func deriveSessionKey(masterKey: SymmetricKey, algorithm: Algorithm) -> SymmetricKey {
-        let salt = Data("AEGIRO-FAST-SCHEME-V1".utf8)
+    private static func deriveSessionKey(masterKey: SymmetricKey,
+                                         algorithm: Algorithm,
+                                         keySalt: Data) -> SymmetricKey {
         let info = Data([algorithm.rawValue])
         return HKDF<SHA256>.deriveKey(inputKeyMaterial: masterKey,
-                                      salt: salt,
+                                      salt: keySalt,
                                       info: info,
                                       outputByteCount: 32)
     }
