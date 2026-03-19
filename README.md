@@ -123,6 +123,9 @@ arch -x86_64 /usr/local/bin/brew install liboqs argon2 openssl@3
 
 # Build arm64 + x86_64 + universal app bundle
 bash scripts/build-app-universal.sh --configuration release --ad-hoc
+
+# Package the universal app as a DMG
+bash scripts/package-dmg.sh --app dist/Aegiro.app --output dist/Aegiro.dmg --overwrite
 ```
 
 Outputs:
@@ -130,6 +133,7 @@ Outputs:
 - `dist/Aegiro-arm64.app`
 - `dist/Aegiro-x86_64.app`
 - `dist/Aegiro.app` (universal)
+- `dist/Aegiro.dmg`
 
 ---
 
