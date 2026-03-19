@@ -924,12 +924,12 @@ final class VaultModel: ObservableObject {
                         self.appendUSBDataEncryptionLog("Original file deletion: \(result.deletedOriginalCount) removed, \(result.deletionErrors.count) errors.")
                     }
 
-                    if self.vaultURL == nil || self.vaultURL?.standardizedFileURL.path == result.vaultURL.path {
-                        self.vaultURL = result.vaultURL
-                        self.passphrase = pass
-                        self.locked = false
-                        self.refreshStatus()
-                    }
+                    // Always switch to the packed vault after a successful run so
+                    // the workspace reflects the newly encrypted files immediately.
+                    self.vaultURL = result.vaultURL
+                    self.passphrase = pass
+                    self.locked = false
+                    self.refreshStatus()
                     completion?(true)
                 }
             } catch {
