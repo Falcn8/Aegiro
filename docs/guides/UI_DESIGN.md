@@ -69,6 +69,7 @@ Main window uses a three-zone shell:
   - Shift+Up/Shift+Down extends range selection from the anchor.
 - Space bar opens Quick Look for the current selection.
 - File details are shown from a top-bar Info popover.
+- List and grid rows show each file's parent path under the filename to disambiguate duplicates.
 - Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.
 - Unlock sheet plus a dedicated USB Encryption page (outside the vault shell) for external volume encryption workflows.

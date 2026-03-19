@@ -896,6 +896,12 @@ struct MainView: View {
                                     .foregroundStyle(AegiroPalette.textPrimary)
                                     .lineLimit(1)
 
+                                Text(entry.parentPathDisplay)
+                                    .font(AegiroTypography.mono(11, weight: .regular))
+                                    .foregroundStyle(AegiroPalette.textMuted)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+
                                 Text(entry.formattedSize)
                                     .font(AegiroTypography.body(12, weight: .regular))
                                     .foregroundStyle(AegiroPalette.textSecondary)
@@ -995,8 +1001,15 @@ struct MainView: View {
             HStack(spacing: 8) {
                 Image(systemName: entry.systemIcon)
                     .foregroundStyle(AegiroPalette.accentIndigo)
-                Text(entry.displayName)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.displayName)
+                        .lineLimit(1)
+                    Text(entry.parentPathDisplay)
+                        .font(AegiroTypography.mono(11, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textMuted)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -6169,6 +6182,14 @@ extension VaultIndexEntry: Hashable {
 private extension VaultIndexEntry {
     var displayName: String {
         (logicalPath as NSString).lastPathComponent
+    }
+
+    var parentPathDisplay: String {
+        let parent = (logicalPath as NSString).deletingLastPathComponent
+        if parent.isEmpty || parent == "." {
+            return "/"
+        }
+        return parent
     }
 
     var formattedSize: String {
