@@ -43,7 +43,7 @@ Aegiro is a local-first encrypted vault system for macOS:
 
 - Active on-disk format is AGVT v1 (sequential header/wrap/index/manifest/chunk-map/chunk-area layout).
 - Read/write paths use v1 chunk key/AAD labels (`AEGIRO-FILE-KEY-V1`, `AEGIRO-CHUNK-V1`) with header `version = 1` and chunk AEAD id `1`.
-- Legacy v2 chunk labels are no longer accepted at runtime.
+- Legacy chunk labels are no longer accepted at runtime.
 
 ---
 
