@@ -14,14 +14,15 @@ public struct VaultOpenContext {
 private let vaultFlagTouchID: UInt32 = 1 << 0
 private let vaultFlagPQCUnlockV1: UInt32 = 1 << 1
 private let vaultAAD = Data("AEGIRO-V1".utf8)
-private let vaultChunkAADPrefix = Data("AEGIRO-CHUNK-V2".utf8)
-private let vaultChunkFormatV2: UInt8 = 1
+private let vaultChunkAADPrefix = Data("AEGIRO-CHUNK-V1".utf8)
+private let vaultChunkFormatV1: UInt8 = 1
 private let vaultChunkAlgAESGCM: UInt8 = 1
 private let vaultChunkAlgChaChaPoly1305: UInt8 = 2
 private let vaultChunkKeySaltLength = 16
 private let vaultChunkNoncePrefixLength = 4
 private let vaultChunkTagLength = 16
-private let vaultChunkAEADIDV2: UInt16 = 2
+private let vaultChunkAEADIDV1: UInt16 = 1
+private let vaultChunkAEADIDLegacyV2: UInt16 = 2
 
 private struct PQAccessBundleV1: Codable {
     let version: UInt8
@@ -50,7 +51,7 @@ public final class AegiroVault {
         let (kemPk, kemSk) = try kem.keypair()
         let (sigPk, sigSk) = try sig.keypair()
 
-        let algs = AlgIDs(aead: vaultChunkAEADIDV2, kdf: 2, kem: 3, sig: 4)
+        let algs = AlgIDs(aead: vaultChunkAEADIDV1, kdf: 2, kem: 3, sig: 4)
         let argon = Argon2Params(mMiB: 256, t: 3, p: 1)
         let pq = PQPublicKeys(kyber_pk: kemPk, dilithium_pk: sigPk)
         var header = VaultHeader(alg: algs, argon2: argon, pq: pq)
@@ -294,14 +295,14 @@ private func secureRandomData(count: Int) throws -> Data {
 }
 
 private func makeVaultChunkCrypto() throws -> VaultChunkCrypto {
-    VaultChunkCrypto(format: vaultChunkFormatV2,
+    VaultChunkCrypto(format: vaultChunkFormatV1,
                      algorithm: preferredVaultChunkAlgorithm(),
                      keySalt: try secureRandomData(count: vaultChunkKeySaltLength),
                      noncePrefix: try secureRandomData(count: vaultChunkNoncePrefixLength))
 }
 
 private func validateVaultChunkCrypto(_ crypto: VaultChunkCrypto) throws {
-    guard crypto.format == vaultChunkFormatV2 else {
+    guard crypto.format == vaultChunkFormatV1 else {
         throw AEGError.unsupported("Unsupported chunk crypto format: \(crypto.format)")
     }
     guard crypto.keySalt.count == vaultChunkKeySaltLength else {
@@ -317,7 +318,7 @@ private func validateVaultChunkCrypto(_ crypto: VaultChunkCrypto) throws {
 
 private func deriveVaultFileKey(dek: SymmetricKey, fileID: Data, crypto: VaultChunkCrypto) throws -> SymmetricKey {
     try validateVaultChunkCrypto(crypto)
-    let info = Data("AEGIRO-FILE-KEY-V2".utf8) + fileID + Data([crypto.algorithm, crypto.format])
+    let info = Data("AEGIRO-FILE-KEY-V1".utf8) + fileID + Data([crypto.algorithm, crypto.format])
     return HKDF<SHA256>.deriveKey(inputKeyMaterial: dek,
                                   salt: crypto.keySalt,
                                   info: info,
@@ -397,8 +398,8 @@ private func openVaultChunk(_ payload: Data,
 }
 
 private func ensureVaultChunkScheme(_ head: VaultHeader) throws {
-    guard head.alg_ids.aead == vaultChunkAEADIDV2 else {
-        throw AEGError.unsupported("Unsupported vault chunk AEAD id \(head.alg_ids.aead). Expected \(vaultChunkAEADIDV2).")
+    guard head.alg_ids.aead == vaultChunkAEADIDV1 || head.alg_ids.aead == vaultChunkAEADIDLegacyV2 else {
+        throw AEGError.unsupported("Unsupported vault chunk AEAD id \(head.alg_ids.aead). Expected \(vaultChunkAEADIDV1) or legacy \(vaultChunkAEADIDLegacyV2).")
     }
 }
 

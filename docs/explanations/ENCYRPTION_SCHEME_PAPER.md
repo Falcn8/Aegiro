@@ -1,6 +1,6 @@
 # Aegiro Encryption Scheme Paper
 
-Version: 2.0 (implementation-focused)  
+Version: 2.1 (implementation-focused)  
 Document type: Engineering reference  
 Primary source of truth: current code in `Sources/AegiroCore`
 
@@ -15,7 +15,7 @@ It covers three active cryptographic paths:
 2. APFS external-volume recovery wrapping (`apfs-volume-encrypt`, `apfs-volume-decrypt`)  
 3. Portable encrypted APFS sparsebundle recovery wrapping (`usb-container-create`, `usb-container-open`)
 
-It also identifies implementation caveats and separation between current runtime behavior and the AGVT v2 design specification.
+It also identifies implementation caveats and runtime format behavior used by the current codebase.
 
 ---
 
@@ -143,19 +143,21 @@ Source reference: `Sources/AegiroCore/IndexManifest.swift` (`IndexCrypto`)
 ## 3.5 Chunk Encryption
 
 File data is chunked (current import path uses 128 KiB plaintext chunks).  
-Each chunk is AES-GCM encrypted and written to chunk area as combined nonce/cipher/tag.
+Each file stores `VaultChunkCrypto` metadata in encrypted index entries:
 
-Nonce derivation uses two-stage HMAC:
+- `format` (`1`)
+- `algorithm` (`1 = AES-GCM`, `2 = ChaCha20-Poly1305`)
+- `keySalt` (`16 bytes`)
+- `noncePrefix` (`4 bytes`)
 
-1. `nameHash = HMAC-SHA256(key=index_salt, msg=basename(filePath))`
-2. `seedKey = HMAC-SHA256(key=DEK, msg=nameHash)`
-3. `nonce_i = HMAC-SHA256(key=seedKey, msg=BE64(chunkIndex))[0..11]`
+For each file:
 
-Then encrypt:
+1. Derive `file_key = HKDF-SHA256(DEK, keySalt, "AEGIRO-FILE-KEY-V1" || fileID || algorithm || format)`.
+2. Build per-chunk nonce as `noncePrefix || chunkOrdinalLE64`.
+3. Build per-chunk AAD as `"AEGIRO-CHUNK-V1" || kdf_salt || fileID || algorithm || format || chunkOrdinalLE32`.
+4. Encrypt/decrypt chunk payload with selected AEAD algorithm using `file_key`.
 
-- `chunk_i = AES-GCM(DEK, plaintext_chunk_i, nonce_i, AAD="AEGIRO-V1")`
-
-Chunk metadata (`ChunkInfo`) stores file name/path, relative offset, and encrypted length.
+Chunk map metadata (`ChunkInfo`) stores `fileID`, `ordinal`, relative offset, and encrypted length.
 
 Source references:
 
@@ -289,19 +291,14 @@ Not provided:
 1. Argon2 parameter structs are stored in header/bundle metadata, but KDF code paths currently use fixed defaults (`m=256 MiB, t=3, p=1`).  
 2. `wraps_offsets` fields exist in header, but parser/reader logic uses sequential parsing instead of relying on those offsets.  
 3. Legacy unlock and PQC unlock coexist; mode inference and flag normalization are available.  
-4. Chunk nonce seed input is derived from basename hash (`lastPathComponent` + `index_salt`). Duplicate basenames across different directories can share seed material under the same `DEK` domain and should be treated as a security-review item.
+4. Reader compatibility currently accepts both AEAD ID `1` (current) and legacy ID `2` while writes use ID `1`; this compatibility branch should be retired once old vaults are migrated.
 
 ---
 
-## 9. AGVT v2 Spec vs Runtime Reality
+## 9. Runtime Format Status
 
-`SPEC_AGVT_V2.md` defines a newer architecture (dual superblocks + append-only records + profile framing).  
-Current runtime vault read/write behavior remains the v1-style layout documented above (`Vault.swift` path).
-
-Summary:
-
-- AGVT v2: design/spec baseline in repository docs and helper types
-- Active vault implementation today: v1-style serialized layout and flows
+Current runtime vault read/write behavior uses the v1 serialized layout documented above (`Vault.swift` path).  
+This document is the active implementation reference for that format.
 
 ---
 

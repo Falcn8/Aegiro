@@ -8,14 +8,14 @@
 
 <p align="center">
   <strong>Local-only encrypted vault for macOS</strong><br>
-  <sub>Argon2id • Chunk AEAD v2 (AES-GCM / ChaCha20-Poly1305) • Post-quantum key protection</sub>
+  <sub>Argon2id • Chunk AEAD v1 (AES-GCM / ChaCha20-Poly1305) • Post-quantum key protection</sub>
 </p>
 
 <p align="center">
   <a href="https://github.com/aegiro-project/Aegiro"><img src="https://img.shields.io/badge/GitHub-AegiroMaintainer%2FAegiro-181717?style=flat-square&logo=github" alt="GitHub"></a>
   <img src="https://img.shields.io/badge/Platform-macOS-000000?style=flat-square&logo=apple" alt="Platform macOS">
   <img src="https://img.shields.io/badge/Language-Swift-F05138?style=flat-square&logo=swift" alt="Swift">
-  <img src="https://img.shields.io/badge/Format-AGVT%20v2-2f6feb?style=flat-square" alt="AGVT v2">
+  <img src="https://img.shields.io/badge/Format-AGVT%20v1-2f6feb?style=flat-square" alt="AGVT v1">
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 Aegiro is a local-first encrypted vault system for macOS:
 
 - CLI + app workflows for encrypted vault operations
-- AGVT v2 storage format with chunked encrypted file data
+- AGVT v1 storage format with chunked encrypted file data
 - APFS disk encryption support with recovery bundles
 - Portable USB container flow for non-APFS filesystems
 - Non-APFS USB file packing into `.agvt` via `usb-vault-pack`
@@ -108,7 +108,6 @@ Outputs:
 
 Jump between project markdown pages:
 
-- [Format Spec (AGVT v2)](docs/explanations/SPEC_AGVT_V2.md)
 - [Encryption Scheme Paper (Implementation)](docs/explanations/ENCYRPTION_SCHEME_PAPER.md)
 - [USB Encryption Schematics](docs/explanations/USB_ENCRYPTION_SCHEMATICS.md)
 - [USB Encryption Diagrams](docs/explanations/USB_ENCRYPTION_DIAGRAMS.md)
