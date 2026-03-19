@@ -4,6 +4,16 @@ Status: Release Baseline (v2)
 Audience: Aegiro core/CLI implementers  
 Scope: Portable encrypted container format for macOS, Windows, Linux
 
+Implementation snapshot (Aegiro mainline, 2026-03-19):
+
+- Vault header `version = 2`, `alg_ids.aead = 2` (chunk AEAD v2 path).
+- Chunk payload encryption uses per-file derived keys:
+  - `file_key = HKDF-SHA256(DEK, salt=file.key_salt, info="AEGIRO-FILE-KEY-V2" || file_id || alg || format)`.
+  - nonce = `nonce_prefix[4] || chunk_ordinal_le_u64`.
+  - AAD = `"AEGIRO-CHUNK-V2" || vault_kdf_salt || file_id || alg || format || chunk_ordinal_le_u32`.
+- Chunk map stores opaque identifiers only (`file_id`, `ordinal`, `rel_offset`, `length`) and does not store plaintext logical paths.
+- Logical path mapping remains inside encrypted index entries.
+
 ## 1. Goals
 
 - Build and own a portable encryption format (`.agvt`) that does not depend on APFS, BitLocker, or VeraCrypt.
@@ -31,12 +41,12 @@ AGVT v2 supports profile IDs so formats stay stable while algorithms can evolve.
 
 - `0x0001` Classical baseline:
   - KDF: Argon2id
-  - AEAD: AES-256-GCM
+  - AEAD: Chunk AEAD v2 (`AES-256-GCM` on arm64, `ChaCha20-Poly1305` on non-arm64)
   - HKDF: HKDF-SHA256
   - Signature: Ed25519
 - `0x0002` PQ-hybrid profile:
   - KDF: Argon2id
-  - AEAD: AES-256-GCM
+  - AEAD: Chunk AEAD v2 (`AES-256-GCM` on arm64, `ChaCha20-Poly1305` on non-arm64)
   - HKDF: HKDF-SHA256
   - KEM: Kyber512 (liboqs)
   - Signature: Dilithium2 (liboqs)
@@ -49,12 +59,10 @@ All keys are per-vault unless noted.
 
 1. User passphrase + `kdf_salt` -> `PDK` (32 bytes) via Argon2id.
 2. `PDK` unwraps `MasterSecret` (32 bytes random).
-3. Derive subkeys from `MasterSecret` with HKDF labels:
-   - `agvt/index/aead` -> index AEAD key
-   - `agvt/chunk/aead` -> chunk AEAD key
-   - `agvt/chunk/nonce` -> nonce derivation key
-   - `agvt/manifest/hash` -> manifest hash binding key
-4. Optional PQ recovery material may wrap either `MasterSecret` or a recovery key that can unwrap `MasterSecret`.
+3. Derive per-file chunk key from `DEK`:
+   - `file_key = HKDF-SHA256(DEK, file.key_salt, "AEGIRO-FILE-KEY-V2" || file_id || alg || format)`.
+4. Each file gets random `key_salt` (16B) and `nonce_prefix` (4B) in encrypted index metadata.
+5. Optional PQ recovery material may wrap either `MasterSecret` or a recovery key that can unwrap `MasterSecret`.
 
 Rules:
 - Never reuse the same key for index and chunk encryption.
@@ -135,14 +143,14 @@ Unknown record types are skipped by length.
 ## 8. AEAD and Nonces
 
 - AEAD additional data (AAD) must include:
-  - format major/minor
-  - vault UUID
-  - record type
-  - logical object identifier
+  - chunk format/version
+  - vault salt binding
+  - file identifier
+  - chunk ordinal
 - Nonce policy:
-  - 96-bit nonces for AES-GCM
-  - derived as `HMAC-SHA256(nonce_key, object_id || chunk_index)[0..11]`
-  - must be deterministic and collision-free per key domain
+  - 96-bit nonce
+  - `nonce_prefix[4] || chunk_ordinal_le_u64`
+  - unique per file key domain
 
 ## 9. Commit Protocol (Crash Safety)
 
@@ -261,12 +269,11 @@ Guardrails:
 
 ## 16. Migration from Current `.agvt` (v1)
 
-- Implement read support for current format.
-- Add explicit `migrate --to-v2` command:
-  - reads v1
-  - emits fresh v2 vault
-  - verifies entry count + byte totals + digest parity
-- Keep v1 read support for at least one major release after v2 ships.
+Pre-release hard-cutover policy for this repository:
+
+- Backward compatibility with old chunk payload layouts is intentionally not guaranteed.
+- Existing local test data should be regenerated after chunk-format changes.
+- Migration tooling can be added later when a public compatibility contract is required.
 
 ## 17. Format Decisions
 

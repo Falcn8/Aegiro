@@ -1,6 +1,7 @@
 
 import Foundation
 import CryptoKit
+import Security
 
 public struct VaultOpenContext {
     public var pdkKey: SymmetricKey?
@@ -13,6 +14,14 @@ public struct VaultOpenContext {
 private let vaultFlagTouchID: UInt32 = 1 << 0
 private let vaultFlagPQCUnlockV1: UInt32 = 1 << 1
 private let vaultAAD = Data("AEGIRO-V1".utf8)
+private let vaultChunkAADPrefix = Data("AEGIRO-CHUNK-V2".utf8)
+private let vaultChunkFormatV2: UInt8 = 1
+private let vaultChunkAlgAESGCM: UInt8 = 1
+private let vaultChunkAlgChaChaPoly1305: UInt8 = 2
+private let vaultChunkKeySaltLength = 16
+private let vaultChunkNoncePrefixLength = 4
+private let vaultChunkTagLength = 16
+private let vaultChunkAEADIDV2: UInt16 = 2
 
 private struct PQAccessBundleV1: Codable {
     let version: UInt8
@@ -41,7 +50,7 @@ public final class AegiroVault {
         let (kemPk, kemSk) = try kem.keypair()
         let (sigPk, sigSk) = try sig.keypair()
 
-        let algs = AlgIDs(aead: 1, kdf: 2, kem: 3, sig: 4)
+        let algs = AlgIDs(aead: vaultChunkAEADIDV2, kdf: 2, kem: 3, sig: 4)
         let argon = Argon2Params(mMiB: 256, t: 3, p: 1)
         let pq = PQPublicKeys(kyber_pk: kemPk, dilithium_pk: sigPk)
         var header = VaultHeader(alg: algs, argon2: argon, pq: pq)
@@ -92,7 +101,7 @@ public final class AegiroVault {
 
         // Compute header with correct offsets after knowing sizes
         // We'll compute a provisional header to get JSON length for header_len and offsets
-        var tempHeader = header
+        let tempHeader = header
         // First, encode to know JSON length with placeholder offsets
         let provisional = try tempHeader.serialize()
         let hdrBaseLen = provisional.count // includes MAGIC + len + JSON
@@ -264,6 +273,135 @@ private func normalizedPath(_ url: URL) -> String {
     return url.standardizedFileURL.resolvingSymlinksInPath().path
 }
 
+private func preferredVaultChunkAlgorithm() -> UInt8 {
+    #if arch(arm64)
+    return vaultChunkAlgAESGCM
+    #else
+    return vaultChunkAlgChaChaPoly1305
+    #endif
+}
+
+private func secureRandomData(count: Int) throws -> Data {
+    var data = Data(count: count)
+    let status = data.withUnsafeMutableBytes { raw in
+        guard let base = raw.baseAddress else { return errSecParam }
+        return SecRandomCopyBytes(kSecRandomDefault, count, base)
+    }
+    if status != errSecSuccess {
+        throw AEGError.crypto("SecRandomCopyBytes failed: \(status)")
+    }
+    return data
+}
+
+private func makeVaultChunkCrypto() throws -> VaultChunkCrypto {
+    VaultChunkCrypto(format: vaultChunkFormatV2,
+                     algorithm: preferredVaultChunkAlgorithm(),
+                     keySalt: try secureRandomData(count: vaultChunkKeySaltLength),
+                     noncePrefix: try secureRandomData(count: vaultChunkNoncePrefixLength))
+}
+
+private func validateVaultChunkCrypto(_ crypto: VaultChunkCrypto) throws {
+    guard crypto.format == vaultChunkFormatV2 else {
+        throw AEGError.unsupported("Unsupported chunk crypto format: \(crypto.format)")
+    }
+    guard crypto.keySalt.count == vaultChunkKeySaltLength else {
+        throw AEGError.integrity("Invalid chunk key salt length: \(crypto.keySalt.count)")
+    }
+    guard crypto.noncePrefix.count == vaultChunkNoncePrefixLength else {
+        throw AEGError.integrity("Invalid chunk nonce prefix length: \(crypto.noncePrefix.count)")
+    }
+    guard crypto.algorithm == vaultChunkAlgAESGCM || crypto.algorithm == vaultChunkAlgChaChaPoly1305 else {
+        throw AEGError.unsupported("Unsupported chunk algorithm: \(crypto.algorithm)")
+    }
+}
+
+private func deriveVaultFileKey(dek: SymmetricKey, fileID: Data, crypto: VaultChunkCrypto) throws -> SymmetricKey {
+    try validateVaultChunkCrypto(crypto)
+    let info = Data("AEGIRO-FILE-KEY-V2".utf8) + fileID + Data([crypto.algorithm, crypto.format])
+    return HKDF<SHA256>.deriveKey(inputKeyMaterial: dek,
+                                  salt: crypto.keySalt,
+                                  info: info,
+                                  outputByteCount: 32)
+}
+
+private func makeVaultChunkAAD(vaultSalt: Data, fileID: Data, ordinal: UInt32, crypto: VaultChunkCrypto) -> Data {
+    var out = Data()
+    out.reserveCapacity(vaultChunkAADPrefix.count + vaultSalt.count + fileID.count + 8)
+    out.append(vaultChunkAADPrefix)
+    out.append(vaultSalt)
+    out.append(fileID)
+    out.append(Data([crypto.algorithm, crypto.format]))
+    var ordinalLE = ordinal.littleEndian
+    withUnsafeBytes(of: &ordinalLE) { out.append(contentsOf: $0) }
+    return out
+}
+
+private func makeVaultChunkNonce(prefix: Data, ordinal: UInt32) -> Data {
+    var out = Data()
+    out.reserveCapacity(12)
+    out.append(prefix)
+    var ctr = UInt64(ordinal).littleEndian
+    withUnsafeBytes(of: &ctr) { out.append(contentsOf: $0) }
+    return out
+}
+
+private func sealVaultChunk(_ plaintext: Data,
+                            key: SymmetricKey,
+                            nonceData: Data,
+                            aad: Data,
+                            algorithm: UInt8) throws -> Data {
+    switch algorithm {
+    case vaultChunkAlgAESGCM:
+        let nonce = try AES.GCM.Nonce(data: nonceData)
+        let sealed = try AES.GCM.seal(plaintext, using: key, nonce: nonce, authenticating: aad)
+        var out = Data()
+        out.reserveCapacity(sealed.ciphertext.count + sealed.tag.count)
+        out.append(sealed.ciphertext)
+        out.append(sealed.tag)
+        return out
+    case vaultChunkAlgChaChaPoly1305:
+        let nonce = try ChaChaPoly.Nonce(data: nonceData)
+        let sealed = try ChaChaPoly.seal(plaintext, using: key, nonce: nonce, authenticating: aad)
+        var out = Data()
+        out.reserveCapacity(sealed.ciphertext.count + sealed.tag.count)
+        out.append(sealed.ciphertext)
+        out.append(sealed.tag)
+        return out
+    default:
+        throw AEGError.unsupported("Unsupported chunk algorithm: \(algorithm)")
+    }
+}
+
+private func openVaultChunk(_ payload: Data,
+                            key: SymmetricKey,
+                            nonceData: Data,
+                            aad: Data,
+                            algorithm: UInt8) throws -> Data {
+    guard payload.count >= vaultChunkTagLength else {
+        throw AEGError.integrity("Chunk payload too short")
+    }
+    let ct = payload.prefix(payload.count - vaultChunkTagLength)
+    let tag = payload.suffix(vaultChunkTagLength)
+    switch algorithm {
+    case vaultChunkAlgAESGCM:
+        let nonce = try AES.GCM.Nonce(data: nonceData)
+        let box = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ct, tag: tag)
+        return try AES.GCM.open(box, using: key, authenticating: aad)
+    case vaultChunkAlgChaChaPoly1305:
+        let nonce = try ChaChaPoly.Nonce(data: nonceData)
+        let box = try ChaChaPoly.SealedBox(nonce: nonce, ciphertext: ct, tag: tag)
+        return try ChaChaPoly.open(box, using: key, authenticating: aad)
+    default:
+        throw AEGError.unsupported("Unsupported chunk algorithm: \(algorithm)")
+    }
+}
+
+private func ensureVaultChunkScheme(_ head: VaultHeader) throws {
+    guard head.alg_ids.aead == vaultChunkAEADIDV2 else {
+        throw AEGError.unsupported("Unsupported vault chunk AEAD id \(head.alg_ids.aead). Expected \(vaultChunkAEADIDV2).")
+    }
+}
+
 public enum Importer {
     private static func throwIfCancelled(_ isCancelled: (() -> Bool)?) throws {
         if isCancelled?() == true {
@@ -336,6 +474,7 @@ public enum Importer {
         }
         let data = try Data(contentsOf: vaultURL)
         let (head, hdrLen) = try parseHeaderAndOffset(data)
+        try ensureVaultChunkScheme(head)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try Exporter.deriveDEK(data: data, passphrase: passphrase)
         let aad = vaultAAD
@@ -492,6 +631,7 @@ private func mergeImportedItems(vaultURL: URL,
     if isCancelled?() == true {
         throw AEGError.io("USB vault-pack cancelled by user.")
     }
+    try ensureVaultChunkScheme(head)
     guard !items.isEmpty else { return 0 }
 
     let idxBlobOld = data.subdata(in: layout.idxRange)
@@ -511,13 +651,14 @@ private func mergeImportedItems(vaultURL: URL,
     let existingCM = data.subdata(in: layout.chunkMapRange)
     let existingChunks = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
     let existingArea = data.subdata(in: layout.chunkAreaStart..<data.count)
+    let replacingFileIDs = Set(index.entries.filter { replacingPaths.contains($0.logicalPath) }.map(\.fileID))
 
     let chunkSize = 128 * 1024
     var chunkArea = Data()
     var chunkInfos: [ChunkInfo] = []
     chunkArea.reserveCapacity(existingArea.count)
 
-    for c in existingChunks where !replacingPaths.contains(c.name) {
+    for c in existingChunks where !replacingFileIDs.contains(c.fileID) {
         if isCancelled?() == true {
             throw AEGError.io("USB vault-pack cancelled by user.")
         }
@@ -527,7 +668,10 @@ private func mergeImportedItems(vaultURL: URL,
         let blob = existingArea.subdata(in: start..<end)
         let offset = UInt64(chunkArea.count)
         chunkArea.append(blob)
-        chunkInfos.append(ChunkInfo(name: c.name, relOffset: offset, length: blob.count))
+        chunkInfos.append(ChunkInfo(fileID: c.fileID,
+                                    ordinal: c.ordinal,
+                                    relOffset: offset,
+                                    length: blob.count))
     }
 
     // Replace matching entries while keeping metadata for untouched files.
@@ -542,8 +686,10 @@ private func mergeImportedItems(vaultURL: URL,
         if isCancelled?() == true {
             throw AEGError.io("USB vault-pack cancelled by user.")
         }
-        let seedKey = SymmetricKey(data: HMAC<SHA256>.authenticationCode(for: item.nameHash, using: dek))
-        var fileChunkIndex: UInt64 = 0
+        let fileID = try secureRandomData(count: 16)
+        let chunkCrypto = try makeVaultChunkCrypto()
+        let fileKey = try deriveVaultFileKey(dek: dek, fileID: fileID, crypto: chunkCrypto)
+        var fileChunkIndex: UInt32 = 0
         var perFileCount = 0
         var plainSize: UInt64 = 0
         switch item.payload {
@@ -557,11 +703,25 @@ private func mergeImportedItems(vaultURL: URL,
                 }
                 let n = min(remaining, chunkSize)
                 let chunk = plain.subdata(in: cursorPlain..<(cursorPlain + n))
-                let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
-                let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
+                let nonceData = makeVaultChunkNonce(prefix: chunkCrypto.noncePrefix, ordinal: fileChunkIndex)
+                let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                 fileID: fileID,
+                                                 ordinal: fileChunkIndex,
+                                                 crypto: chunkCrypto)
+                let payload = try sealVaultChunk(chunk,
+                                                 key: fileKey,
+                                                 nonceData: nonceData,
+                                                 aad: chunkAAD,
+                                                 algorithm: chunkCrypto.algorithm)
                 let offset = UInt64(chunkArea.count)
-                chunkArea.append(combined)
-                chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
+                chunkArea.append(payload)
+                chunkInfos.append(ChunkInfo(fileID: fileID,
+                                            ordinal: fileChunkIndex,
+                                            relOffset: offset,
+                                            length: payload.count))
+                if fileChunkIndex == UInt32.max {
+                    throw AEGError.io("File \(item.path) exceeds max supported chunk count")
+                }
                 fileChunkIndex += 1
                 perFileCount += 1
                 remaining -= n
@@ -577,11 +737,25 @@ private func mergeImportedItems(vaultURL: URL,
                 guard let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty else {
                     break
                 }
-                let nonce = NonceScheme.nonce(fileSeed: seedKey, chunkIndex: fileChunkIndex)
-                let combined = try AEAD.encrypt(key: dek, nonce: nonce, plaintext: chunk, aad: aad)
+                let nonceData = makeVaultChunkNonce(prefix: chunkCrypto.noncePrefix, ordinal: fileChunkIndex)
+                let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                 fileID: fileID,
+                                                 ordinal: fileChunkIndex,
+                                                 crypto: chunkCrypto)
+                let payload = try sealVaultChunk(chunk,
+                                                 key: fileKey,
+                                                 nonceData: nonceData,
+                                                 aad: chunkAAD,
+                                                 algorithm: chunkCrypto.algorithm)
                 let offset = UInt64(chunkArea.count)
-                chunkArea.append(combined)
-                chunkInfos.append(ChunkInfo(name: item.path, relOffset: offset, length: combined.count))
+                chunkArea.append(payload)
+                chunkInfos.append(ChunkInfo(fileID: fileID,
+                                            ordinal: fileChunkIndex,
+                                            relOffset: offset,
+                                            length: payload.count))
+                if fileChunkIndex == UInt32.max {
+                    throw AEGError.io("File \(item.path) exceeds max supported chunk count")
+                }
                 fileChunkIndex += 1
                 perFileCount += 1
                 plainSize += UInt64(chunk.count)
@@ -590,12 +764,14 @@ private func mergeImportedItems(vaultURL: URL,
 
         let previous = priorByPath[item.path]
         let now = Date()
-        let entry = VaultIndexEntry(nameHash: item.nameHash,
+        let entry = VaultIndexEntry(fileID: fileID,
+                                    nameHash: item.nameHash,
                                     logicalPath: item.path,
                                     size: plainSize,
                                     mime: previous?.mime ?? "application/octet-stream",
                                     tags: previous?.tags ?? [],
                                     chunkCount: perFileCount,
+                                    chunkCrypto: chunkCrypto,
                                     created: previous?.created ?? now,
                                     modified: now,
                                     sidecarName: nil)
@@ -604,15 +780,15 @@ private func mergeImportedItems(vaultURL: URL,
         progress?(importedCount, totalItems, item.path)
     }
 
-    let chunkCounts = chunkInfos.reduce(into: [String: Int]()) { counts, chunk in
-        counts[chunk.name, default: 0] += 1
+    let chunkCounts = chunkInfos.reduce(into: [Data: Int]()) { counts, chunk in
+        counts[chunk.fileID, default: 0] += 1
     }
     for i in index.entries.indices {
         if isCancelled?() == true {
             throw AEGError.io("USB vault-pack cancelled by user.")
         }
-        let logical = index.entries[i].logicalPath
-        index.entries[i].chunkCount = chunkCounts[logical] ?? 0
+        let fileID = index.entries[i].fileID
+        index.entries[i].chunkCount = chunkCounts[fileID] ?? 0
         index.entries[i].sidecarName = nil
     }
 
@@ -959,7 +1135,8 @@ public enum Exporter {
 
     public static func export(vaultURL: URL, passphrase: String, filters: [String], outDir: URL) throws -> [(String, URL, Int)] {
         let data = try Data(contentsOf: vaultURL)
-        let (_, hdrLen) = try parseHeaderAndOffset(data)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        try ensureVaultChunkScheme(head)
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try deriveDEK(data: data, passphrase: passphrase)
         let aad = vaultAAD
@@ -967,6 +1144,7 @@ public enum Exporter {
         let index = try IndexCrypto.decryptIndex(idxBlob, key: dek, aad: aad)
         let cmData = data.subdata(in: layout.chunkMapRange)
         let chunks = (try? JSONDecoder().decode([ChunkInfo].self, from: cmData)) ?? []
+        let chunksByFileID = Dictionary(grouping: chunks, by: \.fileID)
 
         let selection: [VaultIndexEntry]
         if filters.isEmpty {
@@ -977,16 +1155,31 @@ public enum Exporter {
 
         var results: [(String, URL, Int)] = []
         for e in selection {
-            let fileChunks = chunks.filter { $0.name == e.logicalPath }
+            try validateVaultChunkCrypto(e.chunkCrypto)
+            let fileKey = try deriveVaultFileKey(dek: dek, fileID: e.fileID, crypto: e.chunkCrypto)
+            let fileChunks = (chunksByFileID[e.fileID] ?? []).sorted { $0.ordinal < $1.ordinal }
+            guard fileChunks.count == e.chunkCount else {
+                throw AEGError.integrity("Chunk count mismatch for \(e.logicalPath)")
+            }
             var plain = Data(capacity: Int(e.size))
-            for c in fileChunks {
+            for (expectedOrdinal, c) in fileChunks.enumerated() {
+                guard c.ordinal == UInt32(expectedOrdinal) else {
+                    throw AEGError.integrity("Chunk ordinal mismatch for \(e.logicalPath)")
+                }
                 let start = layout.chunkAreaStart + Int(c.relOffset)
                 let end = start + c.length
                 guard end <= data.count else { continue }
-                let combined = data.subdata(in: start..<end)
-                // Use SealedBox combined form
-                let sb = try AES.GCM.SealedBox(combined: combined)
-                let dec = try AES.GCM.open(sb, using: dek, authenticating: aad)
+                let payload = data.subdata(in: start..<end)
+                let nonceData = makeVaultChunkNonce(prefix: e.chunkCrypto.noncePrefix, ordinal: c.ordinal)
+                let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                 fileID: e.fileID,
+                                                 ordinal: c.ordinal,
+                                                 crypto: e.chunkCrypto)
+                let dec = try openVaultChunk(payload,
+                                             key: fileKey,
+                                             nonceData: nonceData,
+                                             aad: chunkAAD,
+                                             algorithm: e.chunkCrypto.algorithm)
                 plain.append(dec)
             }
             let outURL = outDir.appendingPathComponent((e.logicalPath as NSString).lastPathComponent)
@@ -1254,12 +1447,12 @@ public enum Doctor {
         for c in chunks.sorted(by: { $0.relOffset < $1.relOffset }) {
             guard let relRange = chunkRelativeRange(c, areaBytes: areaBytes) else {
                 chunkAreaOK = false
-                issues.append("Chunk range invalid for \(c.name) at offset \(c.relOffset) length \(c.length).")
+                issues.append("Chunk range invalid for file \(c.fileID.base64EncodedString()) at offset \(c.relOffset) length \(c.length).")
                 continue
             }
             if relRange.lowerBound != cursor {
                 chunkAreaOK = false
-                issues.append("Chunk map gap/overlap near \(c.name) at offset \(c.relOffset).")
+                issues.append("Chunk map gap/overlap near file \(c.fileID.base64EncodedString()) at offset \(c.relOffset).")
             }
             cursor = max(cursor, relRange.upperBound)
         }
@@ -1274,6 +1467,15 @@ public enum Doctor {
             entryCount = index.entries.count
 
             var plainBytesByName: [String: UInt64] = [:]
+            let entryByFileID = Dictionary(uniqueKeysWithValues: index.entries.map { ($0.fileID, $0) })
+            var fileKeyByID: [Data: SymmetricKey] = [:]
+            fileKeyByID.reserveCapacity(index.entries.count)
+            for entry in index.entries {
+                try validateVaultChunkCrypto(entry.chunkCrypto)
+                fileKeyByID[entry.fileID] = try deriveVaultFileKey(dek: dek,
+                                                                   fileID: entry.fileID,
+                                                                   crypto: entry.chunkCrypto)
+            }
             if chunks.isEmpty {
                 progress?("No chunks to authenticate.")
             } else {
@@ -1281,22 +1483,37 @@ public enum Doctor {
                 let progressStride = max(1, chunks.count / 40)
                 if chunks.count >= 96 {
                     var chunkPlainBytes = Array(repeating: UInt64(0), count: chunks.count)
+                    var chunkOwners = Array<String?>(repeating: nil, count: chunks.count)
                     var chunkIssues = Array<String?>(repeating: nil, count: chunks.count)
                     let progressLock = NSLock()
                     var processed = 0
 
                     DispatchQueue.concurrentPerform(iterations: chunks.count) { index in
                         let c = chunks[index]
+                        guard let entry = entryByFileID[c.fileID],
+                              let fileKey = fileKeyByID[c.fileID] else {
+                            chunkIssues[index] = "Chunk map contains unknown file identifier."
+                            return
+                        }
                         if let relRange = chunkRelativeRange(c, areaBytes: areaBytes) {
                             let start = layout.chunkAreaStart + relRange.lowerBound
                             let end = layout.chunkAreaStart + relRange.upperBound
-                            let combined = data.subdata(in: start..<end)
+                            let payload = data.subdata(in: start..<end)
                             do {
-                                let box = try AES.GCM.SealedBox(combined: combined)
-                                let plain = try AES.GCM.open(box, using: dek, authenticating: aad)
+                                let nonceData = makeVaultChunkNonce(prefix: entry.chunkCrypto.noncePrefix, ordinal: c.ordinal)
+                                let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                                 fileID: c.fileID,
+                                                                 ordinal: c.ordinal,
+                                                                 crypto: entry.chunkCrypto)
+                                let plain = try openVaultChunk(payload,
+                                                               key: fileKey,
+                                                               nonceData: nonceData,
+                                                               aad: chunkAAD,
+                                                               algorithm: entry.chunkCrypto.algorithm)
                                 chunkPlainBytes[index] = UInt64(plain.count)
+                                chunkOwners[index] = entry.logicalPath
                             } catch {
-                                chunkIssues[index] = "Chunk authentication failed for \(c.name) at offset \(c.relOffset)."
+                                chunkIssues[index] = "Chunk authentication failed for \(entry.logicalPath) at offset \(c.relOffset)."
                             }
                         }
 
@@ -1314,7 +1531,9 @@ public enum Doctor {
                     }
 
                     for index in chunks.indices {
-                        plainBytesByName[chunks[index].name, default: 0] += chunkPlainBytes[index]
+                        if let owner = chunkOwners[index] {
+                            plainBytesByName[owner, default: 0] += chunkPlainBytes[index]
+                        }
                         if let issue = chunkIssues[index] {
                             chunkAreaOK = false
                             issues.append(issue)
@@ -1323,17 +1542,31 @@ public enum Doctor {
                 } else {
                     var authenticated = 0
                     for c in chunks {
+                        guard let entry = entryByFileID[c.fileID],
+                              let fileKey = fileKeyByID[c.fileID] else {
+                            chunkAreaOK = false
+                            issues.append("Chunk map contains unknown file identifier.")
+                            continue
+                        }
                         guard let relRange = chunkRelativeRange(c, areaBytes: areaBytes) else { continue }
                         let start = layout.chunkAreaStart + relRange.lowerBound
                         let end = layout.chunkAreaStart + relRange.upperBound
-                        let combined = data.subdata(in: start..<end)
+                        let payload = data.subdata(in: start..<end)
                         do {
-                            let box = try AES.GCM.SealedBox(combined: combined)
-                            let plain = try AES.GCM.open(box, using: dek, authenticating: aad)
-                            plainBytesByName[c.name, default: 0] += UInt64(plain.count)
+                            let nonceData = makeVaultChunkNonce(prefix: entry.chunkCrypto.noncePrefix, ordinal: c.ordinal)
+                            let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
+                                                             fileID: c.fileID,
+                                                             ordinal: c.ordinal,
+                                                             crypto: entry.chunkCrypto)
+                            let plain = try openVaultChunk(payload,
+                                                           key: fileKey,
+                                                           nonceData: nonceData,
+                                                           aad: chunkAAD,
+                                                           algorithm: entry.chunkCrypto.algorithm)
+                            plainBytesByName[entry.logicalPath, default: 0] += UInt64(plain.count)
                         } catch {
                             chunkAreaOK = false
-                            issues.append("Chunk authentication failed for \(c.name) at offset \(c.relOffset).")
+                            issues.append("Chunk authentication failed for \(entry.logicalPath) at offset \(c.relOffset).")
                         }
                         authenticated += 1
                         if authenticated == 1 || authenticated == chunks.count || authenticated % progressStride == 0 {
@@ -1343,12 +1576,12 @@ public enum Doctor {
                 }
             }
 
-            let chunkCounts = chunks.reduce(into: [String: Int]()) { partial, chunk in
-                partial[chunk.name, default: 0] += 1
+            let chunkCounts = chunks.reduce(into: [Data: Int]()) { partial, chunk in
+                partial[chunk.fileID, default: 0] += 1
             }
 
             for e in index.entries {
-                let actualCount = chunkCounts[e.logicalPath, default: 0]
+                let actualCount = chunkCounts[e.fileID, default: 0]
                 if actualCount == 0, e.size > 0 {
                     issues.append("No chunks for \(e.logicalPath).")
                 }
@@ -1362,9 +1595,10 @@ public enum Doctor {
                 }
             }
 
-            let entryNames = Set(index.entries.map(\.logicalPath))
-            for name in Set(chunks.map(\.name)) where !entryNames.contains(name) {
-                issues.append("Chunk map contains unknown entry: \(name).")
+            let entryIDs = Set(index.entries.map(\.fileID))
+            for fileID in Set(chunks.map(\.fileID)) where !entryIDs.contains(fileID) {
+                chunkAreaOK = false
+                issues.append("Chunk map contains unknown file identifier: \(fileID.base64EncodedString()).")
             }
             progress?("Chunk checks completed.")
         } else if !deepCheck {
@@ -1460,6 +1694,7 @@ public enum Editor {
 
         let idxBlobOld = data.subdata(in: layout.idxRange)
         var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
+        let targetFileIDs = Set(index.entries.filter { targets.contains($0.logicalPath) }.map(\.fileID))
         let oldCount = index.entries.count
         index.entries.removeAll { targets.contains($0.logicalPath) }
         let removed = oldCount - index.entries.count
@@ -1473,22 +1708,25 @@ public enum Editor {
         var chunkInfos: [ChunkInfo] = []
         chunkArea.reserveCapacity(existingArea.count)
 
-        for c in existingChunks where !targets.contains(c.name) {
+        for c in existingChunks where !targetFileIDs.contains(c.fileID) {
             let start = Int(c.relOffset)
             let end = start + c.length
             guard start >= 0, end <= existingArea.count else { continue }
             let blob = existingArea.subdata(in: start..<end)
             let offset = UInt64(chunkArea.count)
             chunkArea.append(blob)
-            chunkInfos.append(ChunkInfo(name: c.name, relOffset: offset, length: blob.count))
+            chunkInfos.append(ChunkInfo(fileID: c.fileID,
+                                        ordinal: c.ordinal,
+                                        relOffset: offset,
+                                        length: blob.count))
         }
 
-        let chunkCounts = chunkInfos.reduce(into: [String: Int]()) { counts, chunk in
-            counts[chunk.name, default: 0] += 1
+        let chunkCounts = chunkInfos.reduce(into: [Data: Int]()) { counts, chunk in
+            counts[chunk.fileID, default: 0] += 1
         }
         for i in index.entries.indices {
-            let logical = index.entries[i].logicalPath
-            index.entries[i].chunkCount = chunkCounts[logical] ?? 0
+            let fileID = index.entries[i].fileID
+            index.entries[i].chunkCount = chunkCounts[fileID] ?? 0
             index.entries[i].sidecarName = nil
         }
 

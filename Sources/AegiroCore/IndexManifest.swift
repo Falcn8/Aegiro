@@ -3,19 +3,29 @@ import Foundation
 import CryptoKit
 
 public struct VaultIndexEntry: Codable {
+    public var fileID: Data
     public var nameHash: Data
     public var logicalPath: String
     public var size: UInt64
     public var mime: String
     public var tags: [String]
     public var chunkCount: Int
+    public var chunkCrypto: VaultChunkCrypto
     public var created: Date
     public var modified: Date
     public var sidecarName: String?
 }
 
+public struct VaultChunkCrypto: Codable {
+    public var format: UInt8
+    public var algorithm: UInt8
+    public var keySalt: Data
+    public var noncePrefix: Data
+}
+
 public struct ChunkInfo: Codable {
-    public var name: String
+    public var fileID: Data
+    public var ordinal: UInt32
     public var relOffset: UInt64
     public var length: Int
 }

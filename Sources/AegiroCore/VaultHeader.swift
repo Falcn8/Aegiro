@@ -2,7 +2,7 @@
 import Foundation
 
 public struct AlgIDs: Codable {
-    public var aead: UInt16 // 1 = AEAD_AES_256_GCM
+    public var aead: UInt16 // 2 = AGVT chunk AEAD v2 (AES-GCM or ChaCha20-Poly1305)
     public var kdf: UInt16  // 2 = Argon2id
     public var kem: UInt16  // 3 = Kyber512
     public var sig: UInt16  // 4 = Dilithium2
@@ -44,7 +44,7 @@ public struct VaultHeader: Codable {
     public init(alg: AlgIDs, argon2: Argon2Params, pq: PQPublicKeys) {
         self.magic = Self.MAGIC
         self.header_len = 0
-        self.version = 1
+        self.version = 2
         self.created_unix = UInt64(Date().timeIntervalSince1970)
         self.alg_ids = alg
         self.kdf_salt = Data((0..<32).map { _ in UInt8.random(in: 0...255) })

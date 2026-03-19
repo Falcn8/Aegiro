@@ -11,7 +11,7 @@ final class AegiroCoreTests: XCTestCase {
         let h = VaultHeader(alg: algs, argon2: argon, pq: pq)
         let ser = try h.serialize()
         let parsed = try VaultHeader.parse(ser)
-        XCTAssertEqual(parsed.version, 1)
+        XCTAssertEqual(parsed.version, 2)
         XCTAssertEqual(parsed.alg_ids.aead, 1)
     }
 

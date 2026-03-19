@@ -8,7 +8,7 @@
 
 <p align="center">
   <strong>Local-only encrypted vault for macOS</strong><br>
-  <sub>Argon2id • AES-256-GCM • Post-quantum key protection</sub>
+  <sub>Argon2id • Chunk AEAD v2 (AES-GCM / ChaCha20-Poly1305) • Post-quantum key protection</sub>
 </p>
 
 <p align="center">
@@ -124,6 +124,7 @@ Jump between project markdown pages:
 - Default file-count limit per vault: `1,000` (`AEGIRO_MAX_FILES_PER_VAULT` to override).
 - Non-APFS metadata paths are skipped in USB user-data flow.
 - Prefer batched imports in one command; repeated small imports are slower because each run rewrites vault metadata/chunk map.
+- Chunk encryption uses per-file derived keys and opaque chunk-map file IDs (no plaintext file paths in chunk map).
 - All encryption workflows are local; no telemetry endpoints are used by default.
 
 ---
