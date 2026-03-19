@@ -139,9 +139,9 @@ Jump between project markdown pages:
 
 ## License
 
-This project uses a custom source-available license in [LICENSE](LICENSE).
+This project uses a custom source-available license in [LICENSE.txt](LICENSE.txt).
 
 - External contributions and pull requests are accepted.
 - Contribution workflow and requirements are in [CONTRIBUTING.md](CONTRIBUTING.md).
 - Redistribution or republication (including App Store listings and DMG/binary distribution) is not allowed.
-- Full terms and ownership boundaries are defined in [LICENSE](LICENSE) and [docs/legal/OWNERSHIP.md](docs/legal/OWNERSHIP.md).
+- Full terms and ownership boundaries are defined in [LICENSE.txt](LICENSE.txt) and [docs/legal/OWNERSHIP.md](docs/legal/OWNERSHIP.md).

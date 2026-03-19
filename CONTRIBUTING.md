@@ -27,4 +27,4 @@ Thank you for contributing. External pull requests are welcome.
 ## Licensing
 
 By submitting a contribution, you agree to the contribution and assignment
-terms in [LICENSE](LICENSE), including Section 4 (Contribution Assignment).
+terms in [LICENSE.txt](LICENSE.txt), including Section 4 (Contribution Assignment).
