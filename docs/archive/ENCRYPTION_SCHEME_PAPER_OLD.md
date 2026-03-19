@@ -310,13 +310,13 @@ Not provided:
 
 ## 10) AGVT v2 Spec vs Current Runtime
 
-`SPEC_AGVT_V2.md` defines a newer dual-superblock append-only format with record framing and expanded profile rules.  
-Current runtime `.agvt` operations are still driven by the v1-style JSON-header + wraps/index/manifest/chunk-map layout described in this paper.
+This archived paper originally referenced `SPEC_AGVT_V2.md` as a future design target.  
+That v2 spec file is no longer part of active repository docs. Current runtime `.agvt` behavior remains the v1-style JSON-header + wraps/index/manifest/chunk-map layout described in this paper.
 
 In short:
 
-- AGVT v2 spec: present as design/specification target
-- Production code path today: v1-style layout in `Vault.swift`
+- AGVT v2 spec: historical reference only (removed from active docs)
+- Production code path: v1-style layout in `Vault.swift`
 
 ---
 

@@ -1,6 +1,6 @@
 # Aegiro Encryption Scheme Paper
 
-Version: 2.1 (implementation-focused)  
+Version: 2.2 (implementation-focused)  
 Document type: Engineering reference  
 Primary source of truth: current code in `Sources/AegiroCore`
 
@@ -299,6 +299,12 @@ Not provided:
 
 Current runtime vault read/write behavior uses the v1 serialized layout documented above (`Vault.swift` path).  
 This document is the active implementation reference for that format.
+
+Runtime policy:
+
+- New vault writes: AGVT v1 header/version/AEAD labels.
+- Reader compatibility: accepts legacy AEAD ID `2` and legacy `AEGIRO-FILE-KEY-V2` / `AEGIRO-CHUNK-V2` chunk domains when needed.
+- AGVT v2 spec/helper artifacts were removed from active source/docs; historical context remains in git history.
 
 ---
 

@@ -5,6 +5,7 @@ This folder groups project documentation by purpose.
 ## Explanations
 
 - [Encryption Scheme Paper](explanations/ENCYRPTION_SCHEME_PAPER.md)
+- [Runtime Format Status (AGVT v1)](explanations/ENCYRPTION_SCHEME_PAPER.md#9-runtime-format-status)
 - [USB Encryption Schematics](explanations/USB_ENCRYPTION_SCHEMATICS.md)
 - [USB Encryption Diagrams](explanations/USB_ENCRYPTION_DIAGRAMS.md)
 
@@ -20,6 +21,6 @@ This folder groups project documentation by purpose.
 
 - [Ownership and Usage](legal/OWNERSHIP.md)
 
-## Archive
+## Historical Notes
 
-- [Encryption Scheme Paper (Legacy)](archive/ENCRYPTION_SCHEME_PAPER_OLD.md)
+- Historical format design notes are kept in git history; active format documentation lives in `explanations/`.
