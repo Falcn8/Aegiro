@@ -30,6 +30,8 @@ struct USBDataEncryptionLogEntry: Identifiable, Sendable {
 
 @MainActor
 final class VaultModel: ObservableObject {
+    private static let supportedVaultExtensions: Set<String> = ["agvt", "aegirovault"]
+
     @Published var vaultURL: URL?
     @Published var locked: Bool = true
     @Published var entries: [VaultIndexEntry] = []
@@ -113,15 +115,20 @@ final class VaultModel: ObservableObject {
     }
 
     func openVault(at url: URL) {
+        let normalizedURL = url.standardizedFileURL
+        guard Self.supportedVaultExtensions.contains(normalizedURL.pathExtension.lowercased()) else {
+            self.status = "Open failed: only .agvt or .aegirovault files are supported"
+            return
+        }
         do {
-            _ = try AegiroVault.open(at: url)
-            self.vaultURL = url
+            _ = try AegiroVault.open(at: normalizedURL)
+            self.vaultURL = normalizedURL
             self.passphrase = ""
             self.locked = true
             self.entries = []
             self.vaultFileCount = nil
             self.vaultEntriesHasMore = false
-            UserDefaults.standard.set(url.path, forKey: "lastVaultPath")
+            UserDefaults.standard.set(normalizedURL.path, forKey: "lastVaultPath")
             UserDefaults.standard.set(true, forKey: "onboardingCompleted")
             self.status = "Vault loaded"
             self.refreshStatus()
@@ -1408,10 +1415,14 @@ extension VaultModel {
         p.title = "Open Vault (AegiroVault)"
         p.allowsMultipleSelection = false
         p.canChooseDirectories = false
-        p.allowedContentTypes = [
-            UTType(filenameExtension: "agvt") ?? .data,
-            UTType(filenameExtension: "aegirovault") ?? .data
-        ]
+        let allowedTypes = Self.supportedVaultExtensions
+            .sorted()
+            .compactMap { UTType(filenameExtension: $0, conformingTo: .data) }
+        guard !allowedTypes.isEmpty else {
+            self.status = "Open failed: supported vault file types are unavailable"
+            return
+        }
+        p.allowedContentTypes = allowedTypes
         if p.runModal() == .OK, let url = p.url {
             openVault(at: url)
         }
