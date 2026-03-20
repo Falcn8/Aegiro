@@ -14,16 +14,63 @@ WINDOW_LEFT=120
 WINDOW_TOP=120
 WINDOW_WIDTH=760
 WINDOW_HEIGHT=460
-APP_ICON_X=200
-APP_ICON_Y=240
-APPLICATIONS_ICON_X=560
-APPLICATIONS_ICON_Y=240
+WINDOW_MAX_WIDTH=980
+WINDOW_MAX_HEIGHT=640
+APP_ICON_X=0
+APP_ICON_Y=0
+APPLICATIONS_ICON_X=0
+APPLICATIONS_ICON_Y=0
 
 to_abs_path() {
   case "$1" in
     /*) echo "$1" ;;
     *) echo "$ROOT_DIR/$1" ;;
   esac
+}
+
+update_icon_positions() {
+  APP_ICON_X=$((WINDOW_WIDTH * 30 / 100))
+  APPLICATIONS_ICON_X=$((WINDOW_WIDTH * 70 / 100))
+  APP_ICON_Y=$((WINDOW_HEIGHT * 58 / 100))
+  APPLICATIONS_ICON_Y="$APP_ICON_Y"
+}
+
+fit_window_to_background() {
+  local bg_width="$1"
+  local bg_height="$2"
+  local fitted
+
+  fitted="$(
+    awk -v bw="$bg_width" -v bh="$bg_height" -v mw="$WINDOW_MAX_WIDTH" -v mh="$WINDOW_MAX_HEIGHT" '
+      BEGIN {
+        scale = 1.0
+        if (bw > mw || bh > mh) {
+          sw = mw / bw
+          sh = mh / bh
+          scale = (sw < sh) ? sw : sh
+        }
+        ow = int((bw * scale) + 0.5)
+        oh = int((bh * scale) + 0.5)
+        if (ow < 640) ow = 640
+        if (oh < 420) oh = 420
+        printf "%d %d", ow, oh
+      }
+    '
+  )"
+
+  WINDOW_WIDTH="${fitted%% *}"
+  WINDOW_HEIGHT="${fitted##* }"
+}
+
+image_dimensions() {
+  local image_path="$1"
+  local width height
+  width="$(sips -g pixelWidth "$image_path" 2>/dev/null | awk '/pixelWidth:/ { print $2 }')"
+  height="$(sips -g pixelHeight "$image_path" 2>/dev/null | awk '/pixelHeight:/ { print $2 }')"
+  if [[ -z "$width" || -z "$height" ]]; then
+    return 1
+  fi
+  echo "$width $height"
 }
 
 usage() {
@@ -92,6 +139,7 @@ fi
 
 APP_PATH="$(to_abs_path "$APP_PATH")"
 OUTPUT_DMG="$(to_abs_path "$OUTPUT_DMG")"
+update_icon_positions
 
 if [[ -z "$BACKGROUND_IMAGE" ]]; then
   if [[ -f "$ROOT_DIR/assets/dmg-background.png" ]]; then
@@ -102,6 +150,7 @@ if [[ -z "$BACKGROUND_IMAGE" ]]; then
 fi
 
 if [[ -n "$BACKGROUND_IMAGE" ]]; then
+  bg_dims=""
   if ! command -v sips >/dev/null 2>&1; then
     echo "sips not found. Background conversion requires macOS." >&2
     exit 1
@@ -110,6 +159,11 @@ if [[ -n "$BACKGROUND_IMAGE" ]]; then
   if [[ ! -f "$BACKGROUND_IMAGE" ]]; then
     echo "Background image not found: $BACKGROUND_IMAGE" >&2
     exit 1
+  fi
+  bg_dims="$(image_dimensions "$BACKGROUND_IMAGE" || true)"
+  if [[ -n "$bg_dims" ]]; then
+    fit_window_to_background "${bg_dims%% *}" "${bg_dims##* }"
+    update_icon_positions
   fi
 fi
 
@@ -226,7 +280,7 @@ fi
 HAS_BACKGROUND=0
 if [[ -n "$BACKGROUND_IMAGE" ]]; then
   mkdir -p "$MOUNT_POINT/.background"
-  sips -s format png "$BACKGROUND_IMAGE" --out "$MOUNT_POINT/.background/background.png" >/dev/null
+  sips -z "$WINDOW_HEIGHT" "$WINDOW_WIDTH" "$BACKGROUND_IMAGE" --out "$MOUNT_POINT/.background/background.png" >/dev/null
   HAS_BACKGROUND=1
 fi
 
@@ -258,3 +312,4 @@ echo "SHA256: $SHA256"
 if [[ "$HAS_BACKGROUND" -eq 1 ]]; then
   echo "Background image: $BACKGROUND_IMAGE"
 fi
+echo "Window size: ${WINDOW_WIDTH}x${WINDOW_HEIGHT}"
