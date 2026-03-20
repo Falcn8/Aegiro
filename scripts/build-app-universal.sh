@@ -9,6 +9,7 @@ TARGET_NAME="AegiroApp"
 APP_EXECUTABLE="$TARGET_NAME"
 APP_BUNDLE_NAME="Aegiro"
 CANONICAL_APP_PATH="$ROOT_DIR/dist/${APP_BUNDLE_NAME}.app"
+APP_ICON_SOURCE="$ROOT_DIR/assets/AppIcon.icns"
 BUNDLE_ID="com.example.aegiro"
 IDENTITY=""
 FORCE_AD_HOC=0
@@ -365,6 +366,7 @@ package_app_bundle() {
   local app_path="$1"
   local app_bin="$2"
   local bin_dir="$3"
+  local icon_plist_block=""
 
   rm -rf "$app_path"
   mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
@@ -374,6 +376,11 @@ package_app_bundle() {
     [[ -z "$bundle" ]] && continue
     cp -R "$bundle" "$app_path/Contents/Resources/$(basename "$bundle")"
   done < <(find "$bin_dir" -maxdepth 1 -type d -name '*.bundle' | sort)
+
+  if [[ -f "$APP_ICON_SOURCE" ]]; then
+    cp "$APP_ICON_SOURCE" "$app_path/Contents/Resources/AppIcon.icns"
+    icon_plist_block=$'  <key>CFBundleIconFile</key><string>AppIcon</string>\n'
+  fi
 
   cat > "$app_path/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -388,7 +395,7 @@ package_app_bundle() {
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
-  <key>NSFaceIDUsageDescription</key><string>Use biometrics to unlock your vault.</string>
+${icon_plist_block}  <key>NSFaceIDUsageDescription</key><string>Use biometrics to unlock your vault.</string>
 </dict>
 </plist>
 PLIST

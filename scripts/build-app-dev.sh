@@ -9,6 +9,7 @@ TARGET_NAME="AegiroApp"
 APP_EXECUTABLE="$TARGET_NAME"
 APP_BUNDLE_NAME="Aegiro"
 APP_PATH="$ROOT_DIR/dist/${APP_BUNDLE_NAME}.app"
+APP_ICON_SOURCE="$ROOT_DIR/assets/AppIcon.icns"
 BUNDLE_ID="com.example.aegiro"
 IDENTITY=""
 FORCE_AD_HOC=0
@@ -142,6 +143,12 @@ while IFS= read -r bundle; do
   cp -R "$bundle" "$APP_PATH/Contents/Resources/$(basename "$bundle")"
 done < <(find "$BIN_DIR" -maxdepth 1 -type d -name '*.bundle' | sort)
 
+ICON_PLIST_BLOCK=""
+if [[ -f "$APP_ICON_SOURCE" ]]; then
+  cp "$APP_ICON_SOURCE" "$APP_PATH/Contents/Resources/AppIcon.icns"
+  ICON_PLIST_BLOCK=$'  <key>CFBundleIconFile</key><string>AppIcon</string>\n'
+fi
+
 cat > "$APP_PATH/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -155,7 +162,7 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
-  <key>NSFaceIDUsageDescription</key><string>Use biometrics to unlock your vault.</string>
+${ICON_PLIST_BLOCK}  <key>NSFaceIDUsageDescription</key><string>Use biometrics to unlock your vault.</string>
 </dict>
 </plist>
 PLIST

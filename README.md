@@ -44,7 +44,7 @@ Aegiro is a local-first encrypted vault system for macOS:
 - Active on-disk format is AGVT v1 (sequential header/wrap/index/manifest/chunk-map/chunk-area layout).
 - Read/write paths use v1 chunk key/AAD labels (`AEGIRO-FILE-KEY-V1`, `AEGIRO-CHUNK-V1`) with header `version = 1` and chunk AEAD id `1`.
 - New chunk writes prefer AES-GCM on all architectures; ChaCha20-Poly1305 remains supported for fallback and compatibility with existing vault data.
-- Legacy chunk labels are no longer accepted at runtime.
+- Reader paths retain legacy compatibility for vaults marked with chunk AEAD id `2`, including mixed legacy/v1 chunk domains in existing vault data.
 
 ---
 
@@ -121,6 +121,9 @@ brew install liboqs argon2 openssl@3
 # Intel deps (required on Apple Silicon hosts for x86_64 build)
 arch -x86_64 /usr/local/bin/brew install liboqs argon2 openssl@3
 
+# Generate app icon (.icns) from your artwork
+bash scripts/generate-app-icon.sh --source assets/aegiro-banner.png --overwrite
+
 # Build arm64 + x86_64 + universal app bundle
 bash scripts/build-app-universal.sh --configuration release --ad-hoc
 
@@ -134,6 +137,8 @@ Outputs:
 - `dist/Aegiro-x86_64.app`
 - `dist/Aegiro.app` (universal)
 - `dist/Aegiro.dmg`
+
+If `assets/AppIcon.icns` exists, app build scripts include it in the app bundle automatically.
 
 ---
 
