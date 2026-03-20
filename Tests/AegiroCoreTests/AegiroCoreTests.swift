@@ -4,6 +4,30 @@ import CryptoKit
 @testable import AegiroCore
 
 final class AegiroCoreTests: XCTestCase {
+    private func expectedImportedLogicalPath(for fileURL: URL) -> String {
+        let normalized = fileURL.standardizedFileURL.resolvingSymlinksInPath()
+        let parent = normalized.deletingLastPathComponent().lastPathComponent
+        if parent.isEmpty {
+            return normalized.lastPathComponent
+        }
+        return "\(parent)/\(normalized.lastPathComponent)"
+    }
+
+    private func expectedImportedLogicalPath(for fileURL: URL, rootURL: URL) -> String {
+        let normalizedRoot = rootURL.standardizedFileURL.resolvingSymlinksInPath()
+        let normalizedFile = fileURL.standardizedFileURL.resolvingSymlinksInPath()
+        let rootPrefix = normalizedRoot.path.hasSuffix("/") ? normalizedRoot.path : normalizedRoot.path + "/"
+        let relativePath: String
+        if normalizedFile.path == normalizedRoot.path {
+            relativePath = normalizedFile.lastPathComponent
+        } else if normalizedFile.path.hasPrefix(rootPrefix) {
+            relativePath = String(normalizedFile.path.dropFirst(rootPrefix.count))
+        } else {
+            relativePath = normalizedFile.lastPathComponent
+        }
+        return "\(normalizedRoot.lastPathComponent)/\(relativePath)"
+    }
+
     func testHeaderRoundTrip() throws {
         let algs = AlgIDs(aead: 1, kdf: 2, kem: 3, sig: 4)
         let argon = Argon2Params(mMiB: 256, t: 3, p: 1)
@@ -29,6 +53,8 @@ final class AegiroCoreTests: XCTestCase {
         let d2 = Data("current-domain-file".utf8)
         try d1.write(to: f1)
         try d2.write(to: f2)
+        let logicalF1 = expectedImportedLogicalPath(for: f1)
+        let logicalF2 = expectedImportedLogicalPath(for: f2)
 
         let firstImport = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1])
         XCTAssertEqual(firstImport.imported, 1)
@@ -38,7 +64,7 @@ final class AegiroCoreTests: XCTestCase {
         let layout = computeLayout(data, afterHeader: hdrLen)
         let dek = try Exporter.deriveDEK(data: data, passphrase: "test-pass")
         let index = try IndexCrypto.decryptIndex(data.subdata(in: layout.idxRange), key: dek, aad: Data("AEGIRO-V1".utf8))
-        let entry = try XCTUnwrap(index.entries.first(where: { $0.logicalPath == f1.path }))
+        let entry = try XCTUnwrap(index.entries.first(where: { $0.logicalPath == logicalF1 }))
         let chunkMap = try JSONDecoder().decode([ChunkInfo].self, from: data.subdata(in: layout.chunkMapRange))
         let entryChunks = chunkMap
             .filter { $0.fileID == entry.fileID }
@@ -152,8 +178,8 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(exported.count, 2)
 
         let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
-        let out1 = try XCTUnwrap(exportedByLogicalPath[f1.path])
-        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
+        let out1 = try XCTUnwrap(exportedByLogicalPath[logicalF1])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[logicalF2])
         XCTAssertEqual(try Data(contentsOf: out1), d1)
         XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
@@ -218,6 +244,8 @@ final class AegiroCoreTests: XCTestCase {
         let d2 = Data("hello-two".utf8)
         try d1.write(to: f1)
         try d2.write(to: f2)
+        let logicalF1 = expectedImportedLogicalPath(for: f1)
+        let logicalF2 = expectedImportedLogicalPath(for: f2)
 
         let (imported1, _) = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1])
         XCTAssertEqual(imported1, 1)
@@ -234,8 +262,8 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(exported.count, 2)
 
         let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
-        let out1 = try XCTUnwrap(exportedByLogicalPath[f1.path])
-        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
+        let out1 = try XCTUnwrap(exportedByLogicalPath[logicalF1])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[logicalF2])
         XCTAssertEqual(try Data(contentsOf: out1), d1)
         XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
@@ -272,6 +300,9 @@ final class AegiroCoreTests: XCTestCase {
         try d1.write(to: f1)
         try d2.write(to: f2)
         try d3.write(to: f3)
+        let logicalF1 = expectedImportedLogicalPath(for: f1, rootURL: sourceRoot)
+        let logicalF2 = expectedImportedLogicalPath(for: f2, rootURL: sourceRoot)
+        let logicalF3 = expectedImportedLogicalPath(for: f3, rootURL: sourceRoot)
 
         let vaultURL = tmp.appendingPathComponent("vault.agvt")
         _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
@@ -288,12 +319,51 @@ final class AegiroCoreTests: XCTestCase {
         let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
         let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
 
-        let out1 = try XCTUnwrap(exportedByLogicalPath[f1.path])
-        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
-        let out3 = try XCTUnwrap(exportedByLogicalPath[f3.path])
+        let out1 = try XCTUnwrap(exportedByLogicalPath[logicalF1])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[logicalF2])
+        let out3 = try XCTUnwrap(exportedByLogicalPath[logicalF3])
         XCTAssertEqual(try Data(contentsOf: out1), d1)
         XCTAssertEqual(try Data(contentsOf: out2), d2)
         XCTAssertEqual(try Data(contentsOf: out3), d3)
+    }
+
+    func testImportSameFilenameFromDifferentDirectoriesUsesDistinctRelativePaths() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let dirA = tmp.appendingPathComponent("alpha", isDirectory: true)
+        let dirB = tmp.appendingPathComponent("beta", isDirectory: true)
+        try FileManager.default.createDirectory(at: dirA, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dirB, withIntermediateDirectories: true)
+
+        let f1 = dirA.appendingPathComponent("same.txt")
+        let f2 = dirB.appendingPathComponent("same.txt")
+        let d1 = Data("from-alpha".utf8)
+        let d2 = Data("from-beta".utf8)
+        try d1.write(to: f1)
+        try d2.write(to: f2)
+        let logicalF1 = expectedImportedLogicalPath(for: f1)
+        let logicalF2 = expectedImportedLogicalPath(for: f2)
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1, f2])
+        XCTAssertEqual(imported.imported, 2)
+
+        let entries = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        let logicalPaths = Set(entries.map(\.logicalPath))
+        XCTAssertEqual(logicalPaths, Set([logicalF1, logicalF2]))
+        XCTAssertTrue(logicalPaths.allSatisfy { !$0.hasPrefix("/") })
+
+        let outDir = tmp.appendingPathComponent("out", isDirectory: true)
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
+        let out1 = try XCTUnwrap(exportedByLogicalPath[logicalF1])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[logicalF2])
+        XCTAssertEqual(try Data(contentsOf: out1), d1)
+        XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
 
     func testImportRejectsWhenVaultFileLimitWouldBeExceeded() throws {
@@ -338,6 +408,8 @@ final class AegiroCoreTests: XCTestCase {
         let d2 = Data("hello-two".utf8)
         try d1.write(to: f1)
         try d2.write(to: f2)
+        let logicalF1 = expectedImportedLogicalPath(for: f1)
+        let logicalF2 = expectedImportedLogicalPath(for: f2)
 
         let imported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1, f2])
         XCTAssertEqual(imported.imported, 2)
@@ -345,19 +417,19 @@ final class AegiroCoreTests: XCTestCase {
 
         let removed = try Editor.deleteEntries(vaultURL: vaultURL,
                                                passphrase: "test-pass",
-                                               logicalPaths: [f1.path])
+                                               logicalPaths: [logicalF1])
         XCTAssertEqual(removed, 1)
 
         let entries = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
         XCTAssertEqual(entries.count, 1)
-        XCTAssertEqual(entries.first?.logicalPath, f2.path)
+        XCTAssertEqual(entries.first?.logicalPath, logicalF2)
 
         let outDir = tmp.appendingPathComponent("out", isDirectory: true)
         let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
         XCTAssertEqual(exported.count, 1)
         let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
-        XCTAssertNil(exportedByLogicalPath[f1.path])
-        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
+        XCTAssertNil(exportedByLogicalPath[logicalF1])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[logicalF2])
         XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
 

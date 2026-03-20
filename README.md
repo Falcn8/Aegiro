@@ -79,6 +79,7 @@ bash scripts/build.sh
 ./dist/aegiro-cli list --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>"
 ./dist/aegiro-cli export --vault ~/AegiroVaults/alpha.agvt --passphrase "<pass>" --out ~/Recovered
 # Export keeps logical paths under --out (avoids duplicate filename collisions)
+# Imported logical paths are stored as relative paths (not absolute host paths).
 
 # Whole-folder packing (recommended for folder/USB workflows)
 ./dist/aegiro-cli usb-vault-pack --source ~/MyFolder --vault ~/AegiroVaults/data.agvt --passphrase "<pass>"

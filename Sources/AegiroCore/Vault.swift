@@ -287,26 +287,95 @@ private func normalizedPath(_ url: URL) -> String {
     return url.standardizedFileURL.resolvingSymlinksInPath().path
 }
 
-private func sanitizedExportRelativePath(from logicalPath: String) -> String {
-    let normalized = logicalPath.replacingOccurrences(of: "\\", with: "/")
+private func sanitizedLogicalPathComponent(_ component: String, fallback: String = "_") -> String {
+    var trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty || trimmed == "." || trimmed == ".." {
+        trimmed = fallback
+    }
+    return trimmed.replacingOccurrences(of: ":", with: "_")
+}
+
+private func normalizedLogicalPath(_ rawPath: String, fallback: String = "unnamed") -> String {
+    let normalized = rawPath.replacingOccurrences(of: "\\", with: "/")
     let rawComponents = normalized
         .split(separator: "/", omittingEmptySubsequences: true)
         .map(String.init)
 
-    let safeComponents: [String]
-    if rawComponents.isEmpty {
-        safeComponents = ["unnamed"]
-    } else {
-        safeComponents = rawComponents.map { component in
-            var trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty || trimmed == "." || trimmed == ".." {
-                trimmed = "_"
-            }
-            return trimmed.replacingOccurrences(of: ":", with: "_")
+    let safeComponents = rawComponents.map { sanitizedLogicalPathComponent($0) }
+    guard !safeComponents.isEmpty else { return fallback }
+    return NSString.path(withComponents: safeComponents)
+}
+
+private func importLogicalPath(for sourceURL: URL, rootURL: URL? = nil) -> String {
+    let normalizedSourceURL = sourceURL.standardizedFileURL.resolvingSymlinksInPath()
+    let fileName = sanitizedLogicalPathComponent(normalizedSourceURL.lastPathComponent, fallback: "unnamed")
+
+    if let rootURL {
+        let root = rootURL.standardizedFileURL.resolvingSymlinksInPath()
+        let rootPath = normalizedPath(root)
+        let sourcePath = normalizedPath(normalizedSourceURL)
+        let rootName = sanitizedLogicalPathComponent(root.lastPathComponent, fallback: "root")
+        let rootPrefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        let relativePath: String
+        if sourcePath == rootPath {
+            relativePath = fileName
+        } else if sourcePath.hasPrefix(rootPrefix) {
+            relativePath = String(sourcePath.dropFirst(rootPrefix.count))
+        } else {
+            relativePath = fileName
         }
+        return normalizedLogicalPath("\(rootName)/\(relativePath)")
     }
 
-    return NSString.path(withComponents: safeComponents)
+    let parentNameRaw = normalizedSourceURL.deletingLastPathComponent().lastPathComponent
+    let parentName = sanitizedLogicalPathComponent(parentNameRaw, fallback: "")
+    if parentName.isEmpty {
+        return fileName
+    }
+    return normalizedLogicalPath("\(parentName)/\(fileName)")
+}
+
+private func appendSuffixToFilename(_ filename: String, suffix: String) -> String {
+    guard let dotIndex = filename.lastIndex(of: "."), dotIndex != filename.startIndex else {
+        return filename + suffix
+    }
+    return String(filename[..<dotIndex]) + suffix + String(filename[dotIndex...])
+}
+
+private func logicalPathWithSuffix(_ logicalPath: String, suffix: String) -> String {
+    let normalized = normalizedLogicalPath(logicalPath)
+    guard let slashIndex = normalized.lastIndex(of: "/") else {
+        return appendSuffixToFilename(normalized, suffix: suffix)
+    }
+    let parent = String(normalized[..<slashIndex])
+    let filename = String(normalized[normalized.index(after: slashIndex)...])
+    return parent + "/" + appendSuffixToFilename(filename, suffix: suffix)
+}
+
+private func uniqueLogicalPath(_ preferredPath: String,
+                               sourcePath: String,
+                               usedPaths: inout Set<String>) -> String {
+    let normalizedPreferred = normalizedLogicalPath(preferredPath)
+    if !usedPaths.contains(normalizedPreferred) {
+        usedPaths.insert(normalizedPreferred)
+        return normalizedPreferred
+    }
+
+    let shortHash = SHA256.hash(data: Data(sourcePath.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()
+    var attempt = 1
+    while true {
+        let suffix = attempt == 1 ? "~\(shortHash)" : "~\(shortHash)-\(attempt)"
+        let candidate = logicalPathWithSuffix(normalizedPreferred, suffix: suffix)
+        if !usedPaths.contains(candidate) {
+            usedPaths.insert(candidate)
+            return candidate
+        }
+        attempt += 1
+    }
+}
+
+private func sanitizedExportRelativePath(from logicalPath: String) -> String {
+    return normalizedLogicalPath(logicalPath)
 }
 
 private func preferredVaultChunkAlgorithm() -> UInt8 {
@@ -442,6 +511,11 @@ private func ensureVaultChunkScheme(_ head: VaultHeader) throws {
 }
 
 public enum Importer {
+    private struct ExpandedImportSource {
+        let sourceURL: URL
+        let logicalPath: String
+    }
+
     private static func throwIfCancelled(_ isCancelled: (() -> Bool)?) throws {
         if isCancelled?() == true {
             throw AEGError.io("USB vault-pack cancelled by user.")
@@ -449,11 +523,11 @@ public enum Importer {
     }
 
     private static func expandImportSources(_ files: [URL],
-                                            isCancelled: (() -> Bool)? = nil) throws -> [URL] {
+                                            isCancelled: (() -> Bool)? = nil) throws -> [ExpandedImportSource] {
         try throwIfCancelled(isCancelled)
         let fm = FileManager.default
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey]
-        var expanded: [URL] = []
+        var expanded: [ExpandedImportSource] = []
         expanded.reserveCapacity(files.count)
 
         for input in files {
@@ -465,7 +539,8 @@ public enum Importer {
             }
 
             if !isDirectory.boolValue {
-                expanded.append(normalizedInput)
+                expanded.append(ExpandedImportSource(sourceURL: normalizedInput,
+                                                     logicalPath: importLogicalPath(for: normalizedInput)))
                 continue
             }
 
@@ -476,7 +551,7 @@ public enum Importer {
                 throw AEGError.io("Unable to enumerate import directory: \(normalizedInput.path)")
             }
 
-            var directoryFiles: [URL] = []
+            var directoryFiles: [ExpandedImportSource] = []
             while let item = enumerator.nextObject() as? URL {
                 try throwIfCancelled(isCancelled)
                 let rawCandidate = item.standardizedFileURL
@@ -491,10 +566,14 @@ public enum Importer {
                     continue
                 }
                 if values?.isRegularFile == true {
-                    directoryFiles.append(rawCandidate.resolvingSymlinksInPath())
+                    let resolved = rawCandidate.resolvingSymlinksInPath()
+                    directoryFiles.append(ExpandedImportSource(sourceURL: resolved,
+                                                               logicalPath: importLogicalPath(for: resolved, rootURL: normalizedInput)))
                 }
             }
-            directoryFiles.sort { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
+            directoryFiles.sort {
+                $0.sourceURL.path.localizedCaseInsensitiveCompare($1.sourceURL.path) == .orderedAscending
+            }
             expanded.append(contentsOf: directoryFiles)
         }
         return expanded
@@ -546,19 +625,26 @@ public enum Importer {
         let vaultPath = normalizedPath(vaultURL)
         let sidecarPath = normalizedPath(sidecarURL)
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
-        var candidates: [(sourcePath: String, sourceURL: URL, nameHash: Data)] = []
+        var candidates: [(sourcePath: String, sourceURL: URL, logicalPath: String, nameHash: Data)] = []
         var seenSources = Set<String>()
-        for f in expandedFiles {
-            let sourcePath = normalizedPath(f)
+        var usedLogicalPaths = Set<String>()
+        for expanded in expandedFiles {
+            let sourcePath = normalizedPath(expanded.sourceURL)
             if sourcePath == vaultPath || sourcePath == sidecarPath || sourcePath.hasPrefix(sidecarPrefix) {
                 continue
             }
             if seenSources.contains(sourcePath) {
                 continue
             }
-            let name = (sourcePath as NSString).lastPathComponent
+            let logicalPath = uniqueLogicalPath(expanded.logicalPath,
+                                                sourcePath: sourcePath,
+                                                usedPaths: &usedLogicalPaths)
+            let name = (logicalPath as NSString).lastPathComponent
             let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
-            candidates.append((sourcePath: sourcePath, sourceURL: f, nameHash: h))
+            candidates.append((sourcePath: sourcePath,
+                               sourceURL: expanded.sourceURL,
+                               logicalPath: logicalPath,
+                               nameHash: h))
             seenSources.insert(sourcePath)
         }
 
@@ -567,11 +653,11 @@ public enum Importer {
         items.reserveCapacity(total)
         for (index, candidate) in candidates.enumerated() {
             try throwIfCancelled(isCancelled)
-            items.append(ImportItem(path: candidate.sourcePath,
+            items.append(ImportItem(path: candidate.logicalPath,
                                     nameHash: candidate.nameHash,
                                     order: index,
                                     payload: .sourceURL(candidate.sourceURL)))
-            preparationProgress?(index + 1, total, candidate.sourcePath)
+            preparationProgress?(index + 1, total, candidate.logicalPath)
         }
         return items
     }
@@ -1033,7 +1119,8 @@ public enum Locker {
             defer { order += 1 }
             guard let source = item["source"] as? String,
                   let stored = item["stored"] as? String else { continue }
-            let normalizedSource = normalizedPath(URL(fileURLWithPath: source))
+            let normalizedSourceURL = URL(fileURLWithPath: source)
+            let normalizedSource = normalizedPath(normalizedSourceURL)
             if normalizedSource == vaultPath || normalizedSource == sidecarPath || normalizedSource.hasPrefix(sidecarPrefix) {
                 continue
             }
@@ -1041,12 +1128,13 @@ public enum Locker {
             guard let blob = try? Data(contentsOf: blobURL) else { continue }
             guard let sealed = try? AES.GCM.SealedBox(combined: blob),
                   let plain = try? AES.GCM.open(sealed, using: dek) else { continue }
-            let name = (normalizedSource as NSString).lastPathComponent
+            let logicalPath = importLogicalPath(for: normalizedSourceURL)
+            let name = (logicalPath as NSString).lastPathComponent
             let h = HMACUtil.hmacNameHash(name, salt: head.index_salt)
-            stagedByPath[normalizedSource] = ImportItem(path: normalizedSource,
-                                                        nameHash: h,
-                                                        order: order,
-                                                        payload: .plaintext(plain))
+            stagedByPath[logicalPath] = ImportItem(path: logicalPath,
+                                                   nameHash: h,
+                                                   order: order,
+                                                   payload: .plaintext(plain))
         }
         let staged = stagedByPath.values.sorted { $0.order < $1.order }
         guard !staged.isEmpty else {
