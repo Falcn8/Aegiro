@@ -307,10 +307,14 @@ public enum USBUserDataCrypto {
                 createdVault = true
             }
 
+            var latestImportedCount = 0
+            var latestImportTotalCount = scan.scannedFileCount
             let imported = try Importer.sidecarImport(vaultURL: normalizedVaultURL,
                                                       passphrase: trimmedPassphrase,
                                                       files: scan.files,
                                                       progress: { importedCount, totalCount, path in
+                                                          latestImportedCount = importedCount
+                                                          latestImportTotalCount = totalCount
                                                           let name = URL(fileURLWithPath: path).lastPathComponent
                                                           progress?(USBUserDataEncryptProgress(stage: .encrypting,
                                                                                                processedFileCount: importedCount,
@@ -319,6 +323,13 @@ public enum USBUserDataCrypto {
                                                                                                message: "Encrypting \(importedCount)/\(totalCount): \(name)"))
                                                       },
                                                       preparationProgress: nil,
+                                                      statusProgress: { status in
+                                                          progress?(USBUserDataEncryptProgress(stage: .encrypting,
+                                                                                               processedFileCount: latestImportedCount,
+                                                                                               totalFileCount: latestImportTotalCount,
+                                                                                               currentPath: nil,
+                                                                                               message: status))
+                                                      },
                                                       isCancelled: isCancelled).imported
 
             var deletedOriginalCount = 0

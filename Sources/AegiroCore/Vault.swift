@@ -584,6 +584,7 @@ public enum Importer {
                                      files: [URL],
                                      progress: ((Int, Int, String) -> Void)? = nil,
                                      preparationProgress: ((Int, Int, String) -> Void)? = nil,
+                                     statusProgress: ((String) -> Void)? = nil,
                                      isCancelled: (() -> Bool)? = nil) throws -> (imported: Int, sidecar: URL) {
         try throwIfCancelled(isCancelled)
         let sidecar = vaultURL.deletingPathExtension().appendingPathExtension("aegirofiles")
@@ -610,6 +611,7 @@ public enum Importer {
                                               aad: aad,
                                               items: items,
                                               progress: progress,
+                                              statusProgress: statusProgress,
                                               isCancelled: isCancelled)
         return (imported, sidecar)
     }
@@ -752,6 +754,7 @@ private func mergeImportedItems(vaultURL: URL,
                                 aad: Data,
                                 items: [ImportItem],
                                 progress: ((Int, Int, String) -> Void)? = nil,
+                                statusProgress: ((String) -> Void)? = nil,
                                 isCancelled: (() -> Bool)? = nil) throws -> Int {
     if isCancelled?() == true {
         throw AEGError.io("USB vault-pack cancelled by user.")
@@ -921,6 +924,7 @@ private func mergeImportedItems(vaultURL: URL,
     if isCancelled?() == true {
         throw AEGError.io("USB vault-pack cancelled by user.")
     }
+    statusProgress?("All files encrypted. Finalizing vault index and chunk map...")
     let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
     let chunkMap = try JSONEncoder().encode(chunkInfos)
 
@@ -928,6 +932,7 @@ private func mergeImportedItems(vaultURL: URL,
     if isCancelled?() == true {
         throw AEGError.io("USB vault-pack cancelled by user.")
     }
+    statusProgress?("Re-signing vault manifest...")
     let signerWrap = data.subdata(in: layout.signerWrapRange)
     let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
     let sig = Dilithium2()
@@ -969,6 +974,7 @@ private func mergeImportedItems(vaultURL: URL,
     if isCancelled?() == true {
         throw AEGError.io("USB vault-pack cancelled by user.")
     }
+    statusProgress?("Writing updated vault file to disk (atomic replace)...")
     try out.write(to: vaultURL, options: .atomic)
     Exporter.invalidateListCache(vaultURL: vaultURL)
     return importedCount
