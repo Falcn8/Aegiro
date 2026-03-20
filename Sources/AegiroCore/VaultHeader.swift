@@ -2,7 +2,7 @@
 import Foundation
 
 public struct AlgIDs: Codable {
-    public var aead: UInt16 // 1 = AGVT chunk AEAD (AES-GCM or ChaCha20-Poly1305)
+    public var aead: UInt16 // 1 = AGVT chunk AEAD v1, 2 = legacy chunk AEAD domain IDs
     public var kdf: UInt16  // 2 = Argon2id
     public var kem: UInt16  // 3 = Kyber512
     public var sig: UInt16  // 4 = Dilithium2

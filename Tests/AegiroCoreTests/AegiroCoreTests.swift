@@ -15,7 +15,7 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(parsed.alg_ids.aead, 1)
     }
 
-    func testRejectsLegacyChunkAEADID() throws {
+    func testSupportsLegacyChunkAEADIDAndMixedChunkDomains() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
@@ -23,8 +23,118 @@ final class AegiroCoreTests: XCTestCase {
         let vaultURL = tmp.appendingPathComponent("vault.agvt")
         _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
 
+        let f1 = tmp.appendingPathComponent("one.txt")
+        let f2 = tmp.appendingPathComponent("two.txt")
+        let d1 = Data("legacy-domain-file".utf8)
+        let d2 = Data("current-domain-file".utf8)
+        try d1.write(to: f1)
+        try d2.write(to: f2)
+
+        let firstImport = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f1])
+        XCTAssertEqual(firstImport.imported, 1)
+
         var data = try Data(contentsOf: vaultURL)
         let (header, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let dek = try Exporter.deriveDEK(data: data, passphrase: "test-pass")
+        let index = try IndexCrypto.decryptIndex(data.subdata(in: layout.idxRange), key: dek, aad: Data("AEGIRO-V1".utf8))
+        let entry = try XCTUnwrap(index.entries.first(where: { $0.logicalPath == f1.path }))
+        let chunkMap = try JSONDecoder().decode([ChunkInfo].self, from: data.subdata(in: layout.chunkMapRange))
+        let entryChunks = chunkMap
+            .filter { $0.fileID == entry.fileID }
+            .sorted { $0.ordinal < $1.ordinal }
+        XCTAssertFalse(entryChunks.isEmpty)
+
+        let keyInfoV1 = Data("AEGIRO-FILE-KEY-V1".utf8)
+        let keyInfoLegacyV2 = Data("AEGIRO-FILE-KEY-V2".utf8)
+        let chunkAADV1 = Data("AEGIRO-CHUNK-V1".utf8)
+        let chunkAADLegacyV2 = Data("AEGIRO-CHUNK-V2".utf8)
+        let tagLength = 16
+
+        func deriveChunkFileKey(infoPrefix: Data) -> SymmetricKey {
+            let info = infoPrefix + entry.fileID + Data([entry.chunkCrypto.algorithm, entry.chunkCrypto.format])
+            return HKDF<SHA256>.deriveKey(inputKeyMaterial: dek,
+                                          salt: entry.chunkCrypto.keySalt,
+                                          info: info,
+                                          outputByteCount: 32)
+        }
+
+        func makeNonceData(ordinal: UInt32) -> Data {
+            var out = Data()
+            out.reserveCapacity(12)
+            out.append(entry.chunkCrypto.noncePrefix)
+            var ctr = UInt64(ordinal).littleEndian
+            withUnsafeBytes(of: &ctr) { out.append(contentsOf: $0) }
+            return out
+        }
+
+        func makeChunkAAD(prefix: Data, ordinal: UInt32) -> Data {
+            var out = Data()
+            out.reserveCapacity(prefix.count + header.kdf_salt.count + entry.fileID.count + 8)
+            out.append(prefix)
+            out.append(header.kdf_salt)
+            out.append(entry.fileID)
+            out.append(Data([entry.chunkCrypto.algorithm, entry.chunkCrypto.format]))
+            var ordinalLE = ordinal.littleEndian
+            withUnsafeBytes(of: &ordinalLE) { out.append(contentsOf: $0) }
+            return out
+        }
+
+        func openChunkPayload(_ payload: Data, key: SymmetricKey, nonceData: Data, aad: Data, algorithm: UInt8) throws -> Data {
+            let ct = payload.prefix(payload.count - tagLength)
+            let tag = payload.suffix(tagLength)
+            switch algorithm {
+            case 1:
+                let nonce = try AES.GCM.Nonce(data: nonceData)
+                let box = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ct, tag: tag)
+                return try AES.GCM.open(box, using: key, authenticating: aad)
+            case 2:
+                let nonce = try ChaChaPoly.Nonce(data: nonceData)
+                let box = try ChaChaPoly.SealedBox(nonce: nonce, ciphertext: ct, tag: tag)
+                return try ChaChaPoly.open(box, using: key, authenticating: aad)
+            default:
+                XCTFail("Unsupported chunk algorithm in test: \(algorithm)")
+                return Data()
+            }
+        }
+
+        func sealChunkPayload(_ plaintext: Data, key: SymmetricKey, nonceData: Data, aad: Data, algorithm: UInt8) throws -> Data {
+            switch algorithm {
+            case 1:
+                let nonce = try AES.GCM.Nonce(data: nonceData)
+                let sealed = try AES.GCM.seal(plaintext, using: key, nonce: nonce, authenticating: aad)
+                return sealed.ciphertext + sealed.tag
+            case 2:
+                let nonce = try ChaChaPoly.Nonce(data: nonceData)
+                let sealed = try ChaChaPoly.seal(plaintext, using: key, nonce: nonce, authenticating: aad)
+                return sealed.ciphertext + sealed.tag
+            default:
+                XCTFail("Unsupported chunk algorithm in test: \(algorithm)")
+                return Data()
+            }
+        }
+
+        let v1FileKey = deriveChunkFileKey(infoPrefix: keyInfoV1)
+        let legacyFileKey = deriveChunkFileKey(infoPrefix: keyInfoLegacyV2)
+        for chunk in entryChunks {
+            let start = layout.chunkAreaStart + Int(chunk.relOffset)
+            let end = start + chunk.length
+            XCTAssertLessThanOrEqual(end, data.count)
+            let payload = data.subdata(in: start..<end)
+            let nonceData = makeNonceData(ordinal: chunk.ordinal)
+            let plain = try openChunkPayload(payload,
+                                             key: v1FileKey,
+                                             nonceData: nonceData,
+                                             aad: makeChunkAAD(prefix: chunkAADV1, ordinal: chunk.ordinal),
+                                             algorithm: entry.chunkCrypto.algorithm)
+            let legacyPayload = try sealChunkPayload(plain,
+                                                     key: legacyFileKey,
+                                                     nonceData: nonceData,
+                                                     aad: makeChunkAAD(prefix: chunkAADLegacyV2, ordinal: chunk.ordinal),
+                                                     algorithm: entry.chunkCrypto.algorithm)
+            XCTAssertEqual(legacyPayload.count, payload.count)
+            data.replaceSubrange(start..<end, with: legacyPayload)
+        }
 
         var modified = header
         modified.alg_ids.aead = 2
@@ -34,10 +144,18 @@ final class AegiroCoreTests: XCTestCase {
         data.replaceSubrange(0..<hdrLen, with: modifiedHeader)
         try data.write(to: vaultURL, options: .atomic)
 
+        let secondImport = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [f2])
+        XCTAssertEqual(secondImport.imported, 1)
+
         let outDir = tmp.appendingPathComponent("out", isDirectory: true)
-        XCTAssertThrowsError(try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)) { error in
-            XCTAssertTrue(String(describing: error).contains("Unsupported vault chunk AEAD id"))
-        }
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        XCTAssertEqual(exported.count, 2)
+
+        let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
+        let out1 = try XCTUnwrap(exportedByLogicalPath[f1.path])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[f2.path])
+        XCTAssertEqual(try Data(contentsOf: out1), d1)
+        XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
 
     func testNonceUniqueness() {
