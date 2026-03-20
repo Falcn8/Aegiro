@@ -54,8 +54,7 @@ struct MainView: View {
     @State private var listDragStart: CGPoint?
     @State private var listSelectionRect: CGRect?
     @State private var listSelectionBase: Set<VaultIndexEntry.ID> = []
-    @State private var expandedFolderPaths: Set<String> = []
-    @State private var hasCustomizedFolderExpansion = false
+    @State private var currentDirectoryPath: String = ""
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
 
@@ -81,44 +80,28 @@ struct MainView: View {
         model.entries.filter { selection.contains($0.id) }
     }
 
-    private struct FolderTreeNode {
+    private struct DirectoryFolderRow: Identifiable {
         let path: String
         let name: String
-        var childFolderPaths: [String] = []
-        var fileIDs: [VaultIndexEntry.ID] = []
+        let fileCount: Int
+        var id: String { path }
     }
 
-    private struct ListFolderRow {
-        let path: String
-        let name: String
-        let depth: Int
-        let isExpanded: Bool
-        let totalFileCount: Int
-        let hasChildren: Bool
+    private struct DirectoryListing {
+        let folders: [DirectoryFolderRow]
+        let files: [VaultIndexEntry]
+        var isEmpty: Bool { folders.isEmpty && files.isEmpty }
     }
 
-    private struct ListFileRow {
-        let entry: VaultIndexEntry
-        let depth: Int
+    private var currentDirectoryListing: DirectoryListing {
+        MainView.buildDirectoryListing(entries: filteredEntries,
+                                       directoryPath: currentDirectoryPath,
+                                       sortOption: sortOption,
+                                       sortAscending: sortAscending)
     }
 
-    private enum ListTreeRow: Identifiable {
-        case folder(ListFolderRow)
-        case file(ListFileRow)
-
-        var id: String {
-            switch self {
-            case .folder(let row):
-                return "folder:\(row.path)"
-            case .file(let row):
-                return "file:\(row.entry.id)"
-            }
-        }
-    }
-
-    private struct ListTreeResult {
-        let rows: [ListTreeRow]
-        let allFolderPaths: Set<String>
+    private var visibleFileIDsInCurrentDirectory: [VaultIndexEntry.ID] {
+        currentDirectoryListing.files.map(\.id)
     }
 
     private var selectedSize: Int64 {
@@ -252,11 +235,10 @@ struct MainView: View {
             let normalizedPath = url?.standardizedFileURL.path
             if normalizedPath != lastObservedVaultPath {
                 searchText = ""
+                currentDirectoryPath = ""
                 selection.removeAll()
                 selectionAnchor = nil
                 selectionCursor = nil
-                expandedFolderPaths.removeAll()
-                hasCustomizedFolderExpansion = false
                 showFileInfoPopover = false
                 scheduleFilteredEntriesRebuild()
             }
@@ -297,7 +279,7 @@ struct MainView: View {
                 showFileInfoPopover = false
                 return
             }
-            let visibleIDs = filteredEntries.map(\.id)
+            let visibleIDs = visibleFileIDsInCurrentDirectory
             if selectionAnchor == nil || !(selectionAnchor.map(newSelection.contains) ?? false) {
                 selectionAnchor = visibleIDs.first(where: { newSelection.contains($0) })
             }
@@ -309,8 +291,6 @@ struct MainView: View {
             }
         }
         .onChange(of: searchText) { _ in
-            expandedFolderPaths.removeAll()
-            hasCustomizedFolderExpansion = false
             scheduleFilteredEntriesRebuild(debounce: true)
             if !trimmedSearchQuery.isEmpty {
                 model.loadRemainingVaultEntriesInBackground()
@@ -601,16 +581,16 @@ struct MainView: View {
         Group {
             Button(action: { navigateSelection(direction: .up, extending: false) }) { EmptyView() }
                 .keyboardShortcut(.upArrow, modifiers: [])
-                .disabled(activePage != .vault || model.locked || filteredEntries.isEmpty)
+                .disabled(activePage != .vault || model.locked || visibleFileIDsInCurrentDirectory.isEmpty)
             Button(action: { navigateSelection(direction: .down, extending: false) }) { EmptyView() }
                 .keyboardShortcut(.downArrow, modifiers: [])
-                .disabled(activePage != .vault || model.locked || filteredEntries.isEmpty)
+                .disabled(activePage != .vault || model.locked || visibleFileIDsInCurrentDirectory.isEmpty)
             Button(action: { navigateSelection(direction: .up, extending: true) }) { EmptyView() }
                 .keyboardShortcut(.upArrow, modifiers: [.shift])
-                .disabled(activePage != .vault || model.locked || filteredEntries.isEmpty)
+                .disabled(activePage != .vault || model.locked || visibleFileIDsInCurrentDirectory.isEmpty)
             Button(action: { navigateSelection(direction: .down, extending: true) }) { EmptyView() }
                 .keyboardShortcut(.downArrow, modifiers: [.shift])
-                .disabled(activePage != .vault || model.locked || filteredEntries.isEmpty)
+                .disabled(activePage != .vault || model.locked || visibleFileIDsInCurrentDirectory.isEmpty)
         }
         .frame(width: 0, height: 0)
         .opacity(0)
@@ -862,33 +842,37 @@ struct MainView: View {
     }
 
     private var listView: some View {
-        let listTree = MainView.buildListTree(entries: filteredEntries,
-                                              sortOption: sortOption,
-                                              sortAscending: sortAscending,
-                                              expandedFolders: expandedFolderPaths,
-                                              hasCustomizedExpansion: hasCustomizedFolderExpansion,
-                                              expandAllByDefault: !trimmedSearchQuery.isEmpty)
+        let listing = currentDirectoryListing
         return ZStack(alignment: .topLeading) {
             ScrollView {
                 VStack(spacing: 0) {
+                    directoryPathBar
                     listHeader
-                    LazyVStack(spacing: 0) {
-                        ForEach(listTree.rows) { row in
-                            switch row {
-                            case .folder(let folder):
-                                folderRow(folder) {
-                                    toggleFolderExpansion(folder.path, availableFolders: listTree.allFolderPaths)
-                                }
-                            case .file(let fileRow):
-                                listRow(fileRow.entry, depth: fileRow.depth)
+                    if listing.isEmpty {
+                        directoryEmptyState
+                            .padding(.vertical, 40)
+                    } else {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(listing.folders.enumerated()), id: \.element.id) { index, folder in
+                                folderRow(folder)
                                     .onAppear {
-                                        triggerVaultPagination(after: fileRow.entry)
+                                        if listing.files.isEmpty && index == listing.folders.count - 1 {
+                                            triggerVaultPaginationForDirectoryBoundary()
+                                        }
+                                    }
+                            }
+                            ForEach(Array(listing.files.enumerated()), id: \.element.id) { index, entry in
+                                listRow(entry)
+                                    .onAppear {
+                                        if index == listing.files.count - 1 {
+                                            triggerVaultPagination(after: entry)
+                                        }
                                     }
                                     .background(
                                         GeometryReader { proxy in
                                             Color.clear.preference(
                                                 key: ListItemFramePreferenceKey.self,
-                                                value: [fileRow.entry.id: proxy.frame(in: .named("list-selection-space"))]
+                                                value: [entry.id: proxy.frame(in: .named("list-selection-space"))]
                                             )
                                         }
                                     )
@@ -932,74 +916,54 @@ struct MainView: View {
     }
 
     private var gridView: some View {
-        ZStack(alignment: .topLeading) {
+        let listing = currentDirectoryListing
+        return ZStack(alignment: .topLeading) {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
-                    ForEach(filteredEntries) { entry in
-                        Button {
-                            handleGridClick(on: entry)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Image(systemName: entry.systemIcon)
-                                        .foregroundStyle(AegiroPalette.accentIndigo)
-                                    Spacer()
-                                    if selection.contains(entry.id) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(AegiroPalette.securityGreen)
-                                    }
-                                }
-
-                                Text(entry.displayName)
-                                    .font(AegiroTypography.body(14, weight: .medium))
-                                    .foregroundStyle(AegiroPalette.textPrimary)
-                                    .lineLimit(1)
-
-                                Text(entry.parentPathDisplay)
-                                    .font(AegiroTypography.mono(11, weight: .regular))
-                                    .foregroundStyle(AegiroPalette.textMuted)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-
-                                Text(entry.formattedSize)
-                                    .font(AegiroTypography.body(12, weight: .regular))
-                                    .foregroundStyle(AegiroPalette.textSecondary)
-
-                                Text("Modified \(entry.modified.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(AegiroTypography.body(12, weight: .regular))
-                                    .foregroundStyle(AegiroPalette.textMuted)
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(selection.contains(entry.id) ? AegiroPalette.selection : AegiroPalette.backgroundCard)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(selection.contains(entry.id) ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu { rowMenu(entry: entry) }
-                        .onAppear {
-                            triggerVaultPagination(after: entry)
-                        }
-                        .background(
-                            GeometryReader { proxy in
-                                Color.clear.preference(
-                                    key: GridItemFramePreferenceKey.self,
-                                    value: [entry.id: proxy.frame(in: .named("grid-selection-space"))]
-                                )
-                            }
-                        )
-                    }
-                }
-                .padding(12)
-                if model.vaultEntriesPageLoading {
-                    paginationProgressFooter
+                VStack(spacing: 0) {
+                    directoryPathBar
                         .padding(.horizontal, 12)
-                        .padding(.bottom, 12)
+                        .padding(.top, 12)
+                        .padding(.bottom, 10)
+
+                    if listing.isEmpty {
+                        directoryEmptyState
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 40)
+                    } else {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
+                            ForEach(Array(listing.folders.enumerated()), id: \.element.id) { index, folder in
+                                folderGridCard(folder)
+                                    .onAppear {
+                                        if listing.files.isEmpty && index == listing.folders.count - 1 {
+                                            triggerVaultPaginationForDirectoryBoundary()
+                                        }
+                                    }
+                            }
+                            ForEach(Array(listing.files.enumerated()), id: \.element.id) { index, entry in
+                                fileGridCard(entry)
+                                    .onAppear {
+                                        if index == listing.files.count - 1 {
+                                            triggerVaultPagination(after: entry)
+                                        }
+                                    }
+                                    .background(
+                                        GeometryReader { proxy in
+                                            Color.clear.preference(
+                                                key: GridItemFramePreferenceKey.self,
+                                                value: [entry.id: proxy.frame(in: .named("grid-selection-space"))]
+                                            )
+                                        }
+                                    )
+                            }
+                        }
+                        .padding(12)
+                    }
+
+                    if model.vaultEntriesPageLoading {
+                        paginationProgressFooter
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 12)
+                    }
                 }
             }
 
@@ -1055,12 +1019,9 @@ struct MainView: View {
         )
     }
 
-    private func folderRow(_ folder: ListFolderRow, onToggle: @escaping () -> Void) -> some View {
+    private func folderRow(_ folder: DirectoryFolderRow) -> some View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: folder.isExpanded ? "chevron.down" : "chevron.right")
-                    .font(AegiroTypography.mono(10, weight: .semibold))
-                    .foregroundStyle(AegiroPalette.textMuted)
                 Image(systemName: "folder.fill")
                     .foregroundStyle(AegiroPalette.warningAmber)
                 Text(folder.name)
@@ -1068,11 +1029,10 @@ struct MainView: View {
                     .foregroundStyle(AegiroPalette.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Text(folder.totalFileCount == 1 ? "1 file" : "\(folder.totalFileCount) files")
+                Text(folder.fileCount == 1 ? "1 file" : "\(folder.fileCount) files")
                     .font(AegiroTypography.body(11, weight: .medium))
                     .foregroundStyle(AegiroPalette.textMuted)
             }
-            .padding(.leading, CGFloat(folder.depth) * 14)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text("")
@@ -1097,14 +1057,15 @@ struct MainView: View {
             alignment: .bottom
         )
         .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            openDirectory(folder.path)
+        }
         .onTapGesture {
             dismissSearchFieldFocus()
-            guard folder.hasChildren else { return }
-            onToggle()
         }
     }
 
-    private func listRow(_ entry: VaultIndexEntry, depth: Int = 0) -> some View {
+    private func listRow(_ entry: VaultIndexEntry) -> some View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: entry.systemIcon)
@@ -1113,7 +1074,6 @@ struct MainView: View {
                     .lineLimit(1)
                     .foregroundStyle(AegiroPalette.textPrimary)
             }
-            .padding(.leading, CGFloat(depth) * 14)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(entry.formattedSize)
@@ -1146,6 +1106,164 @@ struct MainView: View {
         .contextMenu { rowMenu(entry: entry) }
         .onTapGesture {
             handleListClick(on: entry)
+        }
+    }
+
+    private var directoryEmptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "folder")
+                .font(AegiroTypography.body(28, weight: .medium))
+                .foregroundStyle(AegiroPalette.textMuted)
+            Text(trimmedSearchQuery.isEmpty
+                 ? "This folder is empty."
+                 : "No items in this folder match \"\(trimmedSearchQuery)\".")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+            if !trimmedSearchQuery.isEmpty {
+                Button("Clear Search") {
+                    searchText = ""
+                }
+                .buttonStyle(.bordered)
+            } else if !currentDirectoryPath.isEmpty {
+                Button("Go Up") {
+                    navigateUpDirectory()
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+    }
+
+    private var directoryPathBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Button {
+                    openDirectory("")
+                } label: {
+                    Label("Vault", systemImage: "externaldrive.fill")
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    navigateUpDirectory()
+                } label: {
+                    Label("Up", systemImage: "arrow.up")
+                }
+                .buttonStyle(.bordered)
+                .disabled(currentDirectoryPath.isEmpty)
+
+                ForEach(Array(currentDirectoryPath.split(separator: "/").map(String.init).enumerated()), id: \.offset) { index, component in
+                    Image(systemName: "chevron.right")
+                        .font(AegiroTypography.mono(9, weight: .bold))
+                        .foregroundStyle(AegiroPalette.textMuted)
+                    Button(component) {
+                        openDirectory(pathForComponent(at: index))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AegiroPalette.textSecondary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(AegiroPalette.backgroundCard)
+        .overlay(
+            Rectangle()
+                .fill(AegiroPalette.borderSubtle)
+                .frame(height: 1),
+            alignment: .bottom
+        )
+    }
+
+    private func fileGridCard(_ entry: VaultIndexEntry) -> some View {
+        Button {
+            handleGridClick(on: entry)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: entry.systemIcon)
+                        .foregroundStyle(AegiroPalette.accentIndigo)
+                    Spacer()
+                    if selection.contains(entry.id) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(AegiroPalette.securityGreen)
+                    }
+                }
+
+                Text(entry.displayName)
+                    .font(AegiroTypography.body(14, weight: .medium))
+                    .foregroundStyle(AegiroPalette.textPrimary)
+                    .lineLimit(1)
+
+                Text(entry.parentPathDisplay)
+                    .font(AegiroTypography.mono(11, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Text(entry.formattedSize)
+                    .font(AegiroTypography.body(12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textSecondary)
+
+                Text("Modified \(entry.modified.formatted(date: .abbreviated, time: .omitted))")
+                    .font(AegiroTypography.body(12, weight: .regular))
+                    .foregroundStyle(AegiroPalette.textMuted)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(selection.contains(entry.id) ? AegiroPalette.selection : AegiroPalette.backgroundCard)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(selection.contains(entry.id) ? AegiroPalette.accentIndigo : AegiroPalette.borderSubtle, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .contextMenu { rowMenu(entry: entry) }
+    }
+
+    private func folderGridCard(_ folder: DirectoryFolderRow) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "folder.fill")
+                    .foregroundStyle(AegiroPalette.warningAmber)
+                Spacer()
+            }
+
+            Text(folder.name)
+                .font(AegiroTypography.body(14, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+                .lineLimit(1)
+
+            Text(folder.fileCount == 1 ? "1 file" : "\(folder.fileCount) files")
+                .font(AegiroTypography.body(12, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            Text("Double-click to open")
+                .font(AegiroTypography.body(11, weight: .regular))
+                .foregroundStyle(AegiroPalette.textMuted)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AegiroPalette.backgroundCard)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            dismissSearchFieldFocus()
+            selection.removeAll()
+        }
+        .onTapGesture(count: 2) {
+            openDirectory(folder.path)
         }
     }
 
@@ -1187,7 +1305,7 @@ struct MainView: View {
                 color: model.locked ? AegiroPalette.warningAmber : AegiroPalette.securityGreen
             )
 
-            Text("Files: \(filteredEntries.count)")
+            Text("Files: \(visibleFileIDsInCurrentDirectory.count)")
             Text("Selected: \(selection.count)")
 
             if !model.locked && model.autoLockRemaining > 0 {
@@ -1352,7 +1470,7 @@ struct MainView: View {
     }
 
     private func updateSelectionForClick(on entryID: VaultIndexEntry.ID, modifiers: NSEvent.ModifierFlags) {
-        let visibleIDs = filteredEntries.map(\.id)
+        let visibleIDs = visibleFileIDsInCurrentDirectory
         let hasCommand = modifiers.contains(.command)
         let hasShift = modifiers.contains(.shift)
 
@@ -1425,10 +1543,10 @@ struct MainView: View {
             selection = gridSelectionBase.union(intersectingIDs)
         } else {
             selection = intersectingIDs
-            selectionAnchor = filteredEntries.map(\.id).first(where: { intersectingIDs.contains($0) })
+            selectionAnchor = visibleFileIDsInCurrentDirectory.first(where: { intersectingIDs.contains($0) })
         }
 
-        if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { selection.contains($0) }) {
+        if let lastVisibleSelected = visibleFileIDsInCurrentDirectory.last(where: { selection.contains($0) }) {
             selectionCursor = lastVisibleSelected
             if selectionAnchor == nil {
                 selectionAnchor = lastVisibleSelected
@@ -1460,10 +1578,10 @@ struct MainView: View {
             selection = listSelectionBase.union(intersectingIDs)
         } else {
             selection = intersectingIDs
-            selectionAnchor = filteredEntries.map(\.id).first(where: { intersectingIDs.contains($0) })
+            selectionAnchor = visibleFileIDsInCurrentDirectory.first(where: { intersectingIDs.contains($0) })
         }
 
-        if let lastVisibleSelected = filteredEntries.map(\.id).last(where: { selection.contains($0) }) {
+        if let lastVisibleSelected = visibleFileIDsInCurrentDirectory.last(where: { selection.contains($0) }) {
             selectionCursor = lastVisibleSelected
             if selectionAnchor == nil {
                 selectionAnchor = lastVisibleSelected
@@ -1496,7 +1614,7 @@ struct MainView: View {
 
     private func navigateSelection(direction: SelectionDirection, extending: Bool) {
         guard !model.locked else { return }
-        let orderedIDs = filteredEntries.map(\.id)
+        let orderedIDs = visibleFileIDsInCurrentDirectory
         guard !orderedIDs.isEmpty else { return }
 
         // Require an actual Shift key press for range extension to match Finder behavior.
@@ -1659,138 +1777,73 @@ struct MainView: View {
         }
     }
 
-    private static func buildListTree(entries: [VaultIndexEntry],
-                                      sortOption: SortOption,
-                                      sortAscending: Bool,
-                                      expandedFolders: Set<String>,
-                                      hasCustomizedExpansion: Bool,
-                                      expandAllByDefault: Bool) -> ListTreeResult {
+    private static func normalizedLogicalPath(_ path: String) -> String {
+        path.replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+            .joined(separator: "/")
+    }
+
+    private static func buildDirectoryListing(entries: [VaultIndexEntry],
+                                              directoryPath: String,
+                                              sortOption: SortOption,
+                                              sortAscending: Bool) -> DirectoryListing {
         guard !entries.isEmpty else {
-            return ListTreeResult(rows: [], allFolderPaths: [])
+            return DirectoryListing(folders: [], files: [])
         }
 
-        let entryByID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
-        var folderNodes: [String: FolderTreeNode] = [:]
-        var rootFolderPaths: [String] = []
-        var rootFileIDs: [VaultIndexEntry.ID] = []
-
-        func ensureFolder(_ path: String, name: String) {
-            guard folderNodes[path] == nil else { return }
-            folderNodes[path] = FolderTreeNode(path: path, name: name)
-        }
-
-        func attachChildFolder(_ childPath: String, to parentPath: String) {
-            guard var parent = folderNodes[parentPath] else { return }
-            if !parent.childFolderPaths.contains(childPath) {
-                parent.childFolderPaths.append(childPath)
-                folderNodes[parentPath] = parent
-            }
-        }
+        let normalizedDirectoryPath = normalizedLogicalPath(directoryPath)
+        let directoryPrefix = normalizedDirectoryPath.isEmpty ? "" : normalizedDirectoryPath + "/"
+        var files: [VaultIndexEntry] = []
+        var folderFileCounts: [String: Int] = [:]
 
         for entry in entries {
-            let normalizedPath = entry.logicalPath.replacingOccurrences(of: "\\", with: "/")
-            let components = normalizedPath.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
-            let folderComponents = components.dropLast()
+            let normalizedPath = normalizedLogicalPath(entry.logicalPath)
+            guard !normalizedPath.isEmpty else { continue }
 
-            var parentPath = ""
-            for component in folderComponents {
-                let currentPath = parentPath.isEmpty ? component : "\(parentPath)/\(component)"
-                ensureFolder(currentPath, name: component)
+            if !directoryPrefix.isEmpty {
+                guard normalizedPath.hasPrefix(directoryPrefix) else { continue }
+                let remainder = String(normalizedPath.dropFirst(directoryPrefix.count))
+                let components = remainder.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+                guard !components.isEmpty else { continue }
 
-                if parentPath.isEmpty {
-                    if !rootFolderPaths.contains(currentPath) {
-                        rootFolderPaths.append(currentPath)
-                    }
+                if components.count == 1 {
+                    files.append(entry)
                 } else {
-                    attachChildFolder(currentPath, to: parentPath)
+                    let childPath = "\(normalizedDirectoryPath)/\(components[0])"
+                    folderFileCounts[childPath, default: 0] += 1
                 }
-                parentPath = currentPath
+                continue
             }
 
-            if parentPath.isEmpty {
-                rootFileIDs.append(entry.id)
+            let components = normalizedPath.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+            if components.count <= 1 {
+                files.append(entry)
             } else {
-                var node = folderNodes[parentPath] ?? FolderTreeNode(path: parentPath, name: (parentPath as NSString).lastPathComponent)
-                node.fileIDs.append(entry.id)
-                folderNodes[parentPath] = node
+                let childPath = components[0]
+                folderFileCounts[childPath, default: 0] += 1
             }
         }
 
-        func sortedFolderPaths(_ paths: [String]) -> [String] {
-            paths.sorted { lhs, rhs in
-                let lhsName = folderNodes[lhs]?.name ?? lhs
-                let rhsName = folderNodes[rhs]?.name ?? rhs
-                let comparison = lhsName.localizedCaseInsensitiveCompare(rhsName)
-                if comparison == .orderedSame {
-                    return lhs < rhs
-                }
-                if sortOption == .name && !sortAscending {
-                    return comparison == .orderedDescending
-                }
+        let folderNameSortAscending = sortOption != .name || sortAscending
+        let folders = folderFileCounts.map { path, fileCount in
+            DirectoryFolderRow(path: path, name: (path as NSString).lastPathComponent, fileCount: fileCount)
+        }
+        .sorted { lhs, rhs in
+            let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+            if comparison == .orderedSame {
+                return lhs.path < rhs.path
+            }
+            if folderNameSortAscending {
                 return comparison == .orderedAscending
             }
+            return comparison == .orderedDescending
         }
 
-        func sortedFileIDs(_ ids: [VaultIndexEntry.ID]) -> [VaultIndexEntry.ID] {
-            let fileEntries = ids.compactMap { entryByID[$0] }
-            let sorted = applySort(to: fileEntries, sortOption: sortOption, sortAscending: sortAscending)
-            return sorted.map(\.id)
-        }
-
-        var totalFileCountByFolder: [String: Int] = [:]
-        func totalFileCount(for folderPath: String) -> Int {
-            if let cached = totalFileCountByFolder[folderPath] {
-                return cached
-            }
-            guard let node = folderNodes[folderPath] else {
-                totalFileCountByFolder[folderPath] = 0
-                return 0
-            }
-            let count = node.fileIDs.count + node.childFolderPaths.reduce(0) { $0 + totalFileCount(for: $1) }
-            totalFileCountByFolder[folderPath] = count
-            return count
-        }
-
-        let allFolderPaths = Set(folderNodes.keys)
-        let defaultExpandedFolders = expandAllByDefault ? allFolderPaths : Set(rootFolderPaths)
-        let effectiveExpandedFolders: Set<String> = hasCustomizedExpansion
-            ? expandedFolders.intersection(allFolderPaths)
-            : defaultExpandedFolders
-
-        var rows: [ListTreeRow] = []
-        func appendFolder(path: String, depth: Int) {
-            guard let node = folderNodes[path] else { return }
-            let isExpanded = effectiveExpandedFolders.contains(path)
-            rows.append(
-                .folder(
-                    ListFolderRow(path: node.path,
-                                  name: node.name,
-                                  depth: depth,
-                                  isExpanded: isExpanded,
-                                  totalFileCount: totalFileCount(for: path),
-                                  hasChildren: !node.childFolderPaths.isEmpty || !node.fileIDs.isEmpty)
-                )
-            )
-            guard isExpanded else { return }
-
-            for childPath in sortedFolderPaths(node.childFolderPaths) {
-                appendFolder(path: childPath, depth: depth + 1)
-            }
-            for fileID in sortedFileIDs(node.fileIDs) {
-                guard let fileEntry = entryByID[fileID] else { continue }
-                rows.append(.file(ListFileRow(entry: fileEntry, depth: depth + 1)))
-            }
-        }
-
-        for rootFolderPath in sortedFolderPaths(rootFolderPaths) {
-            appendFolder(path: rootFolderPath, depth: 0)
-        }
-        for fileID in sortedFileIDs(rootFileIDs) {
-            guard let fileEntry = entryByID[fileID] else { continue }
-            rows.append(.file(ListFileRow(entry: fileEntry, depth: 0)))
-        }
-
-        return ListTreeResult(rows: rows, allFolderPaths: allFolderPaths)
+        return DirectoryListing(
+            folders: folders,
+            files: applySort(to: files, sortOption: sortOption, sortAscending: sortAscending)
+        )
     }
 
     private var paginationProgressFooter: some View {
@@ -1811,24 +1864,41 @@ struct MainView: View {
             model.loadRemainingVaultEntriesInBackground()
             return
         }
-        guard filteredEntries.last?.id == entry.id else { return }
+        guard currentDirectoryListing.files.last?.id == entry.id else { return }
         model.loadNextVaultEntriesPageIfNeeded()
     }
 
-    private func toggleFolderExpansion(_ folderPath: String, availableFolders: Set<String>) {
-        let validExpanded = expandedFolderPaths.intersection(availableFolders)
-        if validExpanded != expandedFolderPaths {
-            expandedFolderPaths = validExpanded
+    private func triggerVaultPaginationForDirectoryBoundary() {
+        if !trimmedSearchQuery.isEmpty {
+            model.loadRemainingVaultEntriesInBackground()
+            return
         }
-        if !hasCustomizedFolderExpansion {
-            expandedFolderPaths = availableFolders
-            hasCustomizedFolderExpansion = true
+        guard model.vaultEntriesHasMore else { return }
+        model.loadNextVaultEntriesPageIfNeeded()
+    }
+
+    private func openDirectory(_ path: String) {
+        dismissSearchFieldFocus()
+        currentDirectoryPath = MainView.normalizedLogicalPath(path)
+        selection.removeAll()
+        selectionAnchor = nil
+        selectionCursor = nil
+        showFileInfoPopover = false
+    }
+
+    private func navigateUpDirectory() {
+        let components = currentDirectoryPath.split(separator: "/").map(String.init)
+        guard !components.isEmpty else { return }
+        let parent = components.dropLast().joined(separator: "/")
+        openDirectory(parent)
+    }
+
+    private func pathForComponent(at index: Int) -> String {
+        let components = currentDirectoryPath.split(separator: "/").map(String.init)
+        guard index >= 0, index < components.count else {
+            return ""
         }
-        if expandedFolderPaths.contains(folderPath) {
-            expandedFolderPaths.remove(folderPath)
-        } else {
-            expandedFolderPaths.insert(folderPath)
-        }
+        return components.prefix(index + 1).joined(separator: "/")
     }
 
     private func scheduleFilteredEntriesRebuild(debounce: Bool = false) {
