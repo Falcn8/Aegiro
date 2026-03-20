@@ -3,6 +3,7 @@
 
 # SwiftPM
 .build/
+.build-app-*/
 .swiftpm/
 
 # Xcode (if generated locally)
