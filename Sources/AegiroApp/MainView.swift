@@ -866,7 +866,8 @@ struct MainView: View {
                                               sortOption: sortOption,
                                               sortAscending: sortAscending,
                                               expandedFolders: expandedFolderPaths,
-                                              hasCustomizedExpansion: hasCustomizedFolderExpansion)
+                                              hasCustomizedExpansion: hasCustomizedFolderExpansion,
+                                              expandAllByDefault: !trimmedSearchQuery.isEmpty)
         return ZStack(alignment: .topLeading) {
             ScrollView {
                 VStack(spacing: 0) {
@@ -1662,7 +1663,8 @@ struct MainView: View {
                                       sortOption: SortOption,
                                       sortAscending: Bool,
                                       expandedFolders: Set<String>,
-                                      hasCustomizedExpansion: Bool) -> ListTreeResult {
+                                      hasCustomizedExpansion: Bool,
+                                      expandAllByDefault: Bool) -> ListTreeResult {
         guard !entries.isEmpty else {
             return ListTreeResult(rows: [], allFolderPaths: [])
         }
@@ -1750,9 +1752,10 @@ struct MainView: View {
         }
 
         let allFolderPaths = Set(folderNodes.keys)
+        let defaultExpandedFolders = expandAllByDefault ? allFolderPaths : Set(rootFolderPaths)
         let effectiveExpandedFolders: Set<String> = hasCustomizedExpansion
             ? expandedFolders.intersection(allFolderPaths)
-            : allFolderPaths
+            : defaultExpandedFolders
 
         var rows: [ListTreeRow] = []
         func appendFolder(path: String, depth: Int) {
