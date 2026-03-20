@@ -127,8 +127,13 @@ bash scripts/generate-app-icon.sh --source assets/aegiro-banner.png --overwrite
 # Build arm64 + x86_64 + universal app bundle
 bash scripts/build-app-universal.sh --configuration release --ad-hoc
 
-# Package the universal app as a DMG
-bash scripts/package-dmg.sh --app dist/Aegiro.app --output dist/Aegiro.dmg --overwrite
+# Package the universal app as a styled DMG
+# (if omitted, script auto-uses assets/dmg-background.png or assets/aegiro-banner.png when present)
+bash scripts/package-dmg.sh \
+  --app dist/Aegiro.app \
+  --output dist/Aegiro.dmg \
+  --background assets/aegiro-banner.png \
+  --overwrite
 ```
 
 Outputs:
@@ -139,6 +144,7 @@ Outputs:
 - `dist/Aegiro.dmg`
 
 If `assets/AppIcon.icns` exists, app build scripts include it in the app bundle automatically.
+`scripts/package-dmg.sh` sets Finder window/icon positions so users see a drag-to-Applications layout.
 
 ---
 
