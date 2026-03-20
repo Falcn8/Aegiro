@@ -10,7 +10,7 @@ APP_EXECUTABLE="$TARGET_NAME"
 APP_BUNDLE_NAME="Aegiro"
 APP_PATH="$ROOT_DIR/dist/${APP_BUNDLE_NAME}.app"
 APP_ICON_SOURCE="$ROOT_DIR/assets/AppIcon.icns"
-BUNDLE_ID="com.example.aegiro"
+BUNDLE_ID="one.hexagon.aegiro"
 IDENTITY=""
 FORCE_AD_HOC=0
 LAUNCH_AFTER_BUILD=0
@@ -24,7 +24,7 @@ Usage: bash scripts/build-app-dev.sh [options]
 Options:
   --configuration <debug|release>  Build configuration (default: debug)
   --identity "<name-or-sha1>"      Use this signing identity
-  --bundle-id <id>                 Bundle identifier (default: com.example.aegiro)
+  --bundle-id <id>                 Bundle identifier (default: one.hexagon.aegiro)
   --launch                         Launch the built app as a new instance
   --kill-running                   Kill existing Aegiro app processes before launch
   --ad-hoc                         Force ad-hoc signing
