@@ -284,7 +284,7 @@ fi
 HAS_BACKGROUND=0
 if [[ -n "$BACKGROUND_IMAGE" ]]; then
   mkdir -p "$MOUNT_POINT/.background"
-  sips -z "$WINDOW_HEIGHT" "$WINDOW_WIDTH" "$BACKGROUND_IMAGE" --out "$MOUNT_POINT/.background/background.png" >/dev/null
+  sips -s dpiWidth 72 -s dpiHeight 72 -z "$WINDOW_HEIGHT" "$WINDOW_WIDTH" "$BACKGROUND_IMAGE" --out "$MOUNT_POINT/.background/background.png" >/dev/null
   HAS_BACKGROUND=1
 fi
 
