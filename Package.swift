@@ -14,6 +14,9 @@ let package = Package(
         .executable(name: "aegiro-cli", targets: ["AegiroCLI"]),
         .executable(name: "AegiroApp", targets: ["AegiroApp"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0")
+    ],
     targets: [
         .target(
             name: "AegiroCore",
@@ -32,7 +35,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "AegiroCLI",
-            dependencies: ["AegiroCore"]
+            dependencies: [
+                "AegiroCore",
+                .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ]
         ),
         .executableTarget(
             name: "AegiroApp",
