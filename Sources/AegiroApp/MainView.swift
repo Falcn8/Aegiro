@@ -1151,32 +1151,25 @@ struct MainView: View {
     private var directoryPathBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Button {
+                Button("Vault Root") {
                     openDirectory("")
-                } label: {
-                    Label("Vault", systemImage: "externaldrive.fill")
                 }
-                .buttonStyle(.bordered)
-
-                Button {
-                    navigateUpDirectory()
-                } label: {
-                    Label("Up", systemImage: "arrow.up")
-                }
-                .buttonStyle(.bordered)
-                .disabled(currentDirectoryPath.isEmpty)
+                .buttonStyle(.plain)
+                .foregroundStyle(currentDirectoryPath.isEmpty ? AegiroPalette.textPrimary : AegiroPalette.textSecondary)
 
                 ForEach(Array(currentDirectoryPath.split(separator: "/").map(String.init).enumerated()), id: \.offset) { index, component in
+                    let targetPath = pathForComponent(at: index)
                     Image(systemName: "chevron.right")
                         .font(AegiroTypography.mono(9, weight: .bold))
                         .foregroundStyle(AegiroPalette.textMuted)
                     Button(component) {
-                        openDirectory(pathForComponent(at: index))
+                        openDirectory(targetPath)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(AegiroPalette.textSecondary)
+                    .foregroundStyle(targetPath == currentDirectoryPath ? AegiroPalette.textPrimary : AegiroPalette.textSecondary)
                 }
             }
+            .font(AegiroTypography.body(13, weight: .semibold))
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
