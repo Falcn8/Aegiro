@@ -1348,7 +1348,9 @@ public enum Exporter {
                 }
                 let start = layout.chunkAreaStart + Int(c.relOffset)
                 let end = start + c.length
-                guard end <= data.count else { continue }
+                guard start >= layout.chunkAreaStart, end <= data.count, end >= start else {
+                    throw AEGError.integrity("Chunk range is out of bounds for \(e.logicalPath)")
+                }
                 let payload = data.subdata(in: start..<end)
                 let nonceData = makeVaultChunkNonce(prefix: e.chunkCrypto.noncePrefix, ordinal: c.ordinal)
                 let chunkAAD = makeVaultChunkAAD(vaultSalt: head.kdf_salt,
@@ -1379,6 +1381,9 @@ public enum Exporter {
                                              algorithm: e.chunkCrypto.algorithm)
                 }
                 plain.append(dec)
+            }
+            guard plain.count == Int(e.size) else {
+                throw AEGError.integrity("Decrypted size mismatch for \(e.logicalPath)")
             }
             let relativePath = sanitizedExportRelativePath(from: e.logicalPath)
             let outURL = outDir.appendingPathComponent(relativePath, isDirectory: false)
