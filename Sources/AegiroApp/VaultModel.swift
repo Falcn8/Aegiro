@@ -31,6 +31,9 @@ struct USBDataEncryptionLogEntry: Identifiable, Sendable {
 @MainActor
 final class VaultModel: ObservableObject {
     private static let supportedVaultExtensions: Set<String> = ["agvt", "aegirovault"]
+    private static func formattedError(_ error: Error) -> String {
+        AegiroUserError.messageWithCode(for: error)
+    }
 
     @Published var vaultURL: URL?
     @Published var locked: Bool = true
@@ -110,7 +113,7 @@ final class VaultModel: ObservableObject {
             UserDefaults.standard.set(true, forKey: "onboardingCompleted")
             self.refreshStatus()
         } catch {
-            self.status = "Create failed: \(error)"
+            self.status = "Create failed: \(Self.formattedError(error))"
         }
     }
 
@@ -133,7 +136,7 @@ final class VaultModel: ObservableObject {
             self.status = "Vault loaded"
             self.refreshStatus()
         } catch {
-            self.status = "Open failed: \(error)"
+            self.status = "Open failed: \(Self.formattedError(error))"
         }
     }
 
@@ -181,7 +184,7 @@ final class VaultModel: ObservableObject {
             invalidateVaultEntriesRefresh()
             cachedStatusInfo = nil
             cachedStatusRevisionKey = nil
-            self.status = "Status failed: \(error)"
+            self.status = "Status failed: \(Self.formattedError(error))"
         }
     }
 
@@ -249,7 +252,7 @@ final class VaultModel: ObservableObject {
                     self.entries = []
                     self.vaultFileCount = nil
                     self.vaultEntriesHasMore = false
-                    self.status = "Unlock failed: \(error)"
+                    self.status = "Unlock failed: \(Self.formattedError(error))"
                 }
             }
         }
@@ -268,7 +271,7 @@ final class VaultModel: ObservableObject {
             }
             self.refreshStatus()
         } catch {
-            self.status = "Lock failed: \(error)"
+            self.status = "Lock failed: \(Self.formattedError(error))"
         }
     }
 
@@ -289,7 +292,7 @@ final class VaultModel: ObservableObject {
                 self.status = imported == 0 ? "No files imported" : "Imported \(imported) file(s) into encrypted vault"
                 self.refreshStatus()
             } catch {
-                self.status = "Import failed: \(error)"
+                self.status = "Import failed: \(Self.formattedError(error))"
             }
         }
     }
@@ -313,7 +316,7 @@ final class VaultModel: ObservableObject {
             status = imported == 0 ? "No files imported" : "Imported \(imported) file(s) into encrypted vault"
             refreshStatus()
         } catch {
-            status = "Import failed: \(error)"
+            status = "Import failed: \(Self.formattedError(error))"
         }
     }
 
@@ -328,7 +331,7 @@ final class VaultModel: ObservableObject {
             let res = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: filters, outDir: dir)
             self.status = res.isEmpty ? "Nothing exported" : "Exported \(res.count) file(s)"
         } catch {
-            self.status = "Export failed: \(error)"
+            self.status = "Export failed: \(Self.formattedError(error))"
         }
     }
 
@@ -389,7 +392,7 @@ final class VaultModel: ObservableObject {
             }
             refreshStatus()
         } catch {
-            status = "Delete failed: \(error)"
+            status = "Delete failed: \(Self.formattedError(error))"
         }
     }
 
@@ -404,7 +407,7 @@ final class VaultModel: ObservableObject {
             }
             NSWorkspace.shared.open(out)
         } catch {
-            self.status = "Preview failed: \(error)"
+            self.status = "Preview failed: \(Self.formattedError(error))"
         }
     }
 
@@ -419,7 +422,7 @@ final class VaultModel: ObservableObject {
             }
             NSWorkspace.shared.activateFileViewerSelecting([out])
         } catch {
-            self.status = "Reveal failed: \(error)"
+            self.status = "Reveal failed: \(Self.formattedError(error))"
         }
     }
 
@@ -508,7 +511,7 @@ final class VaultModel: ObservableObject {
             } catch {
                 DispatchQueue.main.async {
                     self?.stopDiskEncryptionProgressMonitoring()
-                    self?.status = "Disk encrypt failed: \(error)"
+                    self?.status = "Disk encrypt failed: \(Self.formattedError(error))"
                 }
             }
         }
@@ -546,7 +549,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "Disk decrypt/unlock failed: \(error)"
+                    self?.status = "Disk decrypt/unlock failed: \(Self.formattedError(error))"
                 }
             }
         }
@@ -677,7 +680,7 @@ final class VaultModel: ObservableObject {
                     self.entries = []
                     self.vaultFileCount = nil
                     self.vaultEntriesHasMore = false
-                    self.status = "List failed: \(error)"
+                    self.status = "List failed: \(Self.formattedError(error))"
                 }
             }
         }
@@ -734,7 +737,7 @@ final class VaultModel: ObservableObject {
                     }
                 case .failure(let error):
                     self.vaultEntriesHasMore = false
-                    self.status = "List page failed: \(error)"
+                    self.status = "List page failed: \(Self.formattedError(error))"
                 }
             }
         }
@@ -813,7 +816,7 @@ final class VaultModel: ObservableObject {
                         self.refreshAPFSVolumeOptions()
                     }
                 case .failure(let error):
-                    self.diskEncryptionProgressMessage = "Progress unavailable: \(error)"
+                    self.diskEncryptionProgressMessage = "Progress unavailable: \(Self.formattedError(error))"
                 }
             }
         }
@@ -980,8 +983,8 @@ final class VaultModel: ObservableObject {
                         || self.usbDataEncryptionProgressMessage == "Cancelling..." {
                         self.usbDataEncryptionProgressMessage = "Encryption failed."
                     }
-                    self.appendUSBDataEncryptionLog("Operation failed: \(error)")
-                    self.status = "USB user-data encryption failed: \(error)"
+                    self.appendUSBDataEncryptionLog("Operation failed: \(Self.formattedError(error))")
+                    self.status = "USB user-data encryption failed: \(Self.formattedError(error))"
                     self.usbDataEncryptionLastResult = nil
                     completion?(false)
                 }
@@ -1044,7 +1047,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "USB container create failed: \(error)"
+                    self?.status = "USB container create failed: \(Self.formattedError(error))"
                     completion?(.failure(error))
                 }
             }
@@ -1091,7 +1094,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "USB container mount failed: \(error)"
+                    self?.status = "USB container mount failed: \(Self.formattedError(error))"
                     completion?(.failure(error))
                 }
             }
@@ -1124,7 +1127,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "USB container unmount failed: \(error)"
+                    self?.status = "USB container unmount failed: \(Self.formattedError(error))"
                     completion?(.failure(error))
                 }
             }
@@ -1147,7 +1150,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "Backup failed: \(error)"
+                    self?.status = "Backup failed: \(Self.formattedError(error))"
                     completion?(.failure(error))
                 }
             }
@@ -1169,7 +1172,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = error.localizedDescription
+                    self?.status = Self.formattedError(error)
                     completion?(.failure(error))
                 }
             }
@@ -1191,7 +1194,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "Verify failed: \(error)"
+                    self?.status = "Verify failed: \(Self.formattedError(error))"
                     completion?(.failure(error))
                 }
             }
@@ -1215,7 +1218,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "Status failed: \(error)"
+                    self?.status = "Status failed: \(Self.formattedError(error))"
                     completion?(.failure(error))
                 }
             }
@@ -1272,7 +1275,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "Shred failed: \(error)"
+                    self?.status = "Shred failed: \(Self.formattedError(error))"
                     completion?(.failure(error))
                 }
             }
@@ -1385,7 +1388,7 @@ final class VaultModel: ObservableObject {
             refreshStatus()
             return changed
         } catch {
-            status = "Flag normalization failed: \(error)"
+            status = "Flag normalization failed: \(Self.formattedError(error))"
             return false
         }
     }

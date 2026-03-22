@@ -45,7 +45,7 @@ extension VaultModel {
                 panel.makeKeyAndOrderFront(nil)
             }
         } catch {
-            self.status = "Quick Look failed: \(error)"
+            self.status = "Quick Look failed: \(AegiroUserError.messageWithCode(for: error))"
         }
     }
 }
