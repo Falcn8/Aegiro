@@ -6512,6 +6512,9 @@ private func externalAPFSVolumes(from options: [APFSVolumeOption]) -> [APFSVolum
 }
 
 private func isMountedExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
+    if isExcludedSimulatorAPFSOption(option) {
+        return false
+    }
     guard let mountPoint = option.mountPoint else {
         return false
     }
@@ -6522,6 +6525,9 @@ private func isMountedExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
 }
 
 private func isExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
+    if isExcludedSimulatorAPFSOption(option) {
+        return false
+    }
     if option.isInternalStore == true {
         return false
     }
@@ -6534,12 +6540,25 @@ private func isExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
     return option.isInternalStore == false
 }
 
+private func isExcludedSimulatorAPFSOption(_ option: APFSVolumeOption) -> Bool {
+    isLikelySimulatorRuntimeVolumeName(option.name)
+}
+
 private func isExcludedSystemExternalMountPoint(_ mountPoint: String) -> Bool {
     let lowered = mountPoint.lowercased()
     if lowered.contains("/coresimulator/") {
         return true
     }
     return isSimulatorRuntimeVolumeMountPoint(mountPoint)
+}
+
+private func isLikelySimulatorRuntimeVolumeName(_ name: String) -> Bool {
+    let lowered = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    guard !lowered.isEmpty, lowered.contains("simulator") else {
+        return false
+    }
+    let simulatorOSPrefixes = ["ios", "ipados", "watchos", "tvos", "visionos", "xros"]
+    return simulatorOSPrefixes.contains(where: { lowered.hasPrefix($0) })
 }
 
 private func isSimulatorRuntimeVolumeMountPoint(_ mountPoint: String) -> Bool {
