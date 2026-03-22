@@ -4,7 +4,7 @@ import AegiroCore
 
 enum Exit: Int32 { case ok = 0, usage = 2, fail = 1 }
 
-let AEGIRO_CLI_VERSION = "0.1.1"
+let AEGIRO_CLI_VERSION = "0.1.2"
 
 struct CLI {
     static func run() throws {
@@ -651,6 +651,6 @@ Performance tips:
 }
 
 do { try CLI.run() } catch {
-    fputs("Error: \(error)\n", stderr)
+    fputs("Error: \(AegiroUserError.messageWithCode(for: error))\n", stderr)
     exit(1)
 }
