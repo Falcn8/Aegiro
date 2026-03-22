@@ -75,6 +75,7 @@ final class VaultModel: ObservableObject {
     @Published var vaultEntriesLoading: Bool = false
     @Published var vaultEntriesPageLoading: Bool = false
     @Published var vaultEntriesHasMore: Bool = false
+    @Published var moveEntriesInProgress: Bool = false
     @Published var autoLockRemaining: TimeInterval = 0
     private var timer: Timer?
     private var diskEncryptionProgressTimer: Timer?
@@ -503,6 +504,83 @@ final class VaultModel: ObservableObject {
         } catch {
             status = "Move failed: \(Self.formattedError(error))"
             return nil
+        }
+    }
+
+    func moveEntriesAsync(logicalPaths: [String],
+                          directoryPaths: [String],
+                          destinationDirectoryPath: String,
+                          completion: @escaping (Int?) -> Void) {
+        touchActivity()
+        guard !moveEntriesInProgress else {
+            status = "Move already in progress"
+            completion(nil)
+            return
+        }
+        guard let vaultURL else {
+            completion(nil)
+            return
+        }
+        guard !locked else {
+            status = "Unlock to move files and folders"
+            completion(nil)
+            return
+        }
+        guard !passphrase.isEmpty else {
+            status = "Unlock with your passphrase to move files and folders"
+            completion(nil)
+            return
+        }
+
+        let normalizedFiles = Array(Set(logicalPaths
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }))
+        let normalizedDirectories = Array(Set(directoryPaths
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }))
+        guard !normalizedFiles.isEmpty || !normalizedDirectories.isEmpty else {
+            status = "No files or folders selected to move"
+            completion(nil)
+            return
+        }
+
+        moveEntriesInProgress = true
+        status = "Moving items..."
+
+        let pass = passphrase
+        let destination = destinationDirectoryPath
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = Result {
+                try Editor.moveEntries(vaultURL: vaultURL,
+                                       passphrase: pass,
+                                       logicalPaths: normalizedFiles,
+                                       directoryPaths: normalizedDirectories,
+                                       destinationDirectoryPath: destination)
+            }
+
+            DispatchQueue.main.async {
+                guard let self else {
+                    completion(nil)
+                    return
+                }
+                self.moveEntriesInProgress = false
+
+                switch result {
+                case .success(let moved):
+                    if moved > 0 {
+                        self.applyOptimisticMove(logicalPaths: normalizedFiles,
+                                                 directoryPaths: normalizedDirectories,
+                                                 destinationDirectoryPath: destination)
+                    }
+                    self.status = moved == 0 ? "Nothing moved" : "Moved \(moved) item(s)"
+                    self.refreshStatus(preserveVisibleEntries: true)
+                    completion(moved)
+                case .failure(let error):
+                    self.status = "Move failed: \(Self.formattedError(error))"
+                    completion(nil)
+                }
+            }
         }
     }
 

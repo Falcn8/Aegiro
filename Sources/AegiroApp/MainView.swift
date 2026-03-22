@@ -1507,20 +1507,34 @@ struct MainView: View {
 
             TextField("Destination folder path (blank = Vault Root)", text: $moveDestinationDirectoryPath)
                 .textFieldStyle(.roundedBorder)
+                .disabled(model.moveEntriesInProgress)
                 .onSubmit(confirmMoveEntries)
+
+            if model.moveEntriesInProgress {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Moving items...")
+                        .font(AegiroTypography.body(12, weight: .regular))
+                        .foregroundStyle(AegiroPalette.textSecondary)
+                }
+            }
 
             HStack {
                 Spacer()
                 Button("Cancel") {
                     dismissMoveSheet()
                 }
+                .disabled(model.moveEntriesInProgress)
 
                 Button("Move") {
                     confirmMoveEntries()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AegiroPalette.accentIndigo)
-                .disabled(model.locked || (pendingMoveLogicalPaths.isEmpty && pendingMoveDirectoryPaths.isEmpty))
+                .disabled(model.locked
+                          || model.moveEntriesInProgress
+                          || (pendingMoveLogicalPaths.isEmpty && pendingMoveDirectoryPaths.isEmpty))
             }
         }
         .padding(20)
@@ -1986,16 +2000,19 @@ struct MainView: View {
     }
 
     private func confirmMoveEntries() {
-        guard model.moveEntries(logicalPaths: pendingMoveLogicalPaths,
-                                directoryPaths: pendingMoveDirectoryPaths,
-                                destinationDirectoryPath: moveDestinationDirectoryPath) != nil else {
+        guard !model.moveEntriesInProgress else {
             return
         }
-        selection.removeAll()
-        selectionAnchor = nil
-        selectionCursor = nil
-        selectedFolderPath = nil
-        dismissMoveSheet()
+        model.moveEntriesAsync(logicalPaths: pendingMoveLogicalPaths,
+                               directoryPaths: pendingMoveDirectoryPaths,
+                               destinationDirectoryPath: moveDestinationDirectoryPath) { moved in
+            guard moved != nil else { return }
+            selection.removeAll()
+            selectionAnchor = nil
+            selectionCursor = nil
+            selectedFolderPath = nil
+            dismissMoveSheet()
+        }
     }
 
     private func dismissMoveSheet() {
