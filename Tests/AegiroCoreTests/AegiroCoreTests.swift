@@ -930,6 +930,74 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: restored), payload)
     }
 
+    func testUSBUserDataEncryptPrunesStaleLegacyTruncatedPathEntries() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("userdata.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let legacySource = tmp.appendingPathComponent("legacy/ghjkl/template.cpp")
+        try FileManager.default.createDirectory(at: legacySource.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("legacy".utf8).write(to: legacySource)
+        let legacyImported = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [legacySource])
+        XCTAssertEqual(legacyImported.imported, 1)
+        XCTAssertEqual(Set(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").map(\.logicalPath)),
+                       Set(["ghjkl/template.cpp"]))
+
+        let root = tmp.appendingPathComponent("usb", isDirectory: true)
+        let nested = root.appendingPathComponent("asdf/ghjkl", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let sourceFile = nested.appendingPathComponent("template.cpp")
+        try Data("current".utf8).write(to: sourceFile)
+
+        let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: root,
+                                                            vaultURL: vaultURL,
+                                                            passphrase: "test-pass",
+                                                            deleteOriginals: false,
+                                                            dryRun: false)
+        XCTAssertEqual(result.encryptedFileCount, 1)
+
+        let logicalPaths = Set(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").map(\.logicalPath))
+        XCTAssertTrue(logicalPaths.contains("asdf/ghjkl/template.cpp"))
+        XCTAssertFalse(logicalPaths.contains("ghjkl/template.cpp"))
+    }
+
+    func testUSBUserDataEncryptKeepsTwoLevelPathWhenItExistsInCurrentSource() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("userdata.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let legacySource = tmp.appendingPathComponent("legacy/ghjkl/template.cpp")
+        try FileManager.default.createDirectory(at: legacySource.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("legacy".utf8).write(to: legacySource)
+        _ = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [legacySource])
+
+        let root = tmp.appendingPathComponent("usb", isDirectory: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("asdf/ghjkl", isDirectory: true), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("ghjkl", isDirectory: true), withIntermediateDirectories: true)
+
+        let deepFile = root.appendingPathComponent("asdf/ghjkl/template.cpp")
+        let twoLevelFile = root.appendingPathComponent("ghjkl/template.cpp")
+        try Data("deep".utf8).write(to: deepFile)
+        try Data("two-level".utf8).write(to: twoLevelFile)
+
+        let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: root,
+                                                            vaultURL: vaultURL,
+                                                            passphrase: "test-pass",
+                                                            deleteOriginals: false,
+                                                            dryRun: false)
+        XCTAssertEqual(result.encryptedFileCount, 2)
+
+        let logicalPaths = Set(try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass").map(\.logicalPath))
+        XCTAssertTrue(logicalPaths.contains("asdf/ghjkl/template.cpp"))
+        XCTAssertTrue(logicalPaths.contains("ghjkl/template.cpp"))
+    }
+
     func testUSBUserDataEncryptDeletesOriginalsAfterSuccess() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

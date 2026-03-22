@@ -308,6 +308,8 @@ public enum USBUserDataCrypto {
                 createdVault = true
             }
 
+            let legacyLogicalPathsToPrune = legacyLogicalPathsToPrune(files: scan.files,
+                                                                      sourceRootURL: scan.sourceRootURL)
             var latestImportedCount = 0
             var latestImportTotalCount = scan.scannedFileCount
             let imported = try Importer.sidecarImport(vaultURL: normalizedVaultURL,
@@ -330,9 +332,22 @@ public enum USBUserDataCrypto {
                                                                                                processedFileCount: latestImportedCount,
                                                                                                totalFileCount: latestImportTotalCount,
                                                                                                currentPath: nil,
-                                                                                               message: status))
+                                                                                              message: status))
                                                       },
                                                       isCancelled: isCancelled).imported
+
+            if !createdVault && !legacyLogicalPathsToPrune.isEmpty {
+                let removedLegacyEntries = try Editor.deleteEntries(vaultURL: normalizedVaultURL,
+                                                                    passphrase: trimmedPassphrase,
+                                                                    logicalPaths: legacyLogicalPathsToPrune)
+                if removedLegacyEntries > 0 {
+                    progress?(USBUserDataEncryptProgress(stage: .encrypting,
+                                                         processedFileCount: latestImportedCount,
+                                                         totalFileCount: latestImportTotalCount,
+                                                         currentPath: nil,
+                                                         message: "Removed \(removedLegacyEntries) stale legacy path entr\(removedLegacyEntries == 1 ? "y" : "ies")."))
+                }
+            }
 
             var deletedOriginalCount = 0
             var deletionErrors: [String] = []
@@ -377,6 +392,70 @@ public enum USBUserDataCrypto {
                 cleanupCancelledNewVault(normalizedVaultURL)
             }
             throw error
+        }
+    }
+
+    private static func sanitizedLogicalPathComponent(_ component: String, fallback: String = "_") -> String {
+        var trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == "." || trimmed == ".." {
+            trimmed = fallback
+        }
+        return trimmed.replacingOccurrences(of: ":", with: "_")
+    }
+
+    private static func normalizedLogicalPath(_ rawPath: String, fallback: String = "unnamed") -> String {
+        let normalized = rawPath.replacingOccurrences(of: "\\", with: "/")
+        let components = normalized
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+        let safeComponents = components.map { sanitizedLogicalPathComponent($0) }
+        guard !safeComponents.isEmpty else { return fallback }
+        return NSString.path(withComponents: safeComponents)
+    }
+
+    private static func relativeLogicalPath(for fileURL: URL, sourceRootURL: URL) -> String? {
+        let rootPath = sourceRootURL.standardizedFileURL.resolvingSymlinksInPath().path
+        let rootPrefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        let filePath = fileURL.standardizedFileURL.resolvingSymlinksInPath().path
+        guard filePath.hasPrefix(rootPrefix) else { return nil }
+        let relative = String(filePath.dropFirst(rootPrefix.count))
+        guard !relative.isEmpty else { return nil }
+        return normalizedLogicalPath(relative)
+    }
+
+    private static func legacyBugLogicalPath(for fileURL: URL) -> String {
+        let normalizedFile = fileURL.standardizedFileURL.resolvingSymlinksInPath()
+        let parentNameRaw = normalizedFile.deletingLastPathComponent().lastPathComponent
+        let parentName = sanitizedLogicalPathComponent(parentNameRaw, fallback: "")
+        let fileName = sanitizedLogicalPathComponent(normalizedFile.lastPathComponent, fallback: "unnamed")
+        if parentName.isEmpty {
+            return fileName
+        }
+        return normalizedLogicalPath("\(parentName)/\(fileName)")
+    }
+
+    private static func legacyLogicalPathsToPrune(files: [URL], sourceRootURL: URL) -> [String] {
+        guard !files.isEmpty else { return [] }
+
+        var currentSourceLogicalPaths = Set<String>()
+        for file in files {
+            if let relative = relativeLogicalPath(for: file, sourceRootURL: sourceRootURL) {
+                currentSourceLogicalPaths.insert(relative)
+            }
+        }
+
+        var staleLegacyPaths = Set<String>()
+        for file in files {
+            let legacyPath = legacyBugLogicalPath(for: file)
+            guard !legacyPath.isEmpty else { continue }
+            if currentSourceLogicalPaths.contains(legacyPath) {
+                continue
+            }
+            staleLegacyPaths.insert(legacyPath)
+        }
+
+        return staleLegacyPaths.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
     }
 
