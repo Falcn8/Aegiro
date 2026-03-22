@@ -2061,7 +2061,9 @@ public enum Editor {
                                           created: now,
                                           modified: now,
                                           sidecarName: nil)
-        index.entries.append(markerEntry)
+        // Keep newly created empty folders visible in paged list views by
+        // placing the marker at the front of the index.
+        index.entries.insert(markerEntry, at: 0)
 
         let existingCM = data.subdata(in: layout.chunkMapRange)
         let chunkInfos = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
