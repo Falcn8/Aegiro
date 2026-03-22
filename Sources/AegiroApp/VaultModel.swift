@@ -1169,7 +1169,7 @@ final class VaultModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self?.status = "Restore failed: \(error)"
+                    self?.status = "Restore failed: \(error.localizedDescription)"
                     completion?(.failure(error))
                 }
             }
