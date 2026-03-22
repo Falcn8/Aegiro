@@ -5,8 +5,9 @@ ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT_DIR"
 
 BUILD_COMMIT="$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")"
+BUILD_TREE_STATE="clean"
 if ! git diff --quiet --ignore-submodules -- || ! git diff --cached --quiet --ignore-submodules --; then
-  BUILD_COMMIT="${BUILD_COMMIT}-dirty"
+  BUILD_TREE_STATE="dirty"
 fi
 BUILD_DATE="$(date -u +%F)"
 BUILD_INFO_FILE="$ROOT_DIR/Sources/AegiroCLI/BuildInfo.generated.swift"
@@ -28,8 +29,9 @@ trap restore_build_info EXIT
 cat >"$BUILD_INFO_FILE" <<EOF
 let AEGIRO_BUILD_COMMIT = "$BUILD_COMMIT"
 let AEGIRO_BUILD_DATE = "$BUILD_DATE"
+let AEGIRO_BUILD_TREE_STATE = "$BUILD_TREE_STATE"
 EOF
-echo "Stamped build metadata: commit=$BUILD_COMMIT date=$BUILD_DATE"
+echo "Stamped build metadata: commit=$BUILD_COMMIT date=$BUILD_DATE tree=$BUILD_TREE_STATE"
 
 echo "Checking dependencies (brew)..."
 if ! pkg-config --exists liboqs 2>/dev/null; then

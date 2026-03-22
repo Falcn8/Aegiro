@@ -4,7 +4,7 @@ import AegiroCore
 
 enum Exit: Int32 { case ok = 0, usage = 2, fail = 1 }
 
-let AEGIRO_CLI_VERSION = "0.1.2-beta"
+let AEGIRO_CLI_VERSION = "0.1.3-beta"
 
 struct CLI {
     static func run() throws {
@@ -12,7 +12,17 @@ struct CLI {
         guard let cmd = args.first else { hint("No command provided.", tip: "Run --help to see available commands.") }
         switch cmd {
         case "--version", "version":
-            printVersion()
+            let versionArgs = Array(args.dropFirst())
+            let verbose: Bool
+            if versionArgs.isEmpty {
+                verbose = false
+            } else if versionArgs.count == 1, versionArgs[0] == "--verbose" || versionArgs[0] == "-v" {
+                verbose = true
+            } else {
+                hint("Unknown option for \(cmd): \(versionArgs.joined(separator: " "))",
+                     tip: "Use: \(cmd) [--verbose]")
+            }
+            printVersion(verbose: verbose)
             return
         case "--help", "help":
             printUsage(); return
@@ -581,7 +591,7 @@ struct CLI {
         print("""
 Aegiro CLI v\(AEGIRO_CLI_VERSION)
 Usage:
-  --version | version                      Show CLI version and build info
+  --version | version [--verbose|-v]       Show CLI version and build info
   --help    | help                         Show this help
   create --vault <path.agvt> --passphrase "<pass>" [--touchid]
   import --vault <path> --passphrase "<pass>" <files...>
@@ -617,12 +627,46 @@ Performance tips:
 """)
     }
 
-    static func printVersion() {
-        print("""
+    static func printVersion(verbose: Bool = false) {
+        var lines = [
+            """
 Aegiro CLI v\(AEGIRO_CLI_VERSION)
 Commit: \(AEGIRO_BUILD_COMMIT)
 Built: \(AEGIRO_BUILD_DATE)
-""")
+"""
+        ]
+        if verbose {
+            lines.append("Tree: \(AEGIRO_BUILD_TREE_STATE)")
+            lines.append("Target: \(buildTargetDescription())")
+            lines.append("Build: \(buildConfiguration())")
+            lines.append("Vault format: v\(vaultFormatVersion())")
+        }
+        print(lines.joined(separator: "\n"))
+    }
+
+    static func buildTargetDescription() -> String {
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        let version = "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"
+        #if arch(arm64)
+        let arch = "arm64"
+        #elseif arch(x86_64)
+        let arch = "x86_64"
+        #else
+        let arch = "unknown"
+        #endif
+        return "macOS \(version) \(arch)"
+    }
+
+    static func buildConfiguration() -> String {
+        #if DEBUG
+        return "debug"
+        #else
+        return "release"
+        #endif
+    }
+
+    static func vaultFormatVersion() -> Int {
+        Int(VaultHeader.MAGIC.last ?? 0)
     }
 
     static func hint(_ message: String, tip: String, code: Exit = .usage) -> Never {
