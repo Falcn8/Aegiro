@@ -5378,7 +5378,7 @@ private struct RestoreSheet: View {
                 """
                 onDone()
             case .failure(let error):
-                output = "Error: \(error.localizedDescription)"
+                output = error.localizedDescription
             }
         }
     }
