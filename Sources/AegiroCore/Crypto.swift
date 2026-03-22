@@ -14,14 +14,21 @@ public struct NonceScheme {
         let ci = withUnsafeBytes(of: chunkIndex.bigEndian, Array.init)
         let mac = HMAC<SHA256>.authenticationCode(for: ci, using: fileSeed)
         let twelve = Data(mac.prefix(12))
-        return try! AES.GCM.Nonce(data: twelve)
+        if let nonce = try? AES.GCM.Nonce(data: twelve) {
+            return nonce
+        }
+        assertionFailure("Failed to derive AES-GCM nonce from deterministic HMAC output")
+        return AES.GCM.Nonce()
     }
 }
 
 public struct AEAD {
     public static func encrypt(key: SymmetricKey, nonce: AES.GCM.Nonce, plaintext: Data, aad: Data) throws -> Data {
         let sealed = try AES.GCM.seal(plaintext, using: key, nonce: nonce, authenticating: aad)
-        return sealed.combined!
+        guard let combined = sealed.combined else {
+            throw AEGError.crypto("AES-GCM combined ciphertext was unavailable")
+        }
+        return combined
     }
     public static func decrypt(key: SymmetricKey, nonce: AES.GCM.Nonce, combined: Data, aad: Data) throws -> Data {
         let sealed = try AES.GCM.SealedBox(combined: combined)
