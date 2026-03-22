@@ -5086,7 +5086,7 @@ private struct BackupSheet: View {
                 .font(AegiroTypography.display(24, weight: .semibold))
                 .foregroundStyle(AegiroPalette.textPrimary)
 
-            Text("CLI parity for backup --vault <path> --out <path.aegirobackup> [--passphrase ...].")
+            Text("CLI parity for backup --vault <path> --out <path.aegirobackup> [--passphrase ...]. Optional passphrase validates vault unlock before backup.")
                 .font(AegiroTypography.body(13, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
 
@@ -5106,8 +5106,8 @@ private struct BackupSheet: View {
                     .buttonStyle(.bordered)
             }
 
-            formLabel("Passphrase (Optional)")
-            SecureField("Optional", text: $passphrase)
+            formLabel("Vault Passphrase for Validation (Optional)")
+            SecureField("Optional: validates vault unlock (does not re-encrypt backup)", text: $passphrase)
                 .textFieldStyle(.roundedBorder)
 
             if isRunning {
