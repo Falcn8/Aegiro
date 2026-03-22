@@ -58,6 +58,8 @@ struct MainView: View {
     @State private var listSelectionBase: Set<VaultIndexEntry.ID> = []
     @State private var currentDirectoryPath: String = ""
     @State private var selectedFolderPath: String?
+    @State private var lastFolderClickPath: String?
+    @State private var lastFolderClickAt: Date = .distantPast
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
 
@@ -1071,9 +1073,6 @@ struct MainView: View {
             alignment: .bottom
         )
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            openDirectory(folder.path)
-        }
         .onTapGesture {
             handleFolderClick(on: folder.path)
         }
@@ -1284,9 +1283,6 @@ struct MainView: View {
         .onTapGesture {
             handleFolderClick(on: folder.path)
         }
-        .onTapGesture(count: 2) {
-            openDirectory(folder.path)
-        }
     }
 
     private func rowMenu(entry: VaultIndexEntry) -> some View {
@@ -1495,11 +1491,25 @@ struct MainView: View {
 
     private func handleFolderClick(on folderPath: String) {
         dismissSearchFieldFocus()
+        let now = Date()
+        let isDoubleClick = lastFolderClickPath == folderPath
+            && now.timeIntervalSince(lastFolderClickAt) <= NSEvent.doubleClickInterval
+
         selectedFolderPath = folderPath
         selection.removeAll()
         selectionAnchor = nil
         selectionCursor = nil
         showFileInfoPopover = false
+
+        if isDoubleClick {
+            lastFolderClickPath = nil
+            lastFolderClickAt = .distantPast
+            openDirectory(folderPath)
+            return
+        }
+
+        lastFolderClickPath = folderPath
+        lastFolderClickAt = now
     }
 
     private func updateSelectionForClick(on entryID: VaultIndexEntry.ID, modifiers: NSEvent.ModifierFlags) {
@@ -1916,6 +1926,8 @@ struct MainView: View {
         dismissSearchFieldFocus()
         currentDirectoryPath = MainView.normalizedLogicalPath(path)
         selectedFolderPath = nil
+        lastFolderClickPath = nil
+        lastFolderClickAt = .distantPast
         selection.removeAll()
         selectionAnchor = nil
         selectionCursor = nil
