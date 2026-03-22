@@ -55,6 +55,7 @@ struct MainView: View {
     @State private var listSelectionRect: CGRect?
     @State private var listSelectionBase: Set<VaultIndexEntry.ID> = []
     @State private var currentDirectoryPath: String = ""
+    @State private var selectedFolderPath: String?
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
 
@@ -236,6 +237,7 @@ struct MainView: View {
             if normalizedPath != lastObservedVaultPath {
                 searchText = ""
                 currentDirectoryPath = ""
+                selectedFolderPath = nil
                 selection.removeAll()
                 selectionAnchor = nil
                 selectionCursor = nil
@@ -257,6 +259,7 @@ struct MainView: View {
         }
         .onReceive(model.$locked) { isLocked in
             if isLocked {
+                selectedFolderPath = nil
                 selection.removeAll()
                 selectionAnchor = nil
                 selectionCursor = nil
@@ -279,6 +282,7 @@ struct MainView: View {
                 showFileInfoPopover = false
                 return
             }
+            selectedFolderPath = nil
             let visibleIDs = visibleFileIDsInCurrentDirectory
             if selectionAnchor == nil || !(selectionAnchor.map(newSelection.contains) ?? false) {
                 selectionAnchor = visibleIDs.first(where: { newSelection.contains($0) })
@@ -291,15 +295,18 @@ struct MainView: View {
             }
         }
         .onChange(of: searchText) { _ in
+            selectedFolderPath = nil
             scheduleFilteredEntriesRebuild(debounce: true)
             if !trimmedSearchQuery.isEmpty {
                 model.loadRemainingVaultEntriesInBackground()
             }
         }
         .onChange(of: sortOption) { _ in
+            selectedFolderPath = nil
             scheduleFilteredEntriesRebuild()
         }
         .onChange(of: sortAscending) { _ in
+            selectedFolderPath = nil
             scheduleFilteredEntriesRebuild()
         }
         .onDisappear {
@@ -1049,7 +1056,11 @@ struct MainView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AegiroPalette.backgroundCard.opacity(0.75))
+        .background(
+            selectedFolderPath == folder.path
+            ? AegiroPalette.selection
+            : AegiroPalette.backgroundCard.opacity(0.75)
+        )
         .overlay(
             Rectangle()
                 .fill(AegiroPalette.borderSubtle.opacity(0.35))
@@ -1061,7 +1072,7 @@ struct MainView: View {
             openDirectory(folder.path)
         }
         .onTapGesture {
-            dismissSearchFieldFocus()
+            handleFolderClick(on: folder.path)
         }
     }
 
@@ -1251,16 +1262,24 @@ struct MainView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AegiroPalette.backgroundCard)
+                .fill(
+                    selectedFolderPath == folder.path
+                    ? AegiroPalette.selection
+                    : AegiroPalette.backgroundCard
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AegiroPalette.borderSubtle, lineWidth: 1)
+                .stroke(
+                    selectedFolderPath == folder.path
+                    ? AegiroPalette.accentIndigo
+                    : AegiroPalette.borderSubtle,
+                    lineWidth: 1
+                )
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            dismissSearchFieldFocus()
-            selection.removeAll()
+            handleFolderClick(on: folder.path)
         }
         .onTapGesture(count: 2) {
             openDirectory(folder.path)
@@ -1458,15 +1477,26 @@ struct MainView: View {
     }
 
     private func handleGridClick(on entry: VaultIndexEntry) {
+        selectedFolderPath = nil
         dismissSearchFieldFocus()
         let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
         updateSelectionForClick(on: entry.id, modifiers: modifiers)
     }
 
     private func handleListClick(on entry: VaultIndexEntry) {
+        selectedFolderPath = nil
         dismissSearchFieldFocus()
         let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
         updateSelectionForClick(on: entry.id, modifiers: modifiers)
+    }
+
+    private func handleFolderClick(on folderPath: String) {
+        dismissSearchFieldFocus()
+        selectedFolderPath = folderPath
+        selection.removeAll()
+        selectionAnchor = nil
+        selectionCursor = nil
+        showFileInfoPopover = false
     }
 
     private func updateSelectionForClick(on entryID: VaultIndexEntry.ID, modifiers: NSEvent.ModifierFlags) {
@@ -1525,6 +1555,7 @@ struct MainView: View {
     }
 
     private func handleGridDragChanged(_ value: DragGesture.Value) {
+        selectedFolderPath = nil
         if gridDragStart == nil {
             gridDragStart = value.startLocation
             gridSelectionBase = selection
@@ -1560,6 +1591,7 @@ struct MainView: View {
     }
 
     private func handleListDragChanged(_ value: DragGesture.Value) {
+        selectedFolderPath = nil
         if listDragStart == nil {
             listDragStart = value.startLocation
             listSelectionBase = selection
@@ -1880,6 +1912,7 @@ struct MainView: View {
     private func openDirectory(_ path: String) {
         dismissSearchFieldFocus()
         currentDirectoryPath = MainView.normalizedLogicalPath(path)
+        selectedFolderPath = nil
         selection.removeAll()
         selectionAnchor = nil
         selectionCursor = nil
