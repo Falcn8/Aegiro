@@ -24,6 +24,7 @@ public struct BackupArchiveInfo: Codable {
 public final class Backup {
     private static let magic = Data("AEGIROBK1".utf8)
     private static let streamChunkSize = 1_048_576
+    private static let archiveDigestLength = 32
 
     public static func exportBackup(from vault: AegiroVault, to outURL: URL, passphrase: String) throws {
         let fm = FileManager.default
@@ -50,7 +51,7 @@ public final class Backup {
 
         let sourceSummary = try computeSHA256AndSize(of: sourceVaultURL)
         let metadata = BackupArchiveMetadata(
-            formatVersion: 1,
+            formatVersion: 2,
             createdAt: Date(),
             sourceVaultFileName: sourceVaultURL.lastPathComponent,
             sourceVaultSizeBytes: sourceSummary.sizeBytes,
@@ -91,14 +92,17 @@ public final class Backup {
         let outHandle = try FileHandle(forWritingTo: tmpURL)
         defer { try? outHandle.close() }
 
-        try outHandle.write(contentsOf: magic)
-        try outHandle.write(contentsOf: uint32LE(UInt32(metadataBlob.count)))
-        try outHandle.write(contentsOf: metadataBlob)
-        try outHandle.write(contentsOf: uint64LE(sourceSummary.sizeBytes))
-        let copiedBytes = try copyBytes(from: sourceVaultURL, to: outHandle)
+        var archiveHasher = SHA256()
+        try writeAndHash(magic, to: outHandle, hasher: &archiveHasher)
+        try writeAndHash(uint32LE(UInt32(metadataBlob.count)), to: outHandle, hasher: &archiveHasher)
+        try writeAndHash(metadataBlob, to: outHandle, hasher: &archiveHasher)
+        try writeAndHash(uint64LE(sourceSummary.sizeBytes), to: outHandle, hasher: &archiveHasher)
+        let copiedBytes = try copyBytes(from: sourceVaultURL, to: outHandle, hasher: &archiveHasher)
         guard copiedBytes == sourceSummary.sizeBytes else {
             throw NSError(domain: "Backup", code: -4, userInfo: [NSLocalizedDescriptionKey: "Backup payload copy was incomplete."])
         }
+        let archiveDigest = Data(archiveHasher.finalize())
+        try outHandle.write(contentsOf: archiveDigest)
         try outHandle.synchronize()
 
         if fm.fileExists(atPath: targetURL.path) {
@@ -118,7 +122,8 @@ public final class Backup {
             throw NSError(domain: "Backup", code: -10, userInfo: [NSLocalizedDescriptionKey: "Invalid backup file format (magic mismatch)."])
         }
 
-        let metadataLength = Int(fromLEUInt32: try readExact(count: 4, from: handle))
+        let metadataLengthData = try readExact(count: 4, from: handle)
+        let metadataLength = Int(fromLEUInt32: metadataLengthData)
         guard metadataLength >= 0 else {
             throw NSError(domain: "Backup", code: -11, userInfo: [NSLocalizedDescriptionKey: "Invalid backup metadata length."])
         }
@@ -126,14 +131,28 @@ public final class Backup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let metadata = try decoder.decode(BackupArchiveMetadata.self, from: metadataBlob)
+        guard metadata.formatVersion == 1 || metadata.formatVersion == 2 else {
+            throw NSError(domain: "Backup", code: -14, userInfo: [NSLocalizedDescriptionKey: "Unsupported backup metadata format version: \(metadata.formatVersion)."])
+        }
 
-        let payloadSizeBytes = UInt64(fromLEUInt64: try readExact(count: 8, from: handle))
+        let payloadSizeData = try readExact(count: 8, from: handle)
+        let payloadSizeBytes = UInt64(fromLEUInt64: payloadSizeData)
         let attrs = try FileManager.default.attributesOfItem(atPath: normalizedURL.path)
         let archiveSizeBytes = (attrs[.size] as? NSNumber)?.uint64Value ?? 0
 
-        let expectedSize = UInt64(magic.count + 4 + metadataLength + 8) + payloadSizeBytes
-        guard archiveSizeBytes >= expectedSize else {
-            throw NSError(domain: "Backup", code: -12, userInfo: [NSLocalizedDescriptionKey: "Backup file is truncated (payload is incomplete)."])
+        let baseSize = UInt64(magic.count + 4 + metadataLength + 8) + payloadSizeBytes
+        let expectedSize = baseSize + (metadata.formatVersion >= 2 ? UInt64(archiveDigestLength) : 0)
+        guard archiveSizeBytes == expectedSize else {
+            throw NSError(domain: "Backup", code: -12, userInfo: [NSLocalizedDescriptionKey: "Backup file size does not match metadata payload length."])
+        }
+
+        if metadata.formatVersion >= 2 {
+            try handle.seek(toOffset: baseSize)
+            let storedDigest = try readExact(count: archiveDigestLength, from: handle)
+            let computedDigest = try computeSHA256(of: normalizedURL, byteCount: baseSize)
+            guard storedDigest == computedDigest else {
+                throw NSError(domain: "Backup", code: -15, userInfo: [NSLocalizedDescriptionKey: "Backup archive digest mismatch (metadata/payload integrity check failed)."])
+            }
         }
 
         return BackupArchiveInfo(metadata: metadata,
@@ -164,7 +183,8 @@ public final class Backup {
         guard storedMagic == magic else {
             throw NSError(domain: "Backup", code: -10, userInfo: [NSLocalizedDescriptionKey: "Invalid backup file format (magic mismatch)."])
         }
-        let metadataLength = Int(fromLEUInt32: try readExact(count: 4, from: sourceHandle))
+        let metadataLengthData = try readExact(count: 4, from: sourceHandle)
+        let metadataLength = Int(fromLEUInt32: metadataLengthData)
         guard metadataLength >= 0 else {
             throw NSError(domain: "Backup", code: -11, userInfo: [NSLocalizedDescriptionKey: "Invalid backup metadata length."])
         }
@@ -172,10 +192,19 @@ public final class Backup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let metadata = try decoder.decode(BackupArchiveMetadata.self, from: metadataBlob)
-        let payloadSizeBytes = UInt64(fromLEUInt64: try readExact(count: 8, from: sourceHandle))
+        guard metadata.formatVersion == 1 || metadata.formatVersion == 2 else {
+            throw NSError(domain: "Backup", code: -14, userInfo: [NSLocalizedDescriptionKey: "Unsupported backup metadata format version: \(metadata.formatVersion)."])
+        }
+        let payloadSizeData = try readExact(count: 8, from: sourceHandle)
+        let payloadSizeBytes = UInt64(fromLEUInt64: payloadSizeData)
 
         let attrs = try fm.attributesOfItem(atPath: normalizedBackupURL.path)
         let archiveSizeBytes = (attrs[.size] as? NSNumber)?.uint64Value ?? 0
+        let baseSize = UInt64(magic.count + 4 + metadataLength + 8) + payloadSizeBytes
+        let expectedSize = baseSize + (metadata.formatVersion >= 2 ? UInt64(archiveDigestLength) : 0)
+        guard archiveSizeBytes == expectedSize else {
+            throw NSError(domain: "Backup", code: -12, userInfo: [NSLocalizedDescriptionKey: "Backup file size does not match metadata payload length."])
+        }
         let info = BackupArchiveInfo(metadata: metadata,
                                      payloadSizeBytes: payloadSizeBytes,
                                      archiveSizeBytes: archiveSizeBytes)
@@ -199,6 +228,16 @@ public final class Backup {
         let outHandle = try FileHandle(forWritingTo: tmpURL)
         defer { try? outHandle.close() }
 
+        var archiveHasher: SHA256?
+        if metadata.formatVersion >= 2 {
+            var hasher = SHA256()
+            hasher.update(data: storedMagic)
+            hasher.update(data: metadataLengthData)
+            hasher.update(data: metadataBlob)
+            hasher.update(data: payloadSizeData)
+            archiveHasher = hasher
+        }
+
         var bytesRemaining = info.payloadSizeBytes
         var hasher = SHA256()
         while bytesRemaining > 0 {
@@ -208,7 +247,19 @@ public final class Backup {
             }
             try outHandle.write(contentsOf: chunk)
             hasher.update(data: chunk)
+            archiveHasher?.update(data: chunk)
             bytesRemaining -= UInt64(chunk.count)
+        }
+
+        if metadata.formatVersion >= 2 {
+            let storedDigest = try readExact(count: archiveDigestLength, from: sourceHandle)
+            guard let computedHasher = archiveHasher else {
+                throw NSError(domain: "Backup", code: -15, userInfo: [NSLocalizedDescriptionKey: "Backup archive digest state was unavailable."])
+            }
+            let computedDigest = Data(computedHasher.finalize())
+            guard storedDigest == computedDigest else {
+                throw NSError(domain: "Backup", code: -15, userInfo: [NSLocalizedDescriptionKey: "Backup archive digest mismatch (metadata/payload integrity check failed)."])
+            }
         }
         try outHandle.synchronize()
 
@@ -244,7 +295,7 @@ public final class Backup {
         return (hexString(Data(hasher.finalize())), total)
     }
 
-    private static func copyBytes(from sourceURL: URL, to output: FileHandle) throws -> UInt64 {
+    private static func copyBytes(from sourceURL: URL, to output: FileHandle, hasher: inout SHA256) throws -> UInt64 {
         let input = try FileHandle(forReadingFrom: sourceURL)
         defer { try? input.close() }
 
@@ -254,6 +305,7 @@ public final class Backup {
                 break
             }
             try output.write(contentsOf: chunk)
+            hasher.update(data: chunk)
             total += UInt64(chunk.count)
         }
         return total
@@ -274,6 +326,28 @@ public final class Backup {
     private static func uint64LE(_ value: UInt64) -> Data {
         var little = value.littleEndian
         return Data(bytes: &little, count: MemoryLayout<UInt64>.size)
+    }
+
+    private static func writeAndHash(_ data: Data, to handle: FileHandle, hasher: inout SHA256) throws {
+        try handle.write(contentsOf: data)
+        hasher.update(data: data)
+    }
+
+    private static func computeSHA256(of fileURL: URL, byteCount: UInt64) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+
+        var hasher = SHA256()
+        var remaining = byteCount
+        while remaining > 0 {
+            let readCount = Int(min(UInt64(streamChunkSize), remaining))
+            guard let chunk = try handle.read(upToCount: readCount), !chunk.isEmpty else {
+                throw NSError(domain: "Backup", code: -12, userInfo: [NSLocalizedDescriptionKey: "Backup file is truncated (payload is incomplete)."])
+            }
+            hasher.update(data: chunk)
+            remaining -= UInt64(chunk.count)
+        }
+        return Data(hasher.finalize())
     }
 
     private static func hexString(_ data: Data) -> String {
