@@ -44,6 +44,8 @@ struct MainView: View {
 
     @State private var toastMessage: String?
     @State private var toastDismissWork: DispatchWorkItem?
+    @State private var toastCopyFeedbackWork: DispatchWorkItem?
+    @State private var toastDidCopy = false
     @State private var isDropTargeted = false
     @State private var isProcessingDrop = false
     @State private var gridItemFrames: [VaultIndexEntry.ID: CGRect] = [:]
@@ -312,6 +314,7 @@ struct MainView: View {
         .onDisappear {
             filteredEntriesGeneration += 1
             toastDismissWork?.cancel()
+            toastCopyFeedbackWork?.cancel()
         }
     }
 
@@ -663,11 +666,11 @@ struct MainView: View {
                     Button {
                         copyToastToClipboard(toastMessage)
                     } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
+                        Label(toastDidCopy ? "Copied!" : "Copy", systemImage: toastDidCopy ? "checkmark" : "doc.on.doc")
                             .labelStyle(.titleAndIcon)
                     }
                     .buttonStyle(.borderless)
-                    .foregroundStyle(AegiroPalette.textSecondary)
+                    .foregroundStyle(toastDidCopy ? AegiroPalette.securityGreen : AegiroPalette.textSecondary)
 
                     Button {
                         dismissToast()
@@ -1986,6 +1989,9 @@ struct MainView: View {
     private func updateToast(with text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        toastCopyFeedbackWork?.cancel()
+        toastCopyFeedbackWork = nil
+        toastDidCopy = false
         toastDismissWork?.cancel()
         withAnimation(.easeInOut(duration: 0.2)) {
             toastMessage = trimmed
@@ -2000,6 +2006,9 @@ struct MainView: View {
     private func dismissToast() {
         toastDismissWork?.cancel()
         toastDismissWork = nil
+        toastCopyFeedbackWork?.cancel()
+        toastCopyFeedbackWork = nil
+        toastDidCopy = false
         withAnimation(.easeInOut(duration: 0.2)) {
             toastMessage = nil
         }
@@ -2008,6 +2017,17 @@ struct MainView: View {
     private func copyToastToClipboard(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        toastCopyFeedbackWork?.cancel()
+        withAnimation(.easeInOut(duration: 0.15)) {
+            toastDidCopy = true
+        }
+        let work = DispatchWorkItem {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                toastDidCopy = false
+            }
+        }
+        toastCopyFeedbackWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
     }
 }
 
