@@ -478,7 +478,26 @@ public enum ExternalDiskCrypto {
 
     private static func isExcludedSystemExternalMountPoint(_ mountPoint: String) -> Bool {
         let lowered = mountPoint.lowercased()
-        return lowered.contains("/coresimulator/")
+        if lowered.contains("/coresimulator/") {
+            return true
+        }
+        return isSimulatorRuntimeVolumeMountPoint(mountPoint)
+    }
+
+    private static func isSimulatorRuntimeVolumeMountPoint(_ mountPoint: String) -> Bool {
+        let volumePrefix = "/Volumes/"
+        guard mountPoint.hasPrefix(volumePrefix) else {
+            return false
+        }
+        let volumeName = String(mountPoint.dropFirst(volumePrefix.count)).lowercased()
+        guard !volumeName.isEmpty else {
+            return false
+        }
+        let simulatorOSPrefixes = ["ios", "ipados", "watchos", "tvos", "visionos", "xros"]
+        guard simulatorOSPrefixes.contains(where: { volumeName.hasPrefix($0) }) else {
+            return false
+        }
+        return volumeName.contains("simulator")
     }
 
     private static func randomDiskPassphrase() -> String {

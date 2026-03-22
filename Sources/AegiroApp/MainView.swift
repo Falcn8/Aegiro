@@ -6536,7 +6536,26 @@ private func isExternalAPFSVolume(_ option: APFSVolumeOption) -> Bool {
 
 private func isExcludedSystemExternalMountPoint(_ mountPoint: String) -> Bool {
     let lowered = mountPoint.lowercased()
-    return lowered.contains("/coresimulator/")
+    if lowered.contains("/coresimulator/") {
+        return true
+    }
+    return isSimulatorRuntimeVolumeMountPoint(mountPoint)
+}
+
+private func isSimulatorRuntimeVolumeMountPoint(_ mountPoint: String) -> Bool {
+    let volumePrefix = "/Volumes/"
+    guard mountPoint.hasPrefix(volumePrefix) else {
+        return false
+    }
+    let volumeName = String(mountPoint.dropFirst(volumePrefix.count)).lowercased()
+    guard !volumeName.isEmpty else {
+        return false
+    }
+    let simulatorOSPrefixes = ["ios", "ipados", "watchos", "tvos", "visionos", "xros"]
+    guard simulatorOSPrefixes.contains(where: { volumeName.hasPrefix($0) }) else {
+        return false
+    }
+    return volumeName.contains("simulator")
 }
 
 private let systemAPFSRoles: Set<String> = [

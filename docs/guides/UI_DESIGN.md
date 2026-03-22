@@ -78,6 +78,7 @@ Main window uses a three-zone shell:
 - Unlock sheet plus a dedicated USB Encryption page (outside the vault shell) for external volume encryption workflows.
 - Security card now includes `Check Integrity`, `Backup`, and `Restore` (`.aegirobackup` -> `.agvt`) workflows.
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
+- Exclude simulator runtime mounts (for example `iOS - Simulator`) from external volume pickers so virtual Xcode runtimes never appear as USB/external disk targets.
 - Sheets include mounted non-APFS volumes inline in the same list; in USB-focused flows these rows are selectable across the full row hit area (not text-only), and in APFS-only flows they remain informational.
 - Added "Encrypt USB Data" sheet for mounted non-APFS volumes: encrypts only user files into a `.agvt` vault file on the USB, skips known filesystem metadata, and can optionally delete originals after successful import.
 - Disk encryption sheet uses a two-step flow (select external volume, then details) with a Continue action.
