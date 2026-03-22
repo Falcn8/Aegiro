@@ -24,6 +24,10 @@
 		<data>
 		DpNIJDGF1ssuMgFLPugJWe9kW1I=
 		</data>
+		<key>Resources/AppIcon.icns</key>
+		<data>
+		9tD8OYCFJP33JDG57yi0dTPR0Po=
+		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -60,6 +64,13 @@
 			<key>hash2</key>
 			<data>
 			aXp5BccffGHQcWSLxzRJVBeWr4ZbUchqZyeV87RSsUI=
+			</data>
+		</dict>
+		<key>Resources/AppIcon.icns</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			805ddou8QvDz/ERYiAgyEHPI84L23iYADz58UAV9S+g=
 			</data>
 		</dict>
 	</dict>

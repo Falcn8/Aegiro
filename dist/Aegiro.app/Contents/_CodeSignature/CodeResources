@@ -24,14 +24,6 @@
 		<data>
 		DpNIJDGF1ssuMgFLPugJWe9kW1I=
 		</data>
-		<key>Resources/Aegiro_AegiroCore.bundle/OnboardingCopy.json</key>
-		<data>
-		dj/f3slxsRtzRX2V7scSbku62kE=
-		</data>
-		<key>Resources/Aegiro_AegiroCore.bundle/TrustSheet.png</key>
-		<data>
-		7tXEBtqBEiI8wrt/RDLkzCZNvmE=
-		</data>
 		<key>Resources/AppIcon.icns</key>
 		<data>
 		9tD8OYCFJP33JDG57yi0dTPR0Po=
@@ -72,20 +64,6 @@
 			<key>hash2</key>
 			<data>
 			aXp5BccffGHQcWSLxzRJVBeWr4ZbUchqZyeV87RSsUI=
-			</data>
-		</dict>
-		<key>Resources/Aegiro_AegiroCore.bundle/OnboardingCopy.json</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			jFPRJYbo/OP2LWUE7zU5ztkJXDFCcnutoncvB94VHjY=
-			</data>
-		</dict>
-		<key>Resources/Aegiro_AegiroCore.bundle/TrustSheet.png</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			kw2amxZ0qEhNCrNEEMk+Fz3xa0SS2JFsp4Oamp/n3po=
 			</data>
 		</dict>
 		<key>Resources/AppIcon.icns</key>

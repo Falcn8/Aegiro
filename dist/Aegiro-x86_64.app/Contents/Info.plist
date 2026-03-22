@@ -5,11 +5,12 @@
   <key>CFBundleName</key><string>Aegiro</string>
   <key>CFBundleDisplayName</key><string>Aegiro</string>
   <key>CFBundleExecutable</key><string>AegiroApp</string>
-  <key>CFBundleIdentifier</key><string>com.example.aegiro</string>
-  <key>CFBundleVersion</key><string>20260319235720</string>
+  <key>CFBundleIdentifier</key><string>one.hexagon.aegiro</string>
+  <key>CFBundleVersion</key><string>20260322205629</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>NSFaceIDUsageDescription</key><string>Use biometrics to unlock your vault.</string>
 </dict>
 </plist>
