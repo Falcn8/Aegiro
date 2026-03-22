@@ -313,6 +313,7 @@ public enum USBUserDataCrypto {
             let imported = try Importer.sidecarImport(vaultURL: normalizedVaultURL,
                                                       passphrase: trimmedPassphrase,
                                                       files: scan.files,
+                                                      logicalRootURL: scan.sourceRootURL,
                                                       progress: { importedCount, totalCount, path in
                                                           latestImportedCount = importedCount
                                                           latestImportTotalCount = totalCount
