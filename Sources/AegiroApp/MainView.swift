@@ -1310,8 +1310,8 @@ struct MainView: View {
                 model.copyPathToClipboard(entry.logicalPath)
             }
 
-            Button("Reveal Export") {
-                model.revealExport(logicalPath: entry.logicalPath)
+            Button("Export to Temp Folder") {
+                model.exportToTempFolder(logicalPath: entry.logicalPath)
             }
             .disabled(model.locked)
 

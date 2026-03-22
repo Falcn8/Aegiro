@@ -411,18 +411,19 @@ final class VaultModel: ObservableObject {
         }
     }
 
-    func revealExport(logicalPath: String) {
+    func exportToTempFolder(logicalPath: String) {
         guard let url = vaultURL else { return }
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         do {
             let results = try Exporter.export(vaultURL: url, passphrase: passphrase, filters: [logicalPath], outDir: tmpDir)
             guard let out = results.first?.1 else {
-                status = "Reveal failed: no file exported"
+                status = "Temp export failed: no file exported"
                 return
             }
             NSWorkspace.shared.activateFileViewerSelecting([out])
+            status = "Exported to temp folder"
         } catch {
-            self.status = "Reveal failed: \(Self.formattedError(error))"
+            self.status = "Temp export failed: \(Self.formattedError(error))"
         }
     }
 
