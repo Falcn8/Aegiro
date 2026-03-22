@@ -371,6 +371,51 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: out2), d2)
     }
 
+    func testCreateDirectoryPersistsAsMarkerAndExportSkipsMarker() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let directoryPath = "Projects/2026"
+        let created = try Editor.createDirectory(vaultURL: vaultURL, passphrase: "test-pass", logicalPath: directoryPath)
+        XCTAssertTrue(created)
+        XCTAssertFalse(try Editor.createDirectory(vaultURL: vaultURL, passphrase: "test-pass", logicalPath: directoryPath))
+
+        let markerLogicalPath = "\(directoryPath)/\(vaultDirectoryMarkerFileName)"
+        let entriesAfterCreate = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        XCTAssertEqual(entriesAfterCreate.count, 1)
+        XCTAssertEqual(entriesAfterCreate.first?.logicalPath, markerLogicalPath)
+        XCTAssertEqual(entriesAfterCreate.first?.mime, vaultDirectoryMarkerMIME)
+
+        let outDir1 = tmp.appendingPathComponent("out-empty", isDirectory: true)
+        let exportedBeforeFiles = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir1)
+        XCTAssertTrue(exportedBeforeFiles.isEmpty)
+
+        let fileURL = tmp.appendingPathComponent("note.txt")
+        let fileData = Data("hello-folder".utf8)
+        try fileData.write(to: fileURL)
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL,
+                                                  passphrase: "test-pass",
+                                                  files: [fileURL],
+                                                  destinationDirectoryPath: directoryPath)
+        XCTAssertEqual(imported.imported, 1)
+
+        let entries = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertTrue(entries.contains { $0.logicalPath == markerLogicalPath })
+        XCTAssertTrue(entries.contains { $0.logicalPath == "\(directoryPath)/note.txt" })
+
+        let outDir2 = tmp.appendingPathComponent("out-with-file", isDirectory: true)
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir2)
+        XCTAssertEqual(exported.count, 1)
+        XCTAssertEqual(exported.first?.0, "\(directoryPath)/note.txt")
+        let outFile = try XCTUnwrap(exported.first?.1)
+        XCTAssertEqual(try Data(contentsOf: outFile), fileData)
+    }
+
     func testImportSameFilenameFromDifferentDirectoriesUsesDistinctRelativePaths() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -851,6 +896,38 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(encryptEvents.last?.processedFileCount, 2)
         XCTAssertEqual(encryptEvents.last?.totalFileCount, 2)
         XCTAssertEqual(encryptEvents.last?.fraction, 1.0)
+    }
+
+    func testUSBUserDataEncryptPreservesNestedRelativePathsFromSourceRoot() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let root = tmp.appendingPathComponent("usb", isDirectory: true)
+        let nested = root.appendingPathComponent("asdf/ghjkl", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let sourceFile = nested.appendingPathComponent("template.cpp")
+        let payload = Data("int main() { return 0; }\n".utf8)
+        try payload.write(to: sourceFile)
+
+        let vaultURL = root.appendingPathComponent("userdata.agvt")
+        let result = try USBUserDataCrypto.encryptUserFiles(sourceRootURL: root,
+                                                            vaultURL: vaultURL,
+                                                            passphrase: "test-pass",
+                                                            deleteOriginals: false,
+                                                            dryRun: false)
+        XCTAssertEqual(result.encryptedFileCount, 1)
+
+        let listed = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        XCTAssertEqual(listed.count, 1)
+        XCTAssertEqual(listed.first?.logicalPath, "asdf/ghjkl/template.cpp")
+
+        let outDir = tmp.appendingPathComponent("out", isDirectory: true)
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        XCTAssertEqual(exported.count, 1)
+        XCTAssertEqual(exported.first?.0, "asdf/ghjkl/template.cpp")
+        let restored = try XCTUnwrap(exported.first?.1)
+        XCTAssertEqual(try Data(contentsOf: restored), payload)
     }
 
     func testUSBUserDataEncryptDeletesOriginalsAfterSuccess() throws {

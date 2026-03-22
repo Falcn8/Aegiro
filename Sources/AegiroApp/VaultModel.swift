@@ -396,6 +396,60 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func createDirectory(named directoryName: String, parentDirectoryPath: String) -> String? {
+        touchActivity()
+        guard let vaultURL else { return nil }
+        guard !locked else {
+            status = "Unlock to create folders"
+            return nil
+        }
+        guard !passphrase.isEmpty else {
+            status = "Unlock with your passphrase to create folders"
+            return nil
+        }
+
+        let trimmedName = directoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            status = "Enter a folder name"
+            return nil
+        }
+
+        let normalizedName = trimmedName
+            .replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+            .last?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ":", with: "_") ?? ""
+        guard !normalizedName.isEmpty, normalizedName != ".", normalizedName != ".." else {
+            status = "Enter a valid folder name"
+            return nil
+        }
+
+        let normalizedParent = parentDirectoryPath
+            .replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+            .joined(separator: "/")
+        let logicalPath = normalizedParent.isEmpty ? normalizedName : "\(normalizedParent)/\(normalizedName)"
+
+        do {
+            let created = try Editor.createDirectory(vaultURL: vaultURL, passphrase: passphrase, logicalPath: logicalPath)
+            if created {
+                status = "Created folder \"\(normalizedName)\""
+                refreshStatus()
+                return logicalPath
+            } else {
+                status = "Folder already exists"
+                return nil
+            }
+        } catch {
+            status = "Create folder failed: \(Self.formattedError(error))"
+            return nil
+        }
+    }
+
     func preview(logicalPath: String) {
         guard let url = vaultURL else { return }
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)

@@ -26,6 +26,8 @@ private let vaultChunkNoncePrefixLength = 4
 private let vaultChunkTagLength = 16
 private let vaultChunkAEADIDV1: UInt16 = 1
 private let vaultChunkAEADIDLegacyV2: UInt16 = 2
+public let vaultDirectoryMarkerFileName = ".aegiro_dir"
+public let vaultDirectoryMarkerMIME = "application/x-aegiro-directory-marker"
 private let vaultPreferredChunkAlgorithm: UInt8 = {
     // Prefer AES-GCM for consistent output across architectures.
     // If AES-GCM is unavailable at runtime, fall back to ChaCha20-Poly1305.
@@ -36,6 +38,10 @@ private let vaultPreferredChunkAlgorithm: UInt8 = {
     }
     return vaultChunkAlgChaChaPoly1305
 }()
+
+public func isVaultDirectoryMarkerPath(_ logicalPath: String) -> Bool {
+    (logicalPath as NSString).lastPathComponent == vaultDirectoryMarkerFileName
+}
 
 private struct PQAccessBundleV1: Codable {
     let version: UInt8
@@ -592,6 +598,7 @@ public enum Importer {
     public static func sidecarImport(vaultURL: URL,
                                      passphrase: String,
                                      files: [URL],
+                                     logicalRootURL: URL? = nil,
                                      destinationDirectoryPath: String? = nil,
                                      progress: ((Int, Int, String) -> Void)? = nil,
                                      preparationProgress: ((Int, Int, String) -> Void)? = nil,
@@ -612,6 +619,7 @@ public enum Importer {
                                           vaultURL: vaultURL,
                                           sidecarURL: sidecar,
                                           head: head,
+                                          logicalRootURL: logicalRootURL,
                                           destinationDirectoryPath: destinationDirectoryPath,
                                           preparationProgress: preparationProgress,
                                           isCancelled: isCancelled)
@@ -632,6 +640,7 @@ public enum Importer {
                                           vaultURL: URL,
                                           sidecarURL: URL,
                                           head: VaultHeader,
+                                          logicalRootURL: URL? = nil,
                                           destinationDirectoryPath: String? = nil,
                                           preparationProgress: ((Int, Int, String) -> Void)? = nil,
                                           isCancelled: (() -> Bool)? = nil) throws -> [ImportItem] {
@@ -640,6 +649,11 @@ public enum Importer {
         let vaultPath = normalizedPath(vaultURL)
         let sidecarPath = normalizedPath(sidecarURL)
         let sidecarPrefix = sidecarPath.hasSuffix("/") ? sidecarPath : sidecarPath + "/"
+        let normalizedLogicalRootPath = logicalRootURL?
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+        let logicalRootPrefix = normalizedLogicalRootPath.map { $0.hasSuffix("/") ? $0 : $0 + "/" }
         var candidates: [(sourcePath: String, sourceURL: URL, logicalPath: String, nameHash: Data)] = []
         var seenSources = Set<String>()
         var usedLogicalPaths = Set<String>()
@@ -651,7 +665,15 @@ public enum Importer {
             if seenSources.contains(sourcePath) {
                 continue
             }
-            let preferredLogicalPath = importLogicalPath(expanded.logicalPath,
+            let baseLogicalPath: String
+            if let rootPrefix = logicalRootPrefix, sourcePath.hasPrefix(rootPrefix) {
+                baseLogicalPath = String(sourcePath.dropFirst(rootPrefix.count))
+            } else if let rootPath = normalizedLogicalRootPath, sourcePath == rootPath {
+                baseLogicalPath = expanded.sourceURL.lastPathComponent
+            } else {
+                baseLogicalPath = expanded.logicalPath
+            }
+            let preferredLogicalPath = importLogicalPath(baseLogicalPath,
                                                          inside: destinationDirectoryPath)
             let logicalPath = uniqueLogicalPath(preferredLogicalPath,
                                                 sourcePath: sourcePath,
@@ -1294,11 +1316,12 @@ public enum Exporter {
         let chunks = (try? JSONDecoder().decode([ChunkInfo].self, from: cmData)) ?? []
         let chunksByFileID = Dictionary(grouping: chunks, by: \.fileID)
 
+        let nonMarkerEntries = index.entries.filter { !isVaultDirectoryMarkerPath($0.logicalPath) }
         let selection: [VaultIndexEntry]
         if filters.isEmpty {
-            selection = index.entries
+            selection = nonMarkerEntries
         } else {
-            selection = index.entries.filter { e in filters.contains { f in e.logicalPath.contains(f) } }
+            selection = nonMarkerEntries.filter { e in filters.contains { f in e.logicalPath.contains(f) } }
         }
 
         var results: [(String, URL, Int)] = []
@@ -1995,5 +2018,93 @@ public enum Editor {
         try out.write(to: vaultURL, options: .atomic)
         Exporter.invalidateListCache(vaultURL: vaultURL)
         return removed
+    }
+
+    public static func createDirectory(vaultURL: URL, passphrase: String, logicalPath: String) throws -> Bool {
+        let targetDirectory = normalizedLogicalPath(logicalPath, fallback: "")
+        guard !targetDirectory.isEmpty else {
+            throw AEGError.io("Directory name is required")
+        }
+
+        let data = try Data(contentsOf: vaultURL)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let dek = try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
+        let aad = vaultAAD
+
+        let idxBlobOld = data.subdata(in: layout.idxRange)
+        var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
+        let directoryPrefix = targetDirectory + "/"
+        let alreadyExists = index.entries.contains { entry in
+            let normalizedEntryPath = normalizedLogicalPath(entry.logicalPath)
+            return normalizedEntryPath == targetDirectory || normalizedEntryPath.hasPrefix(directoryPrefix)
+        }
+        if alreadyExists {
+            return false
+        }
+
+        try VaultLimits.enforceProjectedFileCount(existingCount: index.entries.count,
+                                                  replacedCount: 0,
+                                                  addingCount: 1)
+
+        let now = Date()
+        let markerPath = normalizedLogicalPath("\(targetDirectory)/\(vaultDirectoryMarkerFileName)")
+        let markerNameHash = HMACUtil.hmacNameHash(vaultDirectoryMarkerFileName, salt: head.index_salt)
+        let markerEntry = VaultIndexEntry(fileID: try secureRandomData(count: 16),
+                                          nameHash: markerNameHash,
+                                          logicalPath: markerPath,
+                                          size: 0,
+                                          mime: vaultDirectoryMarkerMIME,
+                                          tags: [],
+                                          chunkCount: 0,
+                                          chunkCrypto: try makeVaultChunkCrypto(),
+                                          created: now,
+                                          modified: now,
+                                          sidecarName: nil)
+        index.entries.append(markerEntry)
+
+        let existingCM = data.subdata(in: layout.chunkMapRange)
+        let chunkInfos = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
+        let chunkMap = try JSONEncoder().encode(chunkInfos)
+        let chunkArea = data.subdata(in: layout.chunkAreaStart..<data.count)
+
+        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+
+        let signerWrap = data.subdata(in: layout.signerWrapRange)
+        let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
+        let sig = Dilithium2()
+        let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
+        let manBlob = try JSONEncoder().encode(manifest)
+
+        let pqCt = data.subdata(in: layout.pqCtRange)
+        let pqWrap = data.subdata(in: layout.pqWrapRange)
+        let signerLen = data.subdata(in: layout.signerWrapLenPos..<(layout.signerWrapLenPos+4))
+        let signerBlob = data.subdata(in: layout.signerWrapRange)
+        let pdkBlob = data.subdata(in: layout.pdkWrapRange)
+
+        let idxLenLE = withUnsafeBytes(of: UInt32(newIdxBlob.count).littleEndian) { Data($0) }
+        let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
+        let cmLenLE = withUnsafeBytes(of: UInt32(chunkMap.count).littleEndian) { Data($0) }
+
+        var out = Data()
+        let finalHeader = try head.serialize()
+        out.append(finalHeader)
+        out.append(pdkBlob)
+        out.append(withUnsafeBytes(of: UInt32(pqCt.count).littleEndian) { Data($0) })
+        out.append(pqCt)
+        out.append(pqWrap)
+        out.append(signerLen)
+        out.append(signerBlob)
+        out.append(idxLenLE)
+        out.append(newIdxBlob)
+        out.append(manLenLE)
+        out.append(manBlob)
+        out.append(cmLenLE)
+        out.append(chunkMap)
+        out.append(chunkArea)
+
+        try out.write(to: vaultURL, options: .atomic)
+        Exporter.invalidateListCache(vaultURL: vaultURL)
+        return true
     }
 }

@@ -70,6 +70,7 @@ Main window uses a three-zone shell:
 - Space bar opens Quick Look for the current selection.
 - File details are shown from a top-bar Info popover.
 - List view renders files as an expandable folder tree derived from each entry's logical path.
+- Users can create folders in the currently open vault directory from the sidebar action card and empty-folder state.
 - Grid rows continue to show each file's parent path under the filename to disambiguate duplicates.
 - Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.

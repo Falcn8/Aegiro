@@ -68,6 +68,8 @@ struct MainView: View {
     @State private var lastFileClickAt: Date = .distantPast
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
+    @State private var showCreateDirectorySheet = false
+    @State private var newDirectoryName = ""
 
     private let toastDisplayDuration: TimeInterval = 12
 
@@ -149,6 +151,7 @@ struct MainView: View {
         .frame(minWidth: 1080, minHeight: 720)
         .background(AegiroPalette.backgroundMain.ignoresSafeArea())
         .sheet(isPresented: $showUnlockSheet) { unlockSheet }
+        .sheet(isPresented: $showCreateDirectorySheet) { createDirectorySheet }
         .sheet(isPresented: $showPreferences) {
             PreferencesView()
                 .environmentObject(model)
@@ -254,6 +257,8 @@ struct MainView: View {
                 selectionAnchor = nil
                 selectionCursor = nil
                 showFileInfoPopover = false
+                showCreateDirectorySheet = false
+                newDirectoryName = ""
                 scheduleFilteredEntriesRebuild()
             }
             lastObservedVaultPath = normalizedPath
@@ -497,6 +502,11 @@ struct MainView: View {
                     }
                 }
                 .disabled(model.vaultURL == nil)
+
+                actionButton(title: "New Folder", icon: "folder.badge.plus") {
+                    presentCreateDirectorySheet()
+                }
+                .disabled(model.vaultURL == nil || model.locked)
 
                 actionButton(title: "Export Selected", icon: "square.and.arrow.up") {
                     exportSelection()
@@ -1159,6 +1169,13 @@ struct MainView: View {
                 }
                 .buttonStyle(.bordered)
             }
+            if trimmedSearchQuery.isEmpty {
+                Button("Create Folder") {
+                    presentCreateDirectorySheet()
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.locked)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 12)
@@ -1380,6 +1397,40 @@ struct MainView: View {
         }
         .padding(20)
         .frame(width: 360)
+        .background(AegiroPalette.backgroundPanel)
+    }
+
+    private var createDirectorySheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Create Folder")
+                .font(AegiroTypography.display(22, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text("Create in \(currentDirectoryPath.isEmpty ? "Vault Root" : currentDirectoryPath)")
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            TextField("Folder name", text: $newDirectoryName)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(confirmCreateDirectory)
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    newDirectoryName = ""
+                    showCreateDirectorySheet = false
+                }
+
+                Button("Create") {
+                    confirmCreateDirectory()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
+                .disabled(newDirectoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.locked)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
         .background(AegiroPalette.backgroundPanel)
     }
 
@@ -1784,6 +1835,26 @@ struct MainView: View {
         showUnlockSheet = false
     }
 
+    private func presentCreateDirectorySheet() {
+        dismissSearchFieldFocus()
+        guard !model.locked else {
+            model.status = "Unlock to create folders"
+            return
+        }
+        newDirectoryName = ""
+        showCreateDirectorySheet = true
+    }
+
+    private func confirmCreateDirectory() {
+        let requestedName = newDirectoryName
+        guard let createdPath = model.createDirectory(named: requestedName, parentDirectoryPath: currentDirectoryPath) else {
+            return
+        }
+        newDirectoryName = ""
+        showCreateDirectorySheet = false
+        openDirectory(createdPath)
+    }
+
     private func exportSelection() {
         dismissSearchFieldFocus()
         guard !model.locked else {
@@ -1881,16 +1952,32 @@ struct MainView: View {
         let directoryPrefix = normalizedDirectoryPath.isEmpty ? "" : normalizedDirectoryPath + "/"
         var files: [VaultIndexEntry] = []
         var folderFileCounts: [String: Int] = [:]
+        func ensureFolderRow(_ path: String) {
+            let normalized = normalizedLogicalPath(path)
+            guard !normalized.isEmpty else { return }
+            if folderFileCounts[normalized] == nil {
+                folderFileCounts[normalized] = 0
+            }
+        }
 
         for entry in entries {
             let normalizedPath = normalizedLogicalPath(entry.logicalPath)
             guard !normalizedPath.isEmpty else { continue }
+            let isDirectoryMarker = isVaultDirectoryMarkerPath(normalizedPath)
 
             if !directoryPrefix.isEmpty {
                 guard normalizedPath.hasPrefix(directoryPrefix) else { continue }
                 let remainder = String(normalizedPath.dropFirst(directoryPrefix.count))
                 let components = remainder.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
                 guard !components.isEmpty else { continue }
+
+                if isDirectoryMarker {
+                    if components.count >= 2 {
+                        let childPath = "\(normalizedDirectoryPath)/\(components[0])"
+                        ensureFolderRow(childPath)
+                    }
+                    continue
+                }
 
                 if components.count == 1 {
                     files.append(entry)
@@ -1902,6 +1989,12 @@ struct MainView: View {
             }
 
             let components = normalizedPath.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+            if isDirectoryMarker {
+                if components.count >= 2 {
+                    ensureFolderRow(components[0])
+                }
+                continue
+            }
             if components.count <= 1 {
                 files.append(entry)
             } else {
