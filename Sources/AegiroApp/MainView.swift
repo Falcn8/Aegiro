@@ -68,6 +68,10 @@ struct MainView: View {
     @State private var lastFileClickAt: Date = .distantPast
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
+    @State private var showMoveEntriesSheet = false
+    @State private var moveDestinationDirectoryPath = ""
+    @State private var pendingMoveLogicalPaths: [String] = []
+    @State private var pendingMoveDirectoryPaths: [String] = []
     @State private var showCreateDirectorySheet = false
     @State private var newDirectoryName = ""
 
@@ -121,6 +125,22 @@ struct MainView: View {
         selectedEntries.reduce(0) { $0 + Int64($1.size) }
     }
 
+    private var hasMoveCandidates: Bool {
+        !selection.isEmpty || selectedFolderPath != nil
+    }
+
+    private var moveSummaryText: String {
+        let fileCount = pendingMoveLogicalPaths.count
+        let folderCount = pendingMoveDirectoryPaths.count
+        if fileCount > 0 && folderCount > 0 {
+            return "Move \(fileCount) file(s) and \(folderCount) folder(s)."
+        }
+        if folderCount > 0 {
+            return "Move \(folderCount) folder(s)."
+        }
+        return "Move \(fileCount) file(s)."
+    }
+
     private var focusedEntry: VaultIndexEntry? {
         selectedEntries.count == 1 ? selectedEntries.first : nil
     }
@@ -152,6 +172,7 @@ struct MainView: View {
         .background(AegiroPalette.backgroundMain.ignoresSafeArea())
         .sheet(isPresented: $showUnlockSheet) { unlockSheet }
         .sheet(isPresented: $showCreateDirectorySheet) { createDirectorySheet }
+        .sheet(isPresented: $showMoveEntriesSheet) { moveEntriesSheet }
         .sheet(isPresented: $showPreferences) {
             PreferencesView()
                 .environmentObject(model)
@@ -259,6 +280,10 @@ struct MainView: View {
                 showFileInfoPopover = false
                 showCreateDirectorySheet = false
                 newDirectoryName = ""
+                showMoveEntriesSheet = false
+                moveDestinationDirectoryPath = ""
+                pendingMoveLogicalPaths = []
+                pendingMoveDirectoryPaths = []
                 scheduleFilteredEntriesRebuild()
             }
             lastObservedVaultPath = normalizedPath
@@ -507,6 +532,11 @@ struct MainView: View {
                     presentCreateDirectorySheet()
                 }
                 .disabled(model.vaultURL == nil || model.locked)
+
+                actionButton(title: "Move to Folder", icon: "folder.badge.gearshape") {
+                    requestMoveFromSelection()
+                }
+                .disabled(model.vaultURL == nil || model.locked || !hasMoveCandidates)
 
                 actionButton(title: "Export Selected", icon: "square.and.arrow.up") {
                     exportSelection()
@@ -1099,6 +1129,7 @@ struct MainView: View {
             alignment: .bottom
         )
         .contentShape(Rectangle())
+        .contextMenu { folderMenu(folder: folder) }
         .onTapGesture {
             handleFolderClick(on: folder.path)
         }
@@ -1306,8 +1337,22 @@ struct MainView: View {
                 )
         )
         .contentShape(Rectangle())
+        .contextMenu { folderMenu(folder: folder) }
         .onTapGesture {
             handleFolderClick(on: folder.path)
+        }
+    }
+
+    private func folderMenu(folder: DirectoryFolderRow) -> some View {
+        Group {
+            Button("Move Folder...") {
+                requestMove(directoryPaths: [folder.path])
+            }
+            .disabled(model.locked)
+
+            Button("Copy Path") {
+                model.copyPathToClipboard(folder.path)
+            }
         }
     }
 
@@ -1320,6 +1365,11 @@ struct MainView: View {
 
             Button("Export") {
                 model.exportSelectedWithPanel(filter: entry.logicalPath)
+            }
+            .disabled(model.locked)
+
+            Button("Move...") {
+                requestMoveFromContextEntry(entry)
             }
             .disabled(model.locked)
 
@@ -1431,6 +1481,39 @@ struct MainView: View {
         }
         .padding(20)
         .frame(width: 380)
+        .background(AegiroPalette.backgroundPanel)
+    }
+
+    private var moveEntriesSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Move to Folder")
+                .font(AegiroTypography.display(22, weight: .semibold))
+                .foregroundStyle(AegiroPalette.textPrimary)
+
+            Text(moveSummaryText)
+                .font(AegiroTypography.body(13, weight: .regular))
+                .foregroundStyle(AegiroPalette.textSecondary)
+
+            TextField("Destination folder path (blank = Vault Root)", text: $moveDestinationDirectoryPath)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(confirmMoveEntries)
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    dismissMoveSheet()
+                }
+
+                Button("Move") {
+                    confirmMoveEntries()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AegiroPalette.accentIndigo)
+                .disabled(model.locked || (pendingMoveLogicalPaths.isEmpty && pendingMoveDirectoryPaths.isEmpty))
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
         .background(AegiroPalette.backgroundPanel)
     }
 
@@ -1853,6 +1936,62 @@ struct MainView: View {
         newDirectoryName = ""
         showCreateDirectorySheet = false
         openDirectory(createdPath)
+    }
+
+    private func requestMoveFromSelection() {
+        let filePaths = Array(selection)
+        let directoryPaths = filePaths.isEmpty ? selectedFolderPath.map { [$0] } ?? [] : []
+        requestMove(logicalPaths: filePaths, directoryPaths: directoryPaths)
+    }
+
+    private func requestMoveFromContextEntry(_ entry: VaultIndexEntry) {
+        let targets: [String]
+        if selection.contains(entry.id) && selection.count > 1 {
+            targets = Array(selection)
+        } else {
+            targets = [entry.id]
+        }
+        requestMove(logicalPaths: targets, directoryPaths: [])
+    }
+
+    private func requestMove(logicalPaths: [String] = [], directoryPaths: [String] = []) {
+        dismissSearchFieldFocus()
+        guard !model.locked else {
+            model.status = "Unlock to move files and folders"
+            return
+        }
+
+        let normalizedFiles = Array(Set(logicalPaths.map { MainView.normalizedLogicalPath($0) }.filter { !$0.isEmpty })).sorted()
+        let normalizedDirectories = Array(Set(directoryPaths.map { MainView.normalizedLogicalPath($0) }.filter { !$0.isEmpty })).sorted()
+        guard !normalizedFiles.isEmpty || !normalizedDirectories.isEmpty else {
+            model.status = "Select files or folders to move"
+            return
+        }
+
+        pendingMoveLogicalPaths = normalizedFiles
+        pendingMoveDirectoryPaths = normalizedDirectories
+        moveDestinationDirectoryPath = currentDirectoryPath
+        showMoveEntriesSheet = true
+    }
+
+    private func confirmMoveEntries() {
+        guard model.moveEntries(logicalPaths: pendingMoveLogicalPaths,
+                                directoryPaths: pendingMoveDirectoryPaths,
+                                destinationDirectoryPath: moveDestinationDirectoryPath) != nil else {
+            return
+        }
+        selection.removeAll()
+        selectionAnchor = nil
+        selectionCursor = nil
+        selectedFolderPath = nil
+        dismissMoveSheet()
+    }
+
+    private func dismissMoveSheet() {
+        showMoveEntriesSheet = false
+        moveDestinationDirectoryPath = ""
+        pendingMoveLogicalPaths = []
+        pendingMoveDirectoryPaths = []
     }
 
     private func exportSelection() {

@@ -2109,4 +2109,158 @@ public enum Editor {
         Exporter.invalidateListCache(vaultURL: vaultURL)
         return true
     }
+
+    public static func moveEntries(vaultURL: URL,
+                                   passphrase: String,
+                                   logicalPaths: [String],
+                                   directoryPaths: [String],
+                                   destinationDirectoryPath: String) throws -> Int {
+        let destinationDirectory = normalizedLogicalPath(destinationDirectoryPath, fallback: "")
+        let normalizedFileTargets = Set(logicalPaths
+            .map { normalizedLogicalPath($0, fallback: "") }
+            .filter { !$0.isEmpty })
+        let normalizedDirectoryTargets = Set(directoryPaths
+            .map { normalizedLogicalPath($0, fallback: "") }
+            .filter { !$0.isEmpty })
+
+        for directory in normalizedDirectoryTargets {
+            if destinationDirectory == directory || destinationDirectory.hasPrefix(directory + "/") {
+                throw AEGError.io("Cannot move folder into itself: \(directory)")
+            }
+        }
+
+        guard !normalizedFileTargets.isEmpty || !normalizedDirectoryTargets.isEmpty else {
+            return 0
+        }
+
+        let data = try Data(contentsOf: vaultURL)
+        let (head, hdrLen) = try parseHeaderAndOffset(data)
+        let layout = computeLayout(data, afterHeader: hdrLen)
+        let dek = try unlockDEK(data: data, head: head, layout: layout, passphrase: passphrase)
+        let aad = vaultAAD
+
+        let idxBlobOld = data.subdata(in: layout.idxRange)
+        var index = try IndexCrypto.decryptIndex(idxBlobOld, key: dek, aad: aad)
+
+        let sortedDirectoryTargets = normalizedDirectoryTargets.sorted {
+            if $0.count != $1.count { return $0.count > $1.count }
+            return $0 < $1
+        }
+
+        struct MoveCandidate {
+            let index: Int
+            let oldPath: String
+            let newPath: String
+        }
+
+        var candidates: [MoveCandidate] = []
+        candidates.reserveCapacity(index.entries.count)
+
+        for i in index.entries.indices {
+            let oldPath = normalizedLogicalPath(index.entries[i].logicalPath)
+
+            if normalizedFileTargets.contains(oldPath) {
+                let leaf = (oldPath as NSString).lastPathComponent
+                let target = destinationDirectory.isEmpty
+                    ? normalizedLogicalPath(leaf)
+                    : normalizedLogicalPath("\(destinationDirectory)/\(leaf)")
+                if target != oldPath {
+                    candidates.append(MoveCandidate(index: i, oldPath: oldPath, newPath: target))
+                }
+                continue
+            }
+
+            guard let sourceDirectory = sortedDirectoryTargets.first(where: { dir in
+                oldPath == dir || oldPath.hasPrefix(dir + "/")
+            }) else {
+                continue
+            }
+
+            let sourceDirectoryName = (sourceDirectory as NSString).lastPathComponent
+            let sourcePrefix = sourceDirectory + "/"
+            let remainder: String
+            if oldPath == sourceDirectory {
+                remainder = ""
+            } else {
+                remainder = String(oldPath.dropFirst(sourcePrefix.count))
+            }
+
+            let relativePath = remainder.isEmpty
+                ? sourceDirectoryName
+                : "\(sourceDirectoryName)/\(remainder)"
+            let target = destinationDirectory.isEmpty
+                ? normalizedLogicalPath(relativePath)
+                : normalizedLogicalPath("\(destinationDirectory)/\(relativePath)")
+            if target != oldPath {
+                candidates.append(MoveCandidate(index: i, oldPath: oldPath, newPath: target))
+            }
+        }
+
+        guard !candidates.isEmpty else { return 0 }
+
+        let movingOldPaths = Set(candidates.map(\.oldPath))
+        var seenNewPaths = Set<String>()
+        let existingPaths = Set(index.entries.map { normalizedLogicalPath($0.logicalPath) })
+        for candidate in candidates {
+            if seenNewPaths.contains(candidate.newPath) {
+                throw AEGError.io("Move conflict: multiple items resolve to \(candidate.newPath)")
+            }
+            if existingPaths.contains(candidate.newPath) && !movingOldPaths.contains(candidate.newPath) {
+                throw AEGError.io("Move conflict: destination already contains \(candidate.newPath)")
+            }
+            seenNewPaths.insert(candidate.newPath)
+        }
+
+        let now = Date()
+        for candidate in candidates {
+            let name = (candidate.newPath as NSString).lastPathComponent
+            index.entries[candidate.index].logicalPath = candidate.newPath
+            index.entries[candidate.index].nameHash = HMACUtil.hmacNameHash(name, salt: head.index_salt)
+            index.entries[candidate.index].modified = now
+        }
+
+        let existingCM = data.subdata(in: layout.chunkMapRange)
+        let chunkInfos = ((try? JSONDecoder().decode([ChunkInfo].self, from: existingCM)) ?? []).sorted { $0.relOffset < $1.relOffset }
+        let chunkMap = try JSONEncoder().encode(chunkInfos)
+        let chunkArea = data.subdata(in: layout.chunkAreaStart..<data.count)
+
+        let newIdxBlob = try IndexCrypto.encryptIndex(index, key: dek, aad: aad)
+
+        let signerWrap = data.subdata(in: layout.signerWrapRange)
+        let signerSk = try AEAD.decrypt(key: dek, nonce: try AES.GCM.Nonce(data: signerWrap.prefix(12)), combined: signerWrap, aad: aad)
+        let sig = Dilithium2()
+        let manifest = try ManifestBuilder.build(index: index, chunkMap: chunkMap, signer: sig, sk: signerSk, pk: head.pq_pubkeys.dilithium_pk)
+        let manBlob = try JSONEncoder().encode(manifest)
+
+        let pqCt = data.subdata(in: layout.pqCtRange)
+        let pqWrap = data.subdata(in: layout.pqWrapRange)
+        let signerLen = data.subdata(in: layout.signerWrapLenPos..<(layout.signerWrapLenPos+4))
+        let signerBlob = data.subdata(in: layout.signerWrapRange)
+        let pdkBlob = data.subdata(in: layout.pdkWrapRange)
+
+        let idxLenLE = withUnsafeBytes(of: UInt32(newIdxBlob.count).littleEndian) { Data($0) }
+        let manLenLE = withUnsafeBytes(of: UInt32(manBlob.count).littleEndian) { Data($0) }
+        let cmLenLE = withUnsafeBytes(of: UInt32(chunkMap.count).littleEndian) { Data($0) }
+
+        var out = Data()
+        let finalHeader = try head.serialize()
+        out.append(finalHeader)
+        out.append(pdkBlob)
+        out.append(withUnsafeBytes(of: UInt32(pqCt.count).littleEndian) { Data($0) })
+        out.append(pqCt)
+        out.append(pqWrap)
+        out.append(signerLen)
+        out.append(signerBlob)
+        out.append(idxLenLE)
+        out.append(newIdxBlob)
+        out.append(manLenLE)
+        out.append(manBlob)
+        out.append(cmLenLE)
+        out.append(chunkMap)
+        out.append(chunkArea)
+
+        try out.write(to: vaultURL, options: .atomic)
+        Exporter.invalidateListCache(vaultURL: vaultURL)
+        return candidates.count
+    }
 }

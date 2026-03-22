@@ -450,6 +450,45 @@ final class VaultModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func moveEntries(logicalPaths: [String], directoryPaths: [String], destinationDirectoryPath: String) -> Int? {
+        touchActivity()
+        guard let vaultURL else { return nil }
+        guard !locked else {
+            status = "Unlock to move files and folders"
+            return nil
+        }
+        guard !passphrase.isEmpty else {
+            status = "Unlock with your passphrase to move files and folders"
+            return nil
+        }
+
+        let normalizedFiles = Array(Set(logicalPaths
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }))
+        let normalizedDirectories = Array(Set(directoryPaths
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }))
+        guard !normalizedFiles.isEmpty || !normalizedDirectories.isEmpty else {
+            status = "No files or folders selected to move"
+            return nil
+        }
+
+        do {
+            let moved = try Editor.moveEntries(vaultURL: vaultURL,
+                                               passphrase: passphrase,
+                                               logicalPaths: normalizedFiles,
+                                               directoryPaths: normalizedDirectories,
+                                               destinationDirectoryPath: destinationDirectoryPath)
+            status = moved == 0 ? "Nothing moved" : "Moved \(moved) item(s)"
+            refreshStatus()
+            return moved
+        } catch {
+            status = "Move failed: \(Self.formattedError(error))"
+            return nil
+        }
+    }
+
     func preview(logicalPath: String) {
         guard let url = vaultURL else { return }
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)

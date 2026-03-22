@@ -72,8 +72,9 @@ Main window uses a three-zone shell:
 - List view renders files as an expandable folder tree derived from each entry's logical path.
 - Users can create folders in the currently open vault directory from the sidebar action card and empty-folder state.
 - Grid rows continue to show each file's parent path under the filename to disambiguate duplicates.
-- Context menu: Preview, Export, Copy Path, Reveal Export, Delete.
+- Context menu: Preview, Export, Move, Copy Path, Reveal Export, Delete.
 - Drag-and-drop import to encrypt dropped files.
+- Added a "Move to Folder" workflow that supports moving selected files or a selected folder path into another vault directory.
 - Unlock sheet plus a dedicated USB Encryption page (outside the vault shell) for external volume encryption workflows.
 - Security card now includes `Check Integrity`, `Backup`, and `Restore` (`.aegirobackup` -> `.agvt`) workflows.
 - External disk sheets only show external APFS candidates (never internal system volumes), default to mounted external APFS volumes (`/Volumes/...`), and include a "Show All External" fallback.
