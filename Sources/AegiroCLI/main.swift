@@ -4,7 +4,7 @@ import AegiroCore
 
 enum Exit: Int32 { case ok = 0, usage = 2, fail = 1 }
 
-let AEGIRO_CLI_VERSION = "0.1.2"
+let AEGIRO_CLI_VERSION = "0.1.2-beta"
 
 struct CLI {
     static func run() throws {
@@ -12,7 +12,7 @@ struct CLI {
         guard let cmd = args.first else { hint("No command provided.", tip: "Run --help to see available commands.") }
         switch cmd {
         case "--version", "version":
-            print("Aegiro CLI v\(AEGIRO_CLI_VERSION)")
+            printVersion()
             return
         case "--help", "help":
             printUsage(); return
@@ -581,7 +581,7 @@ struct CLI {
         print("""
 Aegiro CLI v\(AEGIRO_CLI_VERSION)
 Usage:
-  --version | version                      Show CLI version
+  --version | version                      Show CLI version and build info
   --help    | help                         Show this help
   create --vault <path.agvt> --passphrase "<pass>" [--touchid]
   import --vault <path> --passphrase "<pass>" <files...>
@@ -614,6 +614,14 @@ Performance tips:
   For whole folders, use: usb-vault-pack --source <folder> --vault <path.agvt> ...
   Avoid repeated single-file imports; each run rewrites vault metadata/chunk map.
   Export preserves logical paths under --out by default to avoid duplicate-name collisions.
+""")
+    }
+
+    static func printVersion() {
+        print("""
+Aegiro CLI v\(AEGIRO_CLI_VERSION)
+Commit: \(AEGIRO_BUILD_COMMIT)
+Built: \(AEGIRO_BUILD_DATE)
 """)
     }
 

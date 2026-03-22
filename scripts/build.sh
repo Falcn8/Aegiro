@@ -4,6 +4,33 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT_DIR"
 
+BUILD_COMMIT="$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")"
+if ! git diff --quiet --ignore-submodules -- || ! git diff --cached --quiet --ignore-submodules --; then
+  BUILD_COMMIT="${BUILD_COMMIT}-dirty"
+fi
+BUILD_DATE="$(date -u +%F)"
+BUILD_INFO_FILE="$ROOT_DIR/Sources/AegiroCLI/BuildInfo.generated.swift"
+BUILD_INFO_BACKUP="$(mktemp)"
+BUILD_INFO_HAD_FILE=0
+if [[ -f "$BUILD_INFO_FILE" ]]; then
+  cp "$BUILD_INFO_FILE" "$BUILD_INFO_BACKUP"
+  BUILD_INFO_HAD_FILE=1
+fi
+restore_build_info() {
+  if [[ "$BUILD_INFO_HAD_FILE" -eq 1 ]]; then
+    cp "$BUILD_INFO_BACKUP" "$BUILD_INFO_FILE"
+  else
+    rm -f "$BUILD_INFO_FILE"
+  fi
+  rm -f "$BUILD_INFO_BACKUP"
+}
+trap restore_build_info EXIT
+cat >"$BUILD_INFO_FILE" <<EOF
+let AEGIRO_BUILD_COMMIT = "$BUILD_COMMIT"
+let AEGIRO_BUILD_DATE = "$BUILD_DATE"
+EOF
+echo "Stamped build metadata: commit=$BUILD_COMMIT date=$BUILD_DATE"
+
 echo "Checking dependencies (brew)..."
 if ! pkg-config --exists liboqs 2>/dev/null; then
   if [[ ! -f /opt/homebrew/include/oqs/oqs.h ]]; then
