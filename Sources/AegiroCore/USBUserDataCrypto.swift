@@ -150,7 +150,8 @@ public enum USBUserDataCrypto {
 
     private static let excludedExtensions: Set<String> = [
         "agvt",
-        "aegirovault"
+        "aegirovault",
+        "aegirobackup"
     ]
 
     public static func scanUserFiles(sourceRootURL: URL,

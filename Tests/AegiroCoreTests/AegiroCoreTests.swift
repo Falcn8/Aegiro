@@ -733,6 +733,8 @@ final class AegiroCoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: userDir, withIntermediateDirectories: true)
         let userFile = userDir.appendingPathComponent("hello.txt")
         try Data("hello".utf8).write(to: userFile)
+        try Data("vault".utf8).write(to: userDir.appendingPathComponent("old.agvt"))
+        try Data("backup".utf8).write(to: userDir.appendingPathComponent("old.aegirobackup"))
 
         let spotlightDir = root.appendingPathComponent(".Spotlight-V100", isDirectory: true)
         try FileManager.default.createDirectory(at: spotlightDir, withIntermediateDirectories: true)
@@ -747,8 +749,12 @@ final class AegiroCoreTests: XCTestCase {
         let scan = try USBUserDataCrypto.scanUserFiles(sourceRootURL: root)
         XCTAssertEqual(scan.scannedFileCount, 1)
         XCTAssertEqual(scan.files.first?.path, userFile.path)
+        XCTAssertFalse(scan.files.contains(where: { $0.pathExtension.lowercased() == "agvt" }))
+        XCTAssertFalse(scan.files.contains(where: { $0.pathExtension.lowercased() == "aegirobackup" }))
         XCTAssertTrue(scan.skippedPaths.contains(where: { $0.contains(".Spotlight-V100") }))
         XCTAssertTrue(scan.skippedPaths.contains(where: { $0.contains("System Volume Information") }))
+        XCTAssertTrue(scan.skippedPaths.contains(where: { $0.hasSuffix("old.agvt") }))
+        XCTAssertTrue(scan.skippedPaths.contains(where: { $0.hasSuffix("old.aegirobackup") }))
     }
 
     func testUSBUserDataEncryptDryRunDoesNotModifySource() throws {
