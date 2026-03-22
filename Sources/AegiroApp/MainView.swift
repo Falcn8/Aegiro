@@ -493,7 +493,7 @@ struct MainView: View {
                     if model.locked {
                         showUnlockSheet = true
                     } else {
-                        model.importFiles()
+                        model.importFiles(destinationDirectoryPath: currentDirectoryPath)
                     }
                 }
                 .disabled(model.vaultURL == nil)
@@ -801,7 +801,7 @@ struct MainView: View {
                 .font(AegiroTypography.body(14, weight: .regular))
                 .foregroundStyle(AegiroPalette.textSecondary)
             Button("Add Files") {
-                model.importFiles()
+                model.importFiles(destinationDirectoryPath: currentDirectoryPath)
             }
             .buttonStyle(.borderedProminent)
             .tint(AegiroPalette.accentIndigo)
@@ -1838,7 +1838,7 @@ struct MainView: View {
                 model.status = "Dropped files were not readable."
                 return
             }
-            model.importFiles(urls: droppedURLs)
+            model.importFiles(urls: droppedURLs, destinationDirectoryPath: currentDirectoryPath)
         }
 
         return true

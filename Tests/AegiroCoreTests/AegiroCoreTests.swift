@@ -327,6 +327,50 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: out3), d3)
     }
 
+    func testImportTargetsDestinationDirectoryPath() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let dirA = tmp.appendingPathComponent("alpha", isDirectory: true)
+        let dirB = tmp.appendingPathComponent("beta", isDirectory: true)
+        try FileManager.default.createDirectory(at: dirA, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dirB, withIntermediateDirectories: true)
+
+        let f1 = dirA.appendingPathComponent("one.txt")
+        let f2 = dirB.appendingPathComponent("two.txt")
+        let d1 = Data("alpha-file".utf8)
+        let d2 = Data("beta-file".utf8)
+        try d1.write(to: f1)
+        try d2.write(to: f2)
+
+        let destinationDirectory = "Projects/Current"
+        let expectedF1 = "\(destinationDirectory)/\(expectedImportedLogicalPath(for: f1))"
+        let expectedF2 = "\(destinationDirectory)/\(expectedImportedLogicalPath(for: f2))"
+
+        let vaultURL = tmp.appendingPathComponent("vault.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let imported = try Importer.sidecarImport(vaultURL: vaultURL,
+                                                  passphrase: "test-pass",
+                                                  files: [f1, f2],
+                                                  destinationDirectoryPath: destinationDirectory)
+        XCTAssertEqual(imported.imported, 2)
+
+        let entries = try Exporter.list(vaultURL: vaultURL, passphrase: "test-pass")
+        let logicalPaths = Set(entries.map(\.logicalPath))
+        XCTAssertEqual(logicalPaths, Set([expectedF1, expectedF2]))
+        XCTAssertTrue(logicalPaths.allSatisfy { $0.hasPrefix(destinationDirectory + "/") })
+
+        let outDir = tmp.appendingPathComponent("out", isDirectory: true)
+        let exported = try Exporter.export(vaultURL: vaultURL, passphrase: "test-pass", filters: [], outDir: outDir)
+        let exportedByLogicalPath = Dictionary(uniqueKeysWithValues: exported.map { ($0.0, $0.1) })
+        let out1 = try XCTUnwrap(exportedByLogicalPath[expectedF1])
+        let out2 = try XCTUnwrap(exportedByLogicalPath[expectedF2])
+        XCTAssertEqual(try Data(contentsOf: out1), d1)
+        XCTAssertEqual(try Data(contentsOf: out2), d2)
+    }
+
     func testImportSameFilenameFromDifferentDirectoriesUsesDistinctRelativePaths() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)

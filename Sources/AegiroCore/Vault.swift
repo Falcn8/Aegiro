@@ -335,6 +335,16 @@ private func importLogicalPath(for sourceURL: URL, rootURL: URL? = nil) -> Strin
     return normalizedLogicalPath("\(parentName)/\(fileName)")
 }
 
+private func importLogicalPath(_ logicalPath: String,
+                               inside destinationDirectoryPath: String?) -> String {
+    let normalizedPath = normalizedLogicalPath(logicalPath)
+    let normalizedDestination = normalizedLogicalPath(destinationDirectoryPath ?? "", fallback: "")
+    guard !normalizedDestination.isEmpty else {
+        return normalizedPath
+    }
+    return normalizedLogicalPath("\(normalizedDestination)/\(normalizedPath)")
+}
+
 private func appendSuffixToFilename(_ filename: String, suffix: String) -> String {
     guard let dotIndex = filename.lastIndex(of: "."), dotIndex != filename.startIndex else {
         return filename + suffix
@@ -582,6 +592,7 @@ public enum Importer {
     public static func sidecarImport(vaultURL: URL,
                                      passphrase: String,
                                      files: [URL],
+                                     destinationDirectoryPath: String? = nil,
                                      progress: ((Int, Int, String) -> Void)? = nil,
                                      preparationProgress: ((Int, Int, String) -> Void)? = nil,
                                      statusProgress: ((String) -> Void)? = nil,
@@ -601,6 +612,7 @@ public enum Importer {
                                           vaultURL: vaultURL,
                                           sidecarURL: sidecar,
                                           head: head,
+                                          destinationDirectoryPath: destinationDirectoryPath,
                                           preparationProgress: preparationProgress,
                                           isCancelled: isCancelled)
         let imported = try mergeImportedItems(vaultURL: vaultURL,
@@ -620,6 +632,7 @@ public enum Importer {
                                           vaultURL: URL,
                                           sidecarURL: URL,
                                           head: VaultHeader,
+                                          destinationDirectoryPath: String? = nil,
                                           preparationProgress: ((Int, Int, String) -> Void)? = nil,
                                           isCancelled: (() -> Bool)? = nil) throws -> [ImportItem] {
         try throwIfCancelled(isCancelled)
@@ -638,7 +651,9 @@ public enum Importer {
             if seenSources.contains(sourcePath) {
                 continue
             }
-            let logicalPath = uniqueLogicalPath(expanded.logicalPath,
+            let preferredLogicalPath = importLogicalPath(expanded.logicalPath,
+                                                         inside: destinationDirectoryPath)
+            let logicalPath = uniqueLogicalPath(preferredLogicalPath,
                                                 sourcePath: sourcePath,
                                                 usedPaths: &usedLogicalPaths)
             let name = (logicalPath as NSString).lastPathComponent
