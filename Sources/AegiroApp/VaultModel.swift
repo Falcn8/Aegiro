@@ -35,6 +35,14 @@ final class VaultModel: ObservableObject {
         AegiroUserError.messageWithCode(for: error)
     }
 
+    private static func normalizedLogicalPath(_ path: String) -> String {
+        path
+            .replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+            .joined(separator: "/")
+    }
+
     @Published var vaultURL: URL?
     @Published var locked: Bool = true
     @Published var entries: [VaultIndexEntry] = []
@@ -140,7 +148,7 @@ final class VaultModel: ObservableObject {
         }
     }
 
-    func refreshStatus() {
+    func refreshStatus(preserveVisibleEntries: Bool = false) {
         touchActivity()
         guard let url = vaultURL else { return }
         do {
@@ -165,7 +173,10 @@ final class VaultModel: ObservableObject {
             if !self.locked, !passphrase.isEmpty {
                 let revisionKey = makeEntriesRevisionKey(vaultURL: url, vaultLastModified: info.vaultLastModified)
                 if vaultEntriesActiveRevisionKey != revisionKey || vaultFileCount == nil {
-                    requestVaultEntriesRefresh(vaultURL: url, passphrase: passphrase, revisionKey: revisionKey)
+                    requestVaultEntriesRefresh(vaultURL: url,
+                                               passphrase: passphrase,
+                                               revisionKey: revisionKey,
+                                               preserveExistingEntries: preserveVisibleEntries)
                 }
                 if autoLockDeadline == nil {
                     resetAutoLockDeadline()
@@ -437,8 +448,9 @@ final class VaultModel: ObservableObject {
         do {
             let created = try Editor.createDirectory(vaultURL: vaultURL, passphrase: passphrase, logicalPath: logicalPath)
             if created {
+                applyOptimisticDirectoryMarker(logicalDirectoryPath: logicalPath)
                 status = "Created folder \"\(normalizedName)\""
-                refreshStatus()
+                refreshStatus(preserveVisibleEntries: true)
                 return logicalPath
             } else {
                 status = "Folder already exists"
@@ -480,8 +492,13 @@ final class VaultModel: ObservableObject {
                                                logicalPaths: normalizedFiles,
                                                directoryPaths: normalizedDirectories,
                                                destinationDirectoryPath: destinationDirectoryPath)
+            if moved > 0 {
+                applyOptimisticMove(logicalPaths: normalizedFiles,
+                                    directoryPaths: normalizedDirectories,
+                                    destinationDirectoryPath: destinationDirectoryPath)
+            }
             status = moved == 0 ? "Nothing moved" : "Moved \(moved) item(s)"
-            refreshStatus()
+            refreshStatus(preserveVisibleEntries: true)
             return moved
         } catch {
             status = "Move failed: \(Self.formattedError(error))"
@@ -737,7 +754,10 @@ final class VaultModel: ObservableObject {
         return "\(normalizedVaultURL.path)|\(vaultSize)|\(vaultMod)|\(sidecarStamp)"
     }
 
-    private func requestVaultEntriesRefresh(vaultURL: URL, passphrase: String, revisionKey: String) {
+    private func requestVaultEntriesRefresh(vaultURL: URL,
+                                            passphrase: String,
+                                            revisionKey: String,
+                                            preserveExistingEntries: Bool = false) {
         entriesLoadGeneration += 1
         let generation = entriesLoadGeneration
         let normalizedVaultURL = vaultURL.standardizedFileURL
@@ -746,8 +766,10 @@ final class VaultModel: ObservableObject {
         vaultEntriesHasMore = false
         vaultEntriesLoading = true
         vaultEntriesPageLoading = false
-        entries = []
-        vaultFileCount = nil
+        if !preserveExistingEntries {
+            entries = []
+            vaultFileCount = nil
+        }
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Result {
@@ -843,6 +865,74 @@ final class VaultModel: ObservableObject {
             return .scanning
         default:
             return stage
+        }
+    }
+
+    private func applyOptimisticDirectoryMarker(logicalDirectoryPath: String) {
+        let directoryPath = Self.normalizedLogicalPath(logicalDirectoryPath)
+        guard !directoryPath.isEmpty else { return }
+        let markerPath = "\(directoryPath)/\(vaultDirectoryMarkerFileName)"
+        guard !entries.contains(where: { Self.normalizedLogicalPath($0.logicalPath) == markerPath }) else { return }
+        guard var markerEntry = entries.first else { return }
+        let now = Date()
+
+        markerEntry.fileID = Data(UUID().uuidString.utf8)
+        markerEntry.nameHash = Data()
+        markerEntry.logicalPath = markerPath
+        markerEntry.size = 0
+        markerEntry.mime = vaultDirectoryMarkerMIME
+        markerEntry.tags = []
+        markerEntry.chunkCount = 0
+        markerEntry.created = now
+        markerEntry.modified = now
+        markerEntry.sidecarName = nil
+        entries.insert(markerEntry, at: 0)
+        if let count = vaultFileCount {
+            vaultFileCount = count + 1
+        }
+    }
+
+    private func applyOptimisticMove(logicalPaths: [String], directoryPaths: [String], destinationDirectoryPath: String) {
+        let destinationDirectory = Self.normalizedLogicalPath(destinationDirectoryPath)
+        let fileTargets = Set(logicalPaths.map(Self.normalizedLogicalPath).filter { !$0.isEmpty })
+        let directoryTargets = Set(directoryPaths.map(Self.normalizedLogicalPath).filter { !$0.isEmpty })
+        guard !fileTargets.isEmpty || !directoryTargets.isEmpty else { return }
+
+        let sortedDirectoryTargets = directoryTargets.sorted {
+            if $0.count != $1.count { return $0.count > $1.count }
+            return $0 < $1
+        }
+        let now = Date()
+
+        for i in entries.indices {
+            let oldPath = Self.normalizedLogicalPath(entries[i].logicalPath)
+            guard !oldPath.isEmpty else { continue }
+
+            var newPath: String?
+
+            if fileTargets.contains(oldPath) {
+                let leaf = (oldPath as NSString).lastPathComponent
+                newPath = destinationDirectory.isEmpty ? leaf : "\(destinationDirectory)/\(leaf)"
+            } else if let sourceDirectory = sortedDirectoryTargets.first(where: { target in
+                oldPath == target || oldPath.hasPrefix(target + "/")
+            }) {
+                let sourceDirectoryName = (sourceDirectory as NSString).lastPathComponent
+                let sourcePrefix = sourceDirectory + "/"
+                let remainder: String
+                if oldPath == sourceDirectory {
+                    remainder = ""
+                } else {
+                    remainder = String(oldPath.dropFirst(sourcePrefix.count))
+                }
+                let relativePath = remainder.isEmpty ? sourceDirectoryName : "\(sourceDirectoryName)/\(remainder)"
+                newPath = destinationDirectory.isEmpty ? relativePath : "\(destinationDirectory)/\(relativePath)"
+            }
+
+            guard let rawNewPath = newPath else { continue }
+            let normalizedNewPath = Self.normalizedLogicalPath(rawNewPath)
+            guard !normalizedNewPath.isEmpty, normalizedNewPath != oldPath else { continue }
+            entries[i].logicalPath = normalizedNewPath
+            entries[i].modified = now
         }
     }
 

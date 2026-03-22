@@ -45,6 +45,7 @@ struct MainView: View {
     @State private var lastObservedVaultPath: String?
     @State private var filteredEntriesCache: [VaultIndexEntry] = []
     @State private var filteredEntriesGeneration: Int = 0
+    @State private var directoryListingsCache: [String: DirectoryListing] = [:]
 
     @State private var toastMessage: String?
     @State private var toastDismissWork: DispatchWorkItem?
@@ -110,11 +111,20 @@ struct MainView: View {
         var isEmpty: Bool { folders.isEmpty && files.isEmpty }
     }
 
+    private struct DirectoryListingAccumulator {
+        var files: [VaultIndexEntry] = []
+        var folderFileCounts: [String: Int] = [:]
+    }
+
     private var currentDirectoryListing: DirectoryListing {
-        MainView.buildDirectoryListing(entries: filteredEntries,
-                                       directoryPath: currentDirectoryPath,
-                                       sortOption: sortOption,
-                                       sortAscending: sortAscending)
+        let normalizedPath = MainView.normalizedLogicalPath(currentDirectoryPath)
+        if let cached = directoryListingsCache[normalizedPath] {
+            return cached
+        }
+        return MainView.buildDirectoryListing(entries: filteredEntries,
+                                              directoryPath: normalizedPath,
+                                              sortOption: sortOption,
+                                              sortAscending: sortAscending)
     }
 
     private var visibleFileIDsInCurrentDirectory: [VaultIndexEntry.ID] {
@@ -284,6 +294,7 @@ struct MainView: View {
                 moveDestinationDirectoryPath = ""
                 pendingMoveLogicalPaths = []
                 pendingMoveDirectoryPaths = []
+                directoryListingsCache = [:]
                 scheduleFilteredEntriesRebuild()
             }
             lastObservedVaultPath = normalizedPath
@@ -2083,84 +2094,93 @@ struct MainView: View {
                                               directoryPath: String,
                                               sortOption: SortOption,
                                               sortAscending: Bool) -> DirectoryListing {
-        guard !entries.isEmpty else {
-            return DirectoryListing(folders: [], files: [])
+        let normalizedDirectoryPath = normalizedLogicalPath(directoryPath)
+        let index = buildDirectoryListingIndex(entries: entries,
+                                               sortOption: sortOption,
+                                               sortAscending: sortAscending)
+        return index[normalizedDirectoryPath] ?? DirectoryListing(folders: [], files: [])
+    }
+
+    private static func buildDirectoryListingIndex(entries: [VaultIndexEntry],
+                                                   sortOption: SortOption,
+                                                   sortAscending: Bool) -> [String: DirectoryListing] {
+        guard !entries.isEmpty else { return [:] }
+
+        var accumulators: [String: DirectoryListingAccumulator] = [:]
+
+        func updateAccumulator(directoryPath: String, _ update: (inout DirectoryListingAccumulator) -> Void) {
+            var accumulator = accumulators[directoryPath] ?? DirectoryListingAccumulator()
+            update(&accumulator)
+            accumulators[directoryPath] = accumulator
         }
 
-        let normalizedDirectoryPath = normalizedLogicalPath(directoryPath)
-        let directoryPrefix = normalizedDirectoryPath.isEmpty ? "" : normalizedDirectoryPath + "/"
-        var files: [VaultIndexEntry] = []
-        var folderFileCounts: [String: Int] = [:]
-        func ensureFolderRow(_ path: String) {
-            let normalized = normalizedLogicalPath(path)
-            guard !normalized.isEmpty else { return }
-            if folderFileCounts[normalized] == nil {
-                folderFileCounts[normalized] = 0
+        func ensureFolderRow(parentDirectoryPath: String, childDirectoryPath: String) {
+            updateAccumulator(directoryPath: parentDirectoryPath) { accumulator in
+                if accumulator.folderFileCounts[childDirectoryPath] == nil {
+                    accumulator.folderFileCounts[childDirectoryPath] = 0
+                }
             }
         }
 
         for entry in entries {
             let normalizedPath = normalizedLogicalPath(entry.logicalPath)
-            guard !normalizedPath.isEmpty else { continue }
-            let isDirectoryMarker = isVaultDirectoryMarkerPath(normalizedPath)
+            let components = normalizedPath
+                .split(separator: "/", omittingEmptySubsequences: true)
+                .map(String.init)
+            guard !components.isEmpty else { continue }
 
-            if !directoryPrefix.isEmpty {
-                guard normalizedPath.hasPrefix(directoryPrefix) else { continue }
-                let remainder = String(normalizedPath.dropFirst(directoryPrefix.count))
-                let components = remainder.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
-                guard !components.isEmpty else { continue }
+            if isVaultDirectoryMarkerPath(normalizedPath) {
+                let folderComponents = Array(components.dropLast())
+                guard !folderComponents.isEmpty else { continue }
+                let folderPath = folderComponents.joined(separator: "/")
+                updateAccumulator(directoryPath: folderPath) { _ in }
 
-                if isDirectoryMarker {
-                    if components.count >= 2 {
-                        let childPath = "\(normalizedDirectoryPath)/\(components[0])"
-                        ensureFolderRow(childPath)
-                    }
-                    continue
-                }
-
-                if components.count == 1 {
-                    files.append(entry)
-                } else {
-                    let childPath = "\(normalizedDirectoryPath)/\(components[0])"
-                    folderFileCounts[childPath, default: 0] += 1
+                for depth in 0..<folderComponents.count {
+                    let parentPath = folderComponents.prefix(depth).joined(separator: "/")
+                    let childPath = folderComponents.prefix(depth + 1).joined(separator: "/")
+                    ensureFolderRow(parentDirectoryPath: parentPath, childDirectoryPath: childPath)
                 }
                 continue
             }
 
-            let components = normalizedPath.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
-            if isDirectoryMarker {
-                if components.count >= 2 {
-                    ensureFolderRow(components[0])
-                }
-                continue
+            let parentComponents = Array(components.dropLast())
+            let parentPath = parentComponents.joined(separator: "/")
+            updateAccumulator(directoryPath: parentPath) { accumulator in
+                accumulator.files.append(entry)
             }
-            if components.count <= 1 {
-                files.append(entry)
-            } else {
-                let childPath = components[0]
-                folderFileCounts[childPath, default: 0] += 1
+
+            for depth in 0..<parentComponents.count {
+                let ancestorPath = parentComponents.prefix(depth).joined(separator: "/")
+                let childPath = parentComponents.prefix(depth + 1).joined(separator: "/")
+                updateAccumulator(directoryPath: ancestorPath) { accumulator in
+                    accumulator.folderFileCounts[childPath, default: 0] += 1
+                }
             }
         }
 
         let folderNameSortAscending = sortOption != .name || sortAscending
-        let folders = folderFileCounts.map { path, fileCount in
-            DirectoryFolderRow(path: path, name: (path as NSString).lastPathComponent, fileCount: fileCount)
-        }
-        .sorted { lhs, rhs in
-            let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
-            if comparison == .orderedSame {
-                return lhs.path < rhs.path
+        var listings: [String: DirectoryListing] = [:]
+        listings.reserveCapacity(accumulators.count)
+
+        for (directoryPath, accumulator) in accumulators {
+            let folders = accumulator.folderFileCounts.map { path, fileCount in
+                DirectoryFolderRow(path: path, name: (path as NSString).lastPathComponent, fileCount: fileCount)
             }
-            if folderNameSortAscending {
-                return comparison == .orderedAscending
+            .sorted { lhs, rhs in
+                let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+                if comparison == .orderedSame {
+                    return lhs.path < rhs.path
+                }
+                if folderNameSortAscending {
+                    return comparison == .orderedAscending
+                }
+                return comparison == .orderedDescending
             }
-            return comparison == .orderedDescending
+
+            listings[directoryPath] = DirectoryListing(folders: folders, files: accumulator.files)
         }
 
-        return DirectoryListing(
-            folders: folders,
-            files: applySort(to: files, sortOption: sortOption, sortAscending: sortAscending)
-        )
+        return listings
     }
 
     private var paginationProgressFooter: some View {
@@ -2235,9 +2255,13 @@ struct MainView: View {
         let rebuild = {
             let searched = MainView.applySearch(to: entries, query: query)
             let sorted = MainView.applySort(to: searched, sortOption: sort, sortAscending: ascending)
+            let listings = MainView.buildDirectoryListingIndex(entries: sorted,
+                                                               sortOption: sort,
+                                                               sortAscending: ascending)
             DispatchQueue.main.async {
                 guard filteredEntriesGeneration == generation else { return }
                 filteredEntriesCache = sorted
+                directoryListingsCache = listings
             }
         }
 
