@@ -91,7 +91,7 @@ bash scripts/build.sh
 
 ```text
 create, import, delete, lock, unlock, list, export, preview
-backup, verify, status, doctor, scan, shred
+backup, restore, verify, status, doctor, scan, shred
 apfs-volume-encrypt, apfs-volume-decrypt
 usb-container-create, usb-container-open, usb-container-close
 usb-vault-pack
