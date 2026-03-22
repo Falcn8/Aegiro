@@ -542,7 +542,7 @@ final class AegiroCoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: backupURL.path))
 
         let info = try Backup.inspectBackup(at: backupURL)
-        XCTAssertEqual(info.metadata.formatVersion, 1)
+        XCTAssertEqual(info.metadata.formatVersion, 2)
         XCTAssertEqual(info.metadata.sourceVaultFileName, "vault.agvt")
         XCTAssertEqual(info.payloadSizeBytes, info.metadata.sourceVaultSizeBytes)
         XCTAssertTrue(info.metadata.passphraseValidated)
@@ -612,6 +612,80 @@ final class AegiroCoreTests: XCTestCase {
 
         XCTAssertThrowsError(try Backup.restoreBackup(from: backupURL, to: restoredURL, overwrite: false))
         XCTAssertNoThrow(try Backup.restoreBackup(from: backupURL, to: restoredURL, overwrite: true))
+    }
+
+    func testBackupInspectRejectsTrailingBytes() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("source.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+
+        let backupURL = tmp.appendingPathComponent("source.aegirobackup")
+        let vault = try AegiroVault.open(at: vaultURL)
+        try Backup.exportBackup(from: vault, to: backupURL, passphrase: "test-pass")
+
+        var tampered = try Data(contentsOf: backupURL)
+        tampered.append(0x00)
+        try tampered.write(to: backupURL, options: .atomic)
+
+        XCTAssertThrowsError(try Backup.inspectBackup(at: backupURL))
+    }
+
+    func testBackupRestoreRejectsDigestTamper() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("source.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+        let fileURL = tmp.appendingPathComponent("one.txt")
+        try Data("tamper-me".utf8).write(to: fileURL)
+        _ = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [fileURL])
+
+        let backupURL = tmp.appendingPathComponent("source.aegirobackup")
+        let vault = try AegiroVault.open(at: vaultURL)
+        try Backup.exportBackup(from: vault, to: backupURL, passphrase: "test-pass")
+
+        var tampered = try Data(contentsOf: backupURL)
+        let magicLength = "AEGIROBK1".utf8.count
+        let metadataLengthRange = magicLength..<(magicLength + 4)
+        let metadataLength = tampered.subdata(in: metadataLengthRange)
+            .enumerated()
+            .reduce(UInt32(0)) { partial, element in
+                partial | (UInt32(element.element) << UInt32(8 * element.offset))
+            }
+        let payloadStart = magicLength + 4 + Int(metadataLength) + 8
+        XCTAssertLessThan(payloadStart, tampered.count)
+        tampered[payloadStart] ^= 0x01
+        try tampered.write(to: backupURL, options: .atomic)
+
+        XCTAssertThrowsError(try Backup.inspectBackup(at: backupURL))
+        let restoredURL = tmp.appendingPathComponent("restored.agvt")
+        XCTAssertThrowsError(try Backup.restoreBackup(from: backupURL, to: restoredURL))
+    }
+
+    func testExportRejectsTruncatedChunkData() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("aegiro-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let vaultURL = tmp.appendingPathComponent("source.agvt")
+        _ = try AegiroVault.create(at: vaultURL, passphrase: "test-pass", touchID: false)
+        let fileURL = tmp.appendingPathComponent("one.txt")
+        try Data("this export should fail when chunk bytes are truncated".utf8).write(to: fileURL)
+        _ = try Importer.sidecarImport(vaultURL: vaultURL, passphrase: "test-pass", files: [fileURL])
+
+        var data = try Data(contentsOf: vaultURL)
+        XCTAssertGreaterThan(data.count, 0)
+        data.removeLast()
+        try data.write(to: vaultURL, options: .atomic)
+
+        XCTAssertThrowsError(try Exporter.export(vaultURL: vaultURL,
+                                                 passphrase: "test-pass",
+                                                 filters: [],
+                                                 outDir: tmp.appendingPathComponent("out", isDirectory: true)))
     }
 
     func testPQCBundleRequiredForUnlockOnNewVault() throws {
