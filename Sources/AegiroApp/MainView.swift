@@ -3,6 +3,10 @@ import AppKit
 import AegiroCore
 import UniformTypeIdentifiers
 
+private func formattedUserError(_ error: Error) -> String {
+    AegiroUserError.messageWithCode(for: error)
+}
+
 struct MainView: View {
     private enum WorkspacePage {
         case vault
@@ -60,6 +64,8 @@ struct MainView: View {
     @State private var selectedFolderPath: String?
     @State private var lastFolderClickPath: String?
     @State private var lastFolderClickAt: Date = .distantPast
+    @State private var lastFileClickID: VaultIndexEntry.ID?
+    @State private var lastFileClickAt: Date = .distantPast
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteIDs: [VaultIndexEntry.ID] = []
 
@@ -242,6 +248,8 @@ struct MainView: View {
                 searchText = ""
                 currentDirectoryPath = ""
                 selectedFolderPath = nil
+                lastFileClickID = nil
+                lastFileClickAt = .distantPast
                 selection.removeAll()
                 selectionAnchor = nil
                 selectionCursor = nil
@@ -264,6 +272,8 @@ struct MainView: View {
         .onReceive(model.$locked) { isLocked in
             if isLocked {
                 selectedFolderPath = nil
+                lastFileClickID = nil
+                lastFileClickAt = .distantPast
                 selection.removeAll()
                 selectionAnchor = nil
                 selectionCursor = nil
@@ -300,6 +310,8 @@ struct MainView: View {
         }
         .onChange(of: searchText) { _ in
             selectedFolderPath = nil
+            lastFileClickID = nil
+            lastFileClickAt = .distantPast
             scheduleFilteredEntriesRebuild(debounce: true)
             if !trimmedSearchQuery.isEmpty {
                 model.loadRemainingVaultEntriesInBackground()
@@ -307,10 +319,14 @@ struct MainView: View {
         }
         .onChange(of: sortOption) { _ in
             selectedFolderPath = nil
+            lastFileClickID = nil
+            lastFileClickAt = .distantPast
             scheduleFilteredEntriesRebuild()
         }
         .onChange(of: sortAscending) { _ in
             selectedFolderPath = nil
+            lastFileClickID = nil
+            lastFileClickAt = .distantPast
             scheduleFilteredEntriesRebuild()
         }
         .onDisappear {
@@ -1470,20 +1486,51 @@ struct MainView: View {
 
     private func handleGridClick(on entry: VaultIndexEntry) {
         selectedFolderPath = nil
-        dismissSearchFieldFocus()
-        let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
-        updateSelectionForClick(on: entry.id, modifiers: modifiers)
+        handleFileClick(on: entry)
     }
 
     private func handleListClick(on entry: VaultIndexEntry) {
         selectedFolderPath = nil
+        handleFileClick(on: entry)
+    }
+
+    private func handleFileClick(on entry: VaultIndexEntry) {
         dismissSearchFieldFocus()
         let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
+        let now = Date()
+        let plainClick = !modifiers.contains(.command) && !modifiers.contains(.shift)
+        let isDoubleClick = plainClick
+            && lastFileClickID == entry.id
+            && now.timeIntervalSince(lastFileClickAt) <= NSEvent.doubleClickInterval
+
+        if isDoubleClick {
+            selection = [entry.id]
+            selectionAnchor = entry.id
+            selectionCursor = entry.id
+            lastFileClickID = nil
+            lastFileClickAt = .distantPast
+            guard !model.locked else {
+                model.status = "Unlock to preview files"
+                return
+            }
+            model.quickLook(logicalPath: entry.logicalPath)
+            return
+        }
+
         updateSelectionForClick(on: entry.id, modifiers: modifiers)
+        if plainClick {
+            lastFileClickID = entry.id
+            lastFileClickAt = now
+        } else {
+            lastFileClickID = nil
+            lastFileClickAt = .distantPast
+        }
     }
 
     private func handleFolderClick(on folderPath: String) {
         dismissSearchFieldFocus()
+        lastFileClickID = nil
+        lastFileClickAt = .distantPast
         let now = Date()
         let isDoubleClick = lastFolderClickPath == folderPath
             && now.timeIntervalSince(lastFolderClickAt) <= NSEvent.doubleClickInterval
@@ -1921,6 +1968,8 @@ struct MainView: View {
         selectedFolderPath = nil
         lastFolderClickPath = nil
         lastFolderClickAt = .distantPast
+        lastFileClickID = nil
+        lastFileClickAt = .distantPast
         selection.removeAll()
         selectionAnchor = nil
         selectionCursor = nil
@@ -5014,7 +5063,7 @@ private struct USBContainerSheet: View {
                         : "Created container image: \(value.imageURL.path)\nRecovery bundle: \(value.recoveryURL.path)"
                     onDone()
                 case .failure(let error):
-                    output = "Error: \(error)"
+                    output = "Error: \(formattedUserError(error))"
                 }
             }
         case .mount:
@@ -5047,7 +5096,7 @@ private struct USBContainerSheet: View {
                     }
                     onDone()
                 case .failure(let error):
-                    output = "Error: \(error)"
+                    output = "Error: \(formattedUserError(error))"
                 }
             }
         case .unmount:
@@ -5060,7 +5109,7 @@ private struct USBContainerSheet: View {
                         : "Unmounted \(unmountTarget)."
                     onDone()
                 case .failure(let error):
-                    output = "Error: \(error)"
+                    output = "Error: \(formattedUserError(error))"
                 }
             }
         }
@@ -5222,7 +5271,7 @@ private struct BackupSheet: View {
                 output = "Backup archive created at \(outURL.path)."
                 onDone()
             case .failure(let error):
-                output = "Error: \(error)"
+                output = "Error: \(formattedUserError(error))"
             }
         }
     }
@@ -5383,7 +5432,7 @@ private struct RestoreSheet: View {
                 """
                 onDone()
             case .failure(let error):
-                output = error.localizedDescription
+                output = formattedUserError(error)
             }
         }
     }
@@ -5496,7 +5545,7 @@ private struct VerifySheet: View {
                 output = ok ? "Manifest signature: OK" : "Manifest signature: INVALID"
                 onDone()
             case .failure(let error):
-                output = "Error: \(error)"
+                output = "Error: \(formattedUserError(error))"
             }
         }
     }
@@ -5628,7 +5677,7 @@ private struct StatusSheet: View {
                 output = text
                 onDone()
             case .failure(let error):
-                output = "Error: \(error)"
+                output = "Error: \(formattedUserError(error))"
             }
         }
     }
@@ -5893,7 +5942,7 @@ private struct ShredSheet: View {
                     : shredded.map { "Shredded \($0)" }.joined(separator: "\n")
                 onDone()
             case .failure(let error):
-                output = "Error: \(error)"
+                output = "Error: \(formattedUserError(error))"
             }
         }
     }
@@ -6494,7 +6543,7 @@ private struct DoctorSheet: View {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    runMessage = "Doctor failed: \(error)"
+                    runMessage = "Doctor failed: \(formattedUserError(error))"
                     appendDoctorLog(runMessage)
                     doctorLogExpanded = false
                     isRunning = false
