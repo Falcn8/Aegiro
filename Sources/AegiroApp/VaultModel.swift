@@ -82,6 +82,7 @@ final class VaultModel: ObservableObject {
     private var lastActivity: Date = .now
     private var globalMonitors: [Any] = []
     private var localMonitors: [Any] = []
+    private var workspaceObservers: [Any] = []
     private var autoLockDeadline: Date?
     private var usbDataEncryptionCancellationFlag: USBDataEncryptionCancellationFlag?
     private var usbDataEncryptionLogSequence: Int = 0
@@ -1398,6 +1399,7 @@ final class VaultModel: ObservableObject {
 
     func startAutoLockTimer() {
         timer?.invalidate()
+        removeActivityMonitorsAndObservers()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }
@@ -1415,7 +1417,7 @@ final class VaultModel: ObservableObject {
             }
         }
         // Event monitors to track user activity
-        let types: [NSEvent.EventTypeMask] = [.leftMouseDown, .rightMouseDown, .keyDown, .scrollWheel]
+        let types: [NSEvent.EventTypeMask] = [.leftMouseDown, .rightMouseDown, .keyUp, .scrollWheel]
         for t in types {
             if let gm = NSEvent.addGlobalMonitorForEvents(matching: t, handler: { [weak self] _ in self?.touchActivity() }) {
                 globalMonitors.append(gm)
@@ -1426,12 +1428,14 @@ final class VaultModel: ObservableObject {
         }
         // Lock on screen sleep / session resign
         let nc = NSWorkspace.shared.notificationCenter
-        nc.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+        let sleepObserver = nc.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.lockSession() }
         }
-        nc.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+        let resignObserver = nc.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.lockSession() }
         }
+        workspaceObservers.append(sleepObserver)
+        workspaceObservers.append(resignObserver)
     }
 
     func lockSession() {
@@ -1469,6 +1473,24 @@ final class VaultModel: ObservableObject {
         }
         let remaining = deadline.timeIntervalSinceNow
         autoLockRemaining = max(0, remaining)
+    }
+
+    private func removeActivityMonitorsAndObservers() {
+        for monitor in globalMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        globalMonitors.removeAll()
+
+        for monitor in localMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        localMonitors.removeAll()
+
+        let nc = NSWorkspace.shared.notificationCenter
+        for observer in workspaceObservers {
+            nc.removeObserver(observer)
+        }
+        workspaceObservers.removeAll()
     }
 
     func extendAutoLock(by seconds: TimeInterval) {
