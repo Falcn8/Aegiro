@@ -19,6 +19,7 @@ This repo is designed for iterative, surgical improvements. Please follow these 
 - For macOS app releases, use:
   - `bash scripts/build-app-universal.sh --configuration release --ad-hoc` (or a signing identity)
   - `bash scripts/package-dmg.sh ...` for DMG creation
+  - Use `assets/dmg-background.png` as the DMG background image (not `assets/aegiro-banner.png`) unless explicitly instructed otherwise.
 - When CLI behavior changes, rebuild and commit updated `dist/` artifacts so users can install directly.
 - Verify basic commands after builds:
   - `./dist/aegiro-cli --version`
