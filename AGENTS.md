@@ -15,6 +15,10 @@ This repo is designed for iterative, surgical improvements. Please follow these 
 - Build and packaging:
   - `bash scripts/build.sh`
   - Script outputs: `dist/aegiro-cli` and `dist/aegiro-cli-macos-arm64.tar.gz` and prints a SHA256 checksum.
+- Always use scripts from `scripts/` for release builds and packaging (do not run ad-hoc manual build/package commands).
+- For macOS app releases, use:
+  - `bash scripts/build-app-universal.sh --configuration release --ad-hoc` (or a signing identity)
+  - `bash scripts/package-dmg.sh ...` for DMG creation
 - When CLI behavior changes, rebuild and commit updated `dist/` artifacts so users can install directly.
 - Verify basic commands after builds:
   - `./dist/aegiro-cli --version`
