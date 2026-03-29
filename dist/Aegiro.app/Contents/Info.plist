@@ -6,7 +6,7 @@
   <key>CFBundleDisplayName</key><string>Aegiro</string>
   <key>CFBundleExecutable</key><string>AegiroApp</string>
   <key>CFBundleIdentifier</key><string>one.hexagon.aegiro</string>
-  <key>CFBundleVersion</key><string>20260322205629</string>
+  <key>CFBundleVersion</key><string>20260329161542</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
